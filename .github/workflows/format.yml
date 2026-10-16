@@ -13,6 +13,13 @@ name: Formatting (clang-format)
 on:
   push:
     branches: ["**"]
+    paths:
+      - '**/*.c'
+      - '**/*.h'
+      - '.clang-format'
+      - '.pre-commit-config.yaml'
+      - 'scripts/format.sh'
+      - '.github/workflows/format.yml'
   #pull_request:
   workflow_dispatch:
 

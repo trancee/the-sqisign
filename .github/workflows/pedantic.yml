@@ -10,6 +10,15 @@ name: Pedantic (ISO C) build
 on:
   push:
     branches: ["**"]
+    paths:
+      - 'CMakeLists.txt'
+      - '.cmake/**'
+      - 'src/**'
+      - 'include/**'
+      - 'apps/**'
+      - 'test/**'
+      - '.github/workflows/pedantic.yml'
+      - '.github/actions/setup-c-runner/**'
   #pull_request:
   workflow_dispatch:
 

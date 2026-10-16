@@ -3,6 +3,16 @@ name: CMake
 on:
   push:
     branches: ["**"]
+    paths:
+      - 'CMakeLists.txt'
+      - '.cmake/**'
+      - 'src/**'
+      - 'include/**'
+      - 'apps/**'
+      - 'test/**'
+      - 'scripts/**'
+      - '.github/workflows/cmake.yml'
+      - '.github/actions/setup-c-runner/**'
 #  pull_request:
 #    branches: [ "main" ]
 

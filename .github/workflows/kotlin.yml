@@ -2,7 +2,17 @@ name: Kotlin checks
 
 on:
   push:
+    paths:
+      - 'kotlin/**'
+      - '!kotlin/**/*.md'
+      - 'KAT/**'
+      - '.github/workflows/kotlin.yml'
   pull_request:
+    paths:
+      - 'kotlin/**'
+      - '!kotlin/**/*.md'
+      - 'KAT/**'
+      - '.github/workflows/kotlin.yml'
   workflow_dispatch:
 
 permissions:

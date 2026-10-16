@@ -7,6 +7,19 @@ prerequisites= CMake and a C11-compatible compiler; CI uses Ninja. Constant-time
 
 ## C CI runners
 
+Push-triggered CI is path-scoped: CMake builds watch `CMakeLists.txt`, `.cmake/`,
+`src/`, `include/`, `apps/`, `test/`, and `scripts/`; pedantic compilation watches
+the same build/source inputs except `scripts/`. Both also watch their own workflow
+and the shared C-runner setup action. C formatting watches C/header files,
+`.clang-format`, `.pre-commit-config.yaml`, its script, and its workflow.
+Kotlin push/PR checks watch non-Markdown files under `kotlin/`, the shared `KAT/`
+fixtures consumed by its generator, and its workflow. Kotlin-only changes do not
+launch C checks; C-only changes do not launch Kotlin checks unless they change
+those shared fixtures. Root documentation/governance-only changes launch neither.
+Manual dispatches and scheduled C checks remain unfiltered; GitHub path filters
+apply only to push/PR events. Required branch checks must account for skipped
+workflows: GitHub can leave a path-filtered required check pending.
+
 C workflows use GitHub-hosted Ubuntu `24.04`: `ubuntu-24.04` for x64 and
 `ubuntu-24.04-arm` for native ARM64 execution. No registered self-hosted runner
 or persistent workstation checkout is required. The shared provisioning action
