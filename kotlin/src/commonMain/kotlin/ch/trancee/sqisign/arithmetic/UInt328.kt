@@ -58,15 +58,48 @@ internal class UInt328 private constructor(private val limbs: IntArray) {
     /** Returns the low 328 bits and borrow; value = this - other + borrow * 2^328. */
     internal fun subtract(other: UInt328): Subtraction {
         val output = IntArray(LIMB_COUNT)
+        val borrow = subtractLimbs(limbs, other.limbs, output)
+        return Subtraction(UInt328(output), borrow)
+    }
+
+    /**
+     * Returns quotient and remainder with this = quotient * divisor + remainder.
+     *
+     * The remainder is below the divisor. Division is variable-time and rejects a zero divisor.
+     */
+    internal fun divideAndRemainder(divisor: UInt328): Division {
+        require(divisor.limbs.any { it != 0 }) { "Unsigned division requires a nonzero divisor" }
+        val quotient = IntArray(LIMB_COUNT)
+        var remainder = IntArray(LIMB_COUNT)
+        var difference = IntArray(LIMB_COUNT)
+        for (bit in ENCODED_BYTES * BYTE_BITS - 1 downTo 0) {
+            var carry = (limbs[bit / LIMB_BITS] ushr (bit % LIMB_BITS)) and 1
+            // The processed dividend prefix is at most 328 bits, including this next bit.
+            for (index in 0 until LIMB_COUNT) {
+                val shifted = (remainder[index] shl 1) or carry
+                remainder[index] = shifted and LIMB_MASK
+                carry = shifted ushr LIMB_BITS
+            }
+            if (subtractLimbs(remainder, divisor.limbs, difference) == 0) {
+                val previous = remainder
+                remainder = difference
+                difference = previous
+                quotient[bit / LIMB_BITS] = quotient[bit / LIMB_BITS] or (1 shl (bit % LIMB_BITS))
+            }
+        }
+        return Division(UInt328(quotient), UInt328(remainder))
+    }
+
+    private fun subtractLimbs(left: IntArray, right: IntArray, output: IntArray): Int {
         var borrow = 0
         for (index in 0 until LAST_LIMB) {
-            val difference = limbs[index] - other.limbs[index] - borrow
+            val difference = left[index] - right[index] - borrow
             output[index] = difference and LIMB_MASK
             borrow = difference ushr (Int.SIZE_BITS - 1)
         }
-        val topDifference = limbs[LAST_LIMB] - other.limbs[LAST_LIMB] - borrow
+        val topDifference = left[LAST_LIMB] - right[LAST_LIMB] - borrow
         output[LAST_LIMB] = topDifference and TOP_MASK
-        return Subtraction(UInt328(output), topDifference ushr (Int.SIZE_BITS - 1))
+        return topDifference ushr (Int.SIZE_BITS - 1)
     }
 
     private fun encodeLittleEndian(limbs: IntArray, encodedBytes: Int): ByteArray =
@@ -88,6 +121,10 @@ internal class UInt328 private constructor(private val limbs: IntArray) {
     /** Exact difference = value - borrow * 2^328, with borrow in {0, 1}. */
     internal class Subtraction
     internal constructor(internal val value: UInt328, internal val borrow: Int)
+
+    /** Exact unsigned quotient and remainder, each independently owned. */
+    internal class Division
+    internal constructor(internal val quotient: UInt328, internal val remainder: UInt328)
 
     internal companion object {
         internal const val ENCODED_BYTES: Int = 41

@@ -184,7 +184,7 @@ storage distinct from field membership. A configurable-width framework and
 signed integers are deferred until their actual callers/bounds exist.
 `BigInteger`, JNI, and native arithmetic dependencies remain excluded from production.
 
-**Evidence and risks.** 276 public deterministic vectors use independent Python
+**Evidence and risks.** 340 public deterministic vectors use independent Python
 integer arithmetic and a SHA-256-pinned C reference at
 `f417ebd4c2c336ad6a9feb6f9255f95fc03acc41`. The adapter calls the reference's raw
 unsigned add/subtract/compare helpers with 384-bit C storage, extracts the carry
@@ -199,7 +199,7 @@ performance budget, or a controlled benchmark baseline. Comparison is variable-t
 behavior are unchanged; no public API or release-version migration is needed.
 Development `check` now requires GCC/Clang for its external C oracle, not for the
 library or Kotlin runtime tests. The CI path filter includes its reference inputs.
-Milestone 1 remains incomplete: division/remainder, additional checked wider
+Milestone 1 remains incomplete: wide division/remainder, additional checked wider
 intermediates, signed integers, GCD/inversion and larger parameter sets still need
 their own bounds, differential tests and representative performance measurements
 before any public signature API is introduced.
@@ -235,7 +235,7 @@ future reduction representation. Encoding and defensive ownership copies are
 deliberately included in its retained JVM benchmark; no allocation/performance
 claim is made.
 
-**Evidence and risks.** The existing 276 independent Python-integer records now
+**Evidence and risks.** The existing 340 independent Python-integer records now
 include full 82-byte products, checked by the pinned C `mp_mul_raw` using twelve
 64-bit output words. C storage is wider than the mathematical product; serialization
 retains all 656 possible bits. Common tests cover both operand orders, every
@@ -248,8 +248,56 @@ constant-time proof, a performance budget, or a controlled benchmark baseline.
 **Migration.** No public ABI, wire parser, dependency, toolchain, or release-version
 change. The fixture generator owns the extended record format; existing consumers
 retain their field positions and multiplication consumes the appended product.
-CI requires the complete 47-case JVM smoke matrix. Division/remainder, signed
-arithmetic and field reduction remain separate work.
+The multiplication workload adds five cases to the JVM smoke matrix. Wide
+division, signed arithmetic and field reduction remain separate work.
+
+## Arithmetic decision 2026-10-16: bounded unsigned division
+
+**Context.** Milestone 1 needs exact integer quotient/remainder semantics before
+any field or signed division layer. Both operands are bounded by `2^328`;
+products requiring wider dividends are a separate contract.
+
+**Decision.** Internal `UInt328.divideAndRemainder(divisor)` returns independently
+owned immutable `UInt328` quotient and remainder with
+`dividend = quotient * divisor + remainder` and `0 <= remainder < divisor`.
+Zero divisors, including `0 / 0`, fail explicitly with `IllegalArgumentException`
+and no result or input mutation. The public library API remains unchanged.
+
+Restoring binary division consumes exactly 328 dividend bits from high to low.
+After each bit it conditionally subtracts the divisor, using the existing
+normalized radix-`2^15` subtraction helper and its unsigned borrow. Before the
+conditional subtraction the shifted remainder is bounded by the processed
+dividend prefix: it is at most `2^k - 1` after `k <= 328` bits. Thus it fits the
+328-bit representation even when the divisor is near the maximum; no 329th
+temporary bit is discarded. Each shift accumulator is at most `65535`, and
+subtraction retains its previously documented bounds. Quotient bits are set
+only where subtraction succeeds. Three fixed-size arrays hold the quotient,
+remainder and trial difference; remainder/difference buffers swap on success,
+so no per-bit array or value allocation is required.
+
+**Alternatives.** Knuth-style radix division can reduce iteration work but adds
+normalization, quotient estimation and correction cases; there is no controlled
+evidence requiring that complexity. A generic/wide-division framework would
+expand the approved operand contract. Division is explicitly variable-time;
+neither this choice nor a fixed iteration count promises constant-time behavior.
+
+**Evidence and risks.** The Python generator appends quotient/remainder fields
+to all 340 records, preserving existing field indices. It adds 64 deterministic
+full-width dividends with odd, nonzero divisors varying across 1..316 bits to
+exercise multi-limb quotient/remainder patterns. For 332 valid divisors the
+pinned C `mp_divmod_schoolbook` independently checks both results; the adapter
+trims divisor leading zero words and initializes six-word output buffers.
+Eight zero-divisor records carry explicit invalid markers; C division is never
+called for them. Common tests check both outputs, strict remainder bounds,
+every power-of-two divisor, exhaustive small divisions, zero rejection,
+operand preservation and same-instance division. Ordinary JVM tests validate
+six retained benchmark shapes against `BigInteger`.
+
+**Migration and limits.** No public ABI, production dependency, wire, toolchain
+or release-version change. A separate valid-divisor benchmark preserves the
+prior workloads; CI now requires all 53 smoke cases. Full measurements,
+numeric budgets, expert cryptographic review and leakage proof remain absent.
+`UInt656 / UInt328`, signed division and field reduction remain out of scope.
 
 ## Public API and randomness policy for the complete port
 

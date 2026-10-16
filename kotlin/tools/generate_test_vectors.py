@@ -37,16 +37,22 @@ def unsigned_cases():
     for index in range(128):
         block = hashlib.shake_256(f"SQIsign UInt328 public vector {index}".encode()).digest(82)
         cases.append((int.from_bytes(block[:41], "little"), int.from_bytes(block[41:], "little")))
+    for index in range(64):
+        block = hashlib.shake_256(f"SQIsign UInt328 public division vector {index}".encode()).digest(82)
+        divisor_mask = (1 << (1 + 5 * index)) - 1
+        cases.append((int.from_bytes(block[:41], "little"),
+                      (int.from_bytes(block[41:], "little") & divisor_mask) | 1))
     return cases
 
 
 def unsigned_record(left, right):
     modulus = 1 << 328
     encode = lambda value: (value % modulus).to_bytes(41, "little").hex()
+    quotient, remainder = (encode(left // right), encode(left % right)) if right else ("-", "-")
     return ":".join((encode(left), encode(right), encode(left + right),
                      str((left + right) // modulus), encode(left - right),
                      str(int(left < right)), str((left > right) - (left < right)),
-                     (left * right).to_bytes(82, "little").hex()))
+                     (left * right).to_bytes(82, "little").hex(), quotient, remainder))
 
 
 def generate():
@@ -96,7 +102,8 @@ def generate():
     lines += [
         ")", "",
         "// UInt328: Python integer oracle; C-reference cross-check: tools/check_unsigned_reference.py.",
-        "// Each record: left:right:sum:carry:difference:borrow:comparison:product (little-endian hex).",
+        "// Record: left:right:sum:carry:difference:borrow:comparison:product:quotient:remainder.",
+        "// Hex is little-endian; quotient/remainder are '-' for an invalid zero divisor.",
         "internal val unsignedVectors: List<String> = listOf(",
     ]
     for left, right in unsigned_cases():

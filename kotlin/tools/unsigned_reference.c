@@ -63,6 +63,19 @@ main(void)
         encode(difference, ENCODED_BYTES);
         printf(":%u:%d:", (unsigned)borrow, mp_compare(left, right, WORD_COUNT));
         encode(product, 2 * ENCODED_BYTES);
+        int divisor_words = WORD_COUNT;
+        while (divisor_words > 0 && right[divisor_words - 1] == 0)
+            divisor_words--;
+        if (divisor_words == 0) {
+            printf(":-:-");
+        } else {
+            digit_t quotient[WORD_COUNT] = { 0 }, remainder[WORD_COUNT] = { 0 };
+            mp_divmod_schoolbook(quotient, remainder, left, WORD_COUNT, right, divisor_words);
+            putchar(':');
+            encode(quotient, ENCODED_BYTES);
+            putchar(':');
+            encode(remainder, ENCODED_BYTES);
+        }
         putchar('\n');
     }
     if (fields != EOF || ferror(stdin)) {

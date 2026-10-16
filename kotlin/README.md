@@ -25,11 +25,14 @@ width needed to hold `p324_3` encodings, using 22 radix-`2^15` limbs (13 bits in
 the top limb). It supplies comparison, exact-width little-endian import/export,
 addition with an explicit carry, subtraction with an explicit borrow, and exact
 multiplication into an internal immutable `UInt656` (82-byte little-endian result).
+`divideAndRemainder` returns both exact `UInt328` results and rejects a zero
+divisor with `IllegalArgumentException`. The remainder is below the divisor;
+division is variable-time.
 Instances own their storage and operations preserve both operands.
 The range is `[0, 2^328)`, **not** the field range `[0, p)`: importing `p` or larger
 does not reduce or validate a field element. This internal slice is not yet used
-by the public wire parser and does not supply division, signed
-integers, field reduction, or the larger parameter-set widths.
+by the public wire parser and does not supply wide division (`UInt656` by
+`UInt328`), signed integers, field reduction, or the larger parameter-set widths.
 
 The wire types expose byte encodings, not mathematical field/curve objects.
 They do not check curve validity, supersingularity, basis-hint validity, matrix
@@ -142,12 +145,13 @@ SHAKE/transcript fixtures use CPython's `hashlib` implementation as an independe
 oracle. Public wire fixtures come from the parent `KAT/*.rsp` files; secret keys
 and NIST DRBG seed material are not copied into this project.
 
-Unsigned arithmetic fixtures additionally cover 276 deterministic public operand
+Unsigned arithmetic fixtures additionally cover 340 deterministic public operand
 pairs: zero/one/maximum, values around the `p324_3` prime, alternating bytes,
-radix-boundary carry/borrow chains, and SHAKE-derived full-width inputs.
+radix-boundary carry/borrow chains, SHAKE-derived full-width inputs, and 64
+additional public pairs with nonzero divisors of varying widths.
 Python's arbitrary-precision integers provide the independent expected values.
 `checkUnsignedReference` also compares every result to the C reference's
-`mp_add_raw`, `mp_sub_raw`, `mp_compare`, and `mp_mul_raw` at revision
+`mp_add_raw`, `mp_sub_raw`, `mp_compare`, `mp_mul_raw`, and `mp_divmod_schoolbook` at revision
 `f417ebd4c2c336ad6a9feb6f9255f95fc03acc41`; source and transitive project headers
 are SHA-256-pinned in `tools/check_unsigned_reference.py`. It fails if those
 inputs drift: review a reference rebase and its fixture impact rather than
@@ -159,6 +163,11 @@ without truncation or field reduction. The result owns an exact 82-byte
 little-endian encoding. Common tests additionally exercise every possible
 single-bit product position and the maximum-value square. No timing or arithmetic
 performance claim follows from these correctness checks.
+Division fixtures include exact quotient/remainder for 332 nonzero divisors and
+explicit invalid markers for eight zero-divisor cases. The C adapter never calls
+division with zero. Common tests additionally cover every power-of-two divisor,
+all small dividends `0..31` and divisors `1..31`, unchanged operands, and same-instance
+division; no implicit zero result or fallback is supplied for invalid division.
 
 ## JVM benchmarks
 
@@ -190,6 +199,7 @@ Input preparation and parameter-name resolution occur outside timing.
 | `UInt328Benchmark.compare` | Five operand shapes below | Unsigned variable-time comparison of prepared operands |
 | `UInt328Benchmark.add` / `subtract` | Five operand shapes below | Fixed-width arithmetic with the complete allocated value/flag result retained; no encoding or field reduction |
 | `UInt328Benchmark.multiply` | Five operand shapes below | Exact wide product, including 82-byte result encoding, allocation and ownership copies; no field reduction |
+| `UInt328DivisionBenchmark.divideAndRemainder` | Six nonzero-divisor shapes below | Both exact results, zero-divisor validation, scratch/result allocation; no encoding, setup or field reduction |
 
 The unsigned shapes are `ZERO_EQUAL` (`0`, `0`), `MAX_EQUAL` (`2^328 - 1`,
 `2^328 - 1`), `CARRY_CHAIN` (`2^328 - 1`, `1`), `BORROW_CHAIN` (`0`, `1`),
@@ -197,6 +207,13 @@ and `FULL_WIDTH` (41 bytes of `0x55`, 41 bytes of `0xaa`). Codecs use the left
 operand. Together these cover zero/dense encodings, full carry/borrow propagation,
 equal comparison, and unequal comparison at the most/least significant limb.
 They are fixed synthetic scenarios, not a distribution of real signing inputs.
+
+Division uses separate, explicitly valid shapes: `ZERO_DIVIDEND` (`0`, `1`),
+`MAX_BY_ONE` (maximum, `1`), `MAX_EQUAL` (maximum, maximum), `SMALL_DIVISOR`
+(maximum, `7`), `FULL_WIDTH` (41 bytes of `0xaa`, 41 bytes of `0x55`), and
+`LARGER_DIVISOR` (41 bytes of `0x55`, 41 bytes of `0xaa`). This covers long
+quotients, exact/non-exact division, equality, and quotient-zero cases without
+changing any operand in the original five-shape workload.
 
 Fixtures use synthetic public bytes, not secrets or real signatures. Ordinary
 JVM tests verify all workload cases against independent existing SHAKE vectors,
@@ -209,13 +226,13 @@ The public library API is unchanged; internal wide results are not exposed by it
 
 ```sh
 ./gradlew jvmTest                       # Check workload correctness before timing
-./gradlew jvmBenchmarkSmokeBenchmark    # Discovery/execution only: 47 cases
+./gradlew jvmBenchmarkSmokeBenchmark    # Discovery/execution only: 53 cases
 ./gradlew jvmBenchmarkBenchmarkJar      # Build the JMH harness before measurement
 ./gradlew jvmBenchmarkBenchmark         # Opt-in full profile on a controlled host
 ```
 
 The `smoke` profile uses one fork, one 50 ms warmup, and one 50 ms measurement
-per case. Linux CI requires the complete 47-case parameter matrix, the expected
+per case. Linux CI requires the complete 53-case parameter matrix, the expected
 mode/unit/profile, and finite positive samples. It uploads JSON reports,
 execution logs, and commit/host/JDK/Gradle metadata with the other Kotlin reports.
 The `main` measurement profile uses three forks, three 1 s warmups, and five 1 s
