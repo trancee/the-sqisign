@@ -160,10 +160,19 @@ val checkTestVectors =
         commandLine("python3", "tools/generate_test_vectors.py", "--check")
     }
 
+val checkUnsignedReference =
+    tasks.register<Exec>("checkUnsignedReference") {
+        group = "verification"
+        description =
+            "Cross-checks public unsigned arithmetic vectors against pinned C and Python oracles."
+        commandLine("python3", "-B", "tools/check_unsigned_reference.py")
+    }
+
 tasks.named("check") {
     dependsOn(
         coverageVerification,
         checkTestVectors,
+        checkUnsignedReference,
         "detektMainJvm",
         "detektBenchmarkJvm",
         "detektTestJvm",

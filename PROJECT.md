@@ -13,9 +13,10 @@ the same build/source inputs except `scripts/`. Both also watch their own workfl
 and the shared C-runner setup action. C formatting watches C/header files,
 `.clang-format`, `.pre-commit-config.yaml`, its script, and its workflow.
 Kotlin push/PR checks watch non-Markdown files under `kotlin/`, the shared `KAT/`
-fixtures consumed by its generator, and its workflow. Kotlin-only changes do not
+fixtures, the unsigned-oracle inputs (`src/mp/ref/`, `src/common/generic/include/`,
+`src/precomp/ref/p324_3/include/`, and `include/sqisign_namespace.h`), and its workflow. Kotlin-only changes do not
 launch C checks; C-only changes do not launch Kotlin checks unless they change
-those shared fixtures. Root documentation/governance-only changes launch neither.
+those shared fixtures or reference inputs. Root documentation/governance-only changes launch neither.
 Manual dispatches and scheduled C checks remain unfiltered; GitHub path filters
 apply only to push/PR events. Required branch checks must account for skipped
 workflows: GitHub can leave a path-filtered required check pending.
@@ -73,6 +74,17 @@ Benchmark-only tooling: explicitly accepted Alpha `kotlinx-benchmark` plugin/run
 | `:` / all target libraries | JDK `26`; downloaded Kotlin/Native toolchain | `checkKotlinAbi` | Compiled ABI against `kotlin/api/`; inference disabled; not final published-artifact validation |
 
 Fast checks: `./gradlew spotlessCheck detektMainJvm detektBenchmarkJvm detektTestJvm jvmTest` from `kotlin/`. Authoritative CI-equivalent: `./gradlew clean check --no-build-cache --rerun-tasks` on both host runners, followed by `./gradlew jvmBenchmarkSmokeBenchmark` on Linux. `check` also verifies generated fixtures, default detekt rules, strict ABI, and JVM coverage. CI additionally scans Kotlin history/current files with Gitleaks `8.30.1`.
+
+Initial internal unsigned arithmetic: `UInt328` in `commonMain` uses 22 radix-`2^15`
+limbs and exact 41-byte encodings, with explicit addition carry/subtraction borrow.
+No field reduction, signed arithmetic, or public API is added. The decision,
+bounds, oracle provenance, and remaining milestone scope are in `kotlin/PORTING.md`.
+`checkUnsignedReference` is part of `check`; it requires a host GCC/Clang `cc`
+compiler solely for the external C test adapter. SHA-256 pins cover the C source
+and project headers at `f417ebd4c2c336ad6a9feb6f9255f95fc03acc41`.
+`generate_test_vectors.py` owns the 276 Python-integer oracle records in
+`TestVectors.kt`; common tests consume them on all targets and the C gate
+cross-checks every record. No C runtime dependency enters the Kotlin artifact.
 
 Formatting: Spotless `8.10.4` / ktfmt `0.65`; apply via `./gradlew spotlessApply`. Static analysis: accepted detekt `2.0.0-alpha.6`, including type-aware JVM tasks, no finding baseline. ABI: explicitly accepted Kotlin experimental validator; regenerate reviewed changes with `./gradlew updateKotlinAbi`. Reassess both experimental tools on compatible stable releases.
 

@@ -1,0 +1,67 @@
+#!/usr/bin/env python3
+# SPDX-License-Identifier: Apache-2.0
+"""Cross-check public UInt328 fixtures against pinned C raw arithmetic and Python integers."""
+
+import hashlib
+from pathlib import Path
+import subprocess
+import sys
+import tempfile
+
+from generate_test_vectors import ROOT, unsigned_cases, unsigned_record
+
+
+REFERENCE_COMMIT = "f417ebd4c2c336ad6a9feb6f9255f95fc03acc41"
+REFERENCE_FILES = {
+    "src/mp/ref/lvlx/mp.c": "08da97fe30cd2c2801f580502557013015722c1897f18c5db58dbcbca99ed318",
+    "src/mp/ref/include/mp.h": "07317c61c7106eaad6083ce4599a74afe1848bf9764b6ea3944cbc18d4e68e9b",
+    "src/common/generic/include/tutil.h": "de9d1972630f5dde4ff1bdb29916dc879cb35f6f45614d6fe81addaa8210af77",
+    "include/sqisign_namespace.h": "bb33f192914bf74d008ab25019c53a6b2c62ef8c7cac92bafc1162637472f584",
+    "src/mp/ref/include/mp_internal.h": "76ab7a9695c00fe16cb208a2ad638f2d3918473c1aa18131ebf803e2b7da2dad",
+    "src/precomp/ref/p324_3/include/fp_constants.h": "59fc4fc79203e217b19d2cb89f672fd708c82290bd962d307fa060da9eccce2b",
+    "src/precomp/ref/p324_3/include/encoded_sizes.h": "caeb092b3ee1158f36b7fe6acbbede91bd3ac79f531d272349c0b36550750b6b",
+    "src/mp/ref/include/modqx.h": "f232ec80ba2cdd52d5e2944bfeb962045104536f2e730494587734c0310cad52",
+    "src/common/generic/include/prng.h": "8b0f4514ae036446f61a217d5b5323b82d8a74c5216454139ecd85c1e139fc76",
+    "src/common/generic/include/fips202.h": "e3d925c6b53505dde795bd4798a8535d23bda2d15d72bdd5a96b83dc29a4949c",
+    "src/mp/ref/include/primality_test.h": "7d9c1e34f0a13bf4a7ceb5baef8af01509ef9ed66591f237df7cbe12b02fba4a",
+    "src/mp/ref/include/mp_ct.h": "6c0f0805a5fb98861314d49125936a5b604ca0e12d54c927fd1dd4875d8670a7",
+    "src/mp/ref/include/mp_carry.h": "3214c48aed34b5275fd1175573336fb3881b351b7d865b477d16d3aa5e01b03d",
+}
+INCLUDES = (
+    "include",
+    "src/mp/ref/include",
+    "src/common/generic/include",
+    "src/precomp/ref/p324_3/include",
+)
+
+
+def main():
+    repository = ROOT.parent
+    for path, expected_digest in REFERENCE_FILES.items():
+        digest = hashlib.sha256((repository / path).read_bytes()).hexdigest()
+        if digest != expected_digest:
+            raise SystemExit(f"{path} differs from pinned C reference {REFERENCE_COMMIT}; review before rebasing")
+    cases = unsigned_cases()
+    inputs = "\n".join(f"{left.to_bytes(41, 'little').hex()} {right.to_bytes(41, 'little').hex()}"
+                       for left, right in cases) + "\n"
+    with tempfile.TemporaryDirectory(prefix="sqisign-unsigned-") as directory:
+        binary = Path(directory) / "unsigned-reference"
+        command = [
+            "cc", "-std=c11", "-O2", "-ffunction-sections", "-fdata-sections",
+            "-DRADIX_64", "-DSQISIGN_VARIANT=p324_3", "-DSQISIGN_BUILD_TYPE_REF",
+            *(f"-I{repository / include}" for include in INCLUDES),
+            str(ROOT / "tools/unsigned_reference.c"),
+            "-Wl,-dead_strip" if sys.platform == "darwin" else "-Wl,--gc-sections",
+            "-o", str(binary),
+        ]
+        subprocess.run(command, check=True)
+        result = subprocess.run([str(binary)], input=inputs, capture_output=True, text=True, check=True)
+    actual = result.stdout.splitlines()
+    expected = [unsigned_record(left, right) for left, right in cases]
+    if actual != expected:
+        raise SystemExit("C/Python unsigned arithmetic differential mismatch")
+    print(f"Verified {len(cases)} public UInt328 cases against C {REFERENCE_COMMIT} and Python integers")
+
+
+if __name__ == "__main__":
+    main()

@@ -155,6 +155,55 @@ library must contain deterministic Kotlin constants and no Sage, GMP, C, or JNI
 runtime requirement. Do not directly copy internal Montgomery-domain tables
 without converting them for the Kotlin representation.
 
+## Arithmetic decision 2026-10-16: first bounded unsigned slice
+
+**Context.** Milestone 1 needs portable, explicitly bounded unsigned operations
+before field or signed quaternion arithmetic. The `p324_3` field encodes into
+41 bytes, even though its prime has 326 bits. No current public operation uses
+the new arithmetic layer.
+
+**Decision.** Introduce internal `ch.trancee.sqisign.arithmetic.UInt328`, representing
+exactly `[0, 2^328)` with 22 normalized little-endian radix-`2^15` `Int` limbs.
+The first 21 limbs have 15 bits; the last has 13. Import/export require/produce
+exactly 41 unsigned little-endian bytes and never alias caller storage. The type
+does not imply canonical field membership: `p` and values above it are retained.
+Comparison returns unsigned order. Addition returns `value + carry * 2^328`;
+subtraction returns `value - borrow * 2^328`, with flags in `{0, 1}`. Callers must
+handle these flags; modular truncation is not an implicit success.
+
+For ordinary limbs, addition including carry is at most `65535`, while subtraction
+including borrow is in `[-32768, 32767]`; both fit exactly in Kotlin `Int` on every
+target. The top-limb bounds are `16383` and `[-8192, 8191]`. Sign-bit extraction
+produces the borrow, and masking normalizes low bits. There is no multiplication
+or batched-product accumulation yet, so no multiplication bound is inferred.
+
+**Alternatives.** A 326-bit field-shaped integer would reject the two extra wire
+bits before field validation; a 330-bit whole-limb integer would need padding
+conversion at every 41-byte boundary. The full-byte 328-bit bound keeps scalar
+storage distinct from field membership. A configurable-width framework and
+signed integers are deferred until their actual callers/bounds exist.
+`BigInteger`, JNI, and native arithmetic dependencies remain excluded from production.
+
+**Evidence and risks.** 276 public deterministic vectors use independent Python
+integer arithmetic and a SHA-256-pinned C reference at
+`f417ebd4c2c336ad6a9feb6f9255f95fc03acc41`. The adapter calls the reference's raw
+unsigned add/subtract/compare helpers with 384-bit C storage, extracts the carry
+at bit 328, and serializes only the low 328 bits; subtraction's 384-bit borrow
+equals the unsigned underflow bit at the narrower width for these bounded inputs.
+Common tests include exact widths, every individual bit, ownership, aliasing of
+operands, and the full differential vector set. This is correctness evidence,
+not independent expert review, field conformance, constant-time proof, a numeric
+performance budget, or a controlled benchmark baseline. Comparison is variable-time.
+
+**Migration and remaining work.** Public ABI, wire parsing, and existing primitive
+behavior are unchanged; no public API or release-version migration is needed.
+Development `check` now requires GCC/Clang for its external C oracle, not for the
+library or Kotlin runtime tests. The CI path filter includes its reference inputs.
+Milestone 1 remains incomplete: multiplication, division/remainder, checked wider
+intermediates, signed integers, GCD/inversion and larger parameter sets still need
+their own bounds, differential tests and representative performance measurements
+before any public signature API is introduced.
+
 ## Public API and randomness policy for the complete port
 
 Do not publish `sign`/`verify` methods that throw "not implemented", return fixed

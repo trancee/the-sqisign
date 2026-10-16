@@ -22,6 +22,32 @@ def literal(value, indent=8):
     return (" +\n" + " " * indent).join(json.dumps(chunk) for chunk in chunks)
 
 
+def unsigned_cases():
+    """Public deterministic operands; independent Python integers are the oracle."""
+    modulus = 1 << 328
+    maximum = modulus - 1
+    prime = 3 * (1 << 324) - 1
+    boundaries = (0, 1, maximum, prime - 1, prime, prime + 1,
+                  int.from_bytes(b"\x55" * 41, "little"),
+                  int.from_bytes(b"\xaa" * 41, "little"))
+    cases = [(left, right) for left in boundaries for right in boundaries]
+    for bit in range(15, 328, 15):
+        power = 1 << bit
+        cases.extend(((power - 1, 1), (power, 1), (1, power), (power - 1, power)))
+    for index in range(128):
+        block = hashlib.shake_256(f"SQIsign UInt328 public vector {index}".encode()).digest(82)
+        cases.append((int.from_bytes(block[:41], "little"), int.from_bytes(block[41:], "little")))
+    return cases
+
+
+def unsigned_record(left, right):
+    modulus = 1 << 328
+    encode = lambda value: (value % modulus).to_bytes(41, "little").hex()
+    return ":".join((encode(left), encode(right), encode(left + right),
+                     str((left + right) // modulus), encode(left - right),
+                     str(int(left < right)), str((left > right) - (left < right))))
+
+
 def generate():
     lines = [
         "// SPDX-License-Identifier: Apache-2.0",
@@ -66,6 +92,14 @@ def generate():
             f"        {literal(signed[:signature_bytes].hex(), 12)},",
             "    ),",
         ]
+    lines += [
+        ")", "",
+        "// UInt328: Python integer oracle; C-reference cross-check: tools/check_unsigned_reference.py.",
+        "// Each record: left:right:sum:carry:difference:borrow:comparison (hex bytes are little-endian).",
+        "internal val unsignedVectors: List<String> = listOf(",
+    ]
+    for left, right in unsigned_cases():
+        lines.append(f"    {literal(unsigned_record(left, right))},")
     lines += [")", ""]
     return "\n".join(lines)
 

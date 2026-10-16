@@ -20,6 +20,16 @@ library. The existing C build is unchanged.
 | `WireFormat` | Exact public-key/signature lengths, canonical field encodings, response scalar bit bounds, defensive byte copies |
 | `ChallengeHash` | Exact v3 Fiat-Shamir transcript using the commitment's Montgomery coefficient |
 
+The internal arithmetic package now contains `UInt328`: the full 41-byte unsigned
+width needed to hold `p324_3` encodings, using 22 radix-`2^15` limbs (13 bits in
+the top limb). It supplies comparison, exact-width little-endian import/export,
+addition with an explicit carry, and subtraction with an explicit borrow.
+Instances own their storage and operations preserve both operands.
+The range is `[0, 2^328)`, **not** the field range `[0, p)`: importing `p` or larger
+does not reduce or validate a field element. This internal slice is not yet used
+by the public wire parser and does not supply multiplication, division, signed
+integers, field reduction, or the larger parameter-set widths.
+
 The wire types expose byte encodings, not mathematical field/curve objects.
 They do not check curve validity, supersingularity, basis-hint validity, matrix
 normalization/invertibility, or any signature equation. Secret-key parsing is
@@ -63,6 +73,7 @@ Install JDK `26` and select it with `JAVA_HOME`. From this directory:
 ```sh
 ./gradlew spotlessApply     # Format owned Kotlin sources and Gradle scripts
 ./gradlew check             # Tests, formatting, static analysis, ABI, fixtures, coverage
+./gradlew checkUnsignedReference  # Python/C cross-check of public integer vectors
 ./gradlew clean check --no-build-cache --rerun-tasks  # CI-equivalent, on each native host
 ```
 
@@ -106,7 +117,10 @@ No production security or performance claim follows from passing CI.
 Native tests must run on their corresponding hosts; a skipped foreign-host test
 is not evidence of compatibility. Gradle downloads Kotlin/Native and Node.js when
 needed. The wrapper verifies the Gradle distribution against its pinned SHA-256.
-No C compiler or C libraries are required for these commands.
+The Kotlin library and its runtime tests do not require C interop or C libraries.
+The development-only `checkUnsignedReference` task, included in `check`, requires
+a host `cc` compiler (GCC or Clang) and the parent C reference sources/headers.
+Both hosted CI images provide it; no C code enters the library artifact.
 
 Common tests cover independent SHAKE256 outputs (including rate boundaries and
 multi-block output), fragmented input/output, invalid state transitions, PRNG
@@ -126,6 +140,20 @@ python3 tools/generate_test_vectors.py
 SHAKE/transcript fixtures use CPython's `hashlib` implementation as an independent
 oracle. Public wire fixtures come from the parent `KAT/*.rsp` files; secret keys
 and NIST DRBG seed material are not copied into this project.
+
+Unsigned arithmetic fixtures additionally cover 276 deterministic public operand
+pairs: zero/one/maximum, values around the `p324_3` prime, alternating bytes,
+radix-boundary carry/borrow chains, and SHAKE-derived full-width inputs.
+Python's arbitrary-precision integers provide the independent expected values.
+`checkUnsignedReference` also compares every result to the C reference's
+`mp_add_raw`, `mp_sub_raw`, and `mp_compare` at revision
+`f417ebd4c2c336ad6a9feb6f9255f95fc03acc41`; source and transitive project headers
+are SHA-256-pinned in `tools/check_unsigned_reference.py`. It fails if those
+inputs drift: review a reference rebase and its fixture impact rather than
+silently updating checksums. The C adapter is an external test tool only.
+Common tests run the same vectors on each Kotlin target, including explicit
+carry/borrow and input/output ownership checks. No timing or arithmetic
+performance claim follows from these correctness checks.
 
 ## JVM benchmarks
 
