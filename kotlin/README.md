@@ -181,21 +181,35 @@ Input preparation and parameter-name resolution occur outside timing.
 | `PrngBenchmark.expand` | Output bytes `64`, `4096` | Fresh 48-byte seeded key-domain PRNG, expansion, clearing; no accumulated stream state |
 | `ChallengeHashBenchmark.compute` | All parameter sets; message bytes `32`, `4096` | Commitment encoding checks and challenge transcript hashing, including allocation/clearing |
 | `WireFormatBenchmark.parsePublicKey` / `parseSignature` | All parameter sets | Canonical encoding checks and defensive copies, not curve/signature verification |
+| `UInt328Benchmark.decode` / `encode` | Five operand shapes below | Exact 41-byte import/export with owned result allocation |
+| `UInt328Benchmark.compare` | Five operand shapes below | Unsigned variable-time comparison of prepared operands |
+| `UInt328Benchmark.add` / `subtract` | Five operand shapes below | Fixed-width arithmetic with the complete allocated value/flag result retained; no encoding or field reduction |
+
+The unsigned shapes are `ZERO_EQUAL` (`0`, `0`), `MAX_EQUAL` (`2^328 - 1`,
+`2^328 - 1`), `CARRY_CHAIN` (`2^328 - 1`, `1`), `BORROW_CHAIN` (`0`, `1`),
+and `FULL_WIDTH` (41 bytes of `0x55`, 41 bytes of `0xaa`). Codecs use the left
+operand. Together these cover zero/dense encodings, full carry/borrow propagation,
+equal comparison, and unequal comparison at the most/least significant limb.
+They are fixed synthetic scenarios, not a distribution of real signing inputs.
 
 Fixtures use synthetic public bytes, not secrets or real signatures. Ordinary
 JVM tests verify all workload cases against independent existing SHAKE vectors,
 explicit domain/transcript construction, and expected canonical wire bytes.
-Benchmark methods return outputs so the JMH harness retains their work.
+Unsigned workload tests check every shape against explicit encodings and JVM
+`BigInteger` arithmetic, including carry/borrow flags. Benchmark methods return
+outputs so the JMH harness retains their work; internal unsigned values and
+arithmetic result wrappers return as `Any` only at the public harness boundary.
+The internal production types and public library API are unchanged.
 
 ```sh
 ./gradlew jvmTest                       # Check workload correctness before timing
-./gradlew jvmBenchmarkSmokeBenchmark    # Discovery/execution only: 17 cases
+./gradlew jvmBenchmarkSmokeBenchmark    # Discovery/execution only: 42 cases
 ./gradlew jvmBenchmarkBenchmarkJar      # Build the JMH harness before measurement
 ./gradlew jvmBenchmarkBenchmark         # Opt-in full profile on a controlled host
 ```
 
 The `smoke` profile uses one fork, one 50 ms warmup, and one 50 ms measurement
-per case. Linux CI requires the complete 17-case parameter matrix, the expected
+per case. Linux CI requires the complete 42-case parameter matrix, the expected
 mode/unit/profile, and finite positive samples. It uploads JSON reports,
 execution logs, and commit/host/JDK/Gradle metadata with the other Kotlin reports.
 The `main` measurement profile uses three forks, three 1 s warmups, and five 1 s
