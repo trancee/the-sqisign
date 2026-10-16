@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-package org.sqisign
+package ch.trancee.sqisign
 
 import kotlin.test.Test
 import kotlin.test.assertContentEquals
@@ -10,7 +10,7 @@ import kotlin.test.assertFailsWith
 class ProtocolPrimitivesTest {
     @Test
     fun prngDefaultOutputSliceMatchesIndependentVector() {
-        val prng = SqisignPrng(ByteArray(48) { it.toByte() }, PrngDomain.KEY_GENERATION)
+        val prng = SqiSignPrng(ByteArray(48) { it.toByte() }, PrngDomain.KEY_GENERATION)
         val output = ByteArray(64)
 
         try {
@@ -26,7 +26,7 @@ class ProtocolPrimitivesTest {
     fun seededDomainsMatchIndependentVectors() {
         for ((index, domain) in PrngDomain.entries.withIndex()) {
             val seed = ByteArray(48) { it.toByte() }
-            val prng = SqisignPrng(seed, domain)
+            val prng = SqiSignPrng(seed, domain)
             seed.fill(0)
 
             val output = prng.bytes(17) + prng.bytes(47)
@@ -41,7 +41,7 @@ class ProtocolPrimitivesTest {
         for (length in listOf(0, 47, 49)) {
             val error =
                 assertFailsWith<IllegalArgumentException> {
-                    SqisignPrng(ByteArray(length), PrngDomain.DEFAULT)
+                    SqiSignPrng(ByteArray(length), PrngDomain.DEFAULT)
                 }
 
             assertEquals("SQIsign PRNG seeds must contain exactly 48 bytes", error.message)
@@ -50,7 +50,7 @@ class ProtocolPrimitivesTest {
 
     @Test
     fun clearedPrngRejectsOutput() {
-        val prng = SqisignPrng(ByteArray(48), PrngDomain.DEFAULT)
+        val prng = SqiSignPrng(ByteArray(48), PrngDomain.DEFAULT)
         prng.clear()
 
         val error = assertFailsWith<IllegalStateException> { prng.bytes(1) }
@@ -60,7 +60,7 @@ class ProtocolPrimitivesTest {
 
     @Test
     fun rejectsNegativePrngOutputLength() {
-        val prng = SqisignPrng(ByteArray(48), PrngDomain.DEFAULT)
+        val prng = SqiSignPrng(ByteArray(48), PrngDomain.DEFAULT)
 
         val error = assertFailsWith<IllegalArgumentException> { prng.bytes(-1) }
 
@@ -70,7 +70,7 @@ class ProtocolPrimitivesTest {
 
     @Test
     fun rejectsInvalidPrngOutputSlice() {
-        val prng = SqisignPrng(ByteArray(48), PrngDomain.DEFAULT)
+        val prng = SqiSignPrng(ByteArray(48), PrngDomain.DEFAULT)
 
         val error = assertFailsWith<IllegalArgumentException> { prng.bytesInto(ByteArray(3), 1, 3) }
 
@@ -80,7 +80,7 @@ class ProtocolPrimitivesTest {
 
     @Test
     fun prngOutputBuffersPreserveStreamAndBounds() {
-        val prng = SqisignPrng(ByteArray(48) { it.toByte() }, PrngDomain.KEY_GENERATION)
+        val prng = SqiSignPrng(ByteArray(48) { it.toByte() }, PrngDomain.KEY_GENERATION)
         val output = ByteArray(66) { 0x55 }
 
         prng.bytesInto(output, 1, 64)
@@ -94,8 +94,8 @@ class ProtocolPrimitivesTest {
     @Test
     fun domainStreamsAreIndependentOfConsumptionOrder() {
         val seed = ByteArray(48) { it.toByte() }
-        val key = SqisignPrng(seed, PrngDomain.KEY_GENERATION)
-        val response = SqisignPrng(seed, PrngDomain.RESPONSE)
+        val key = SqiSignPrng(seed, PrngDomain.KEY_GENERATION)
+        val response = SqiSignPrng(seed, PrngDomain.RESPONSE)
         key.bytes(4096)
 
         val output = response.bytes(64)

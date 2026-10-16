@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-package org.sqisign
+package ch.trancee.sqisign
 
 /**
  * SQIsign v3.0 parameters; the prime is [cofactor] * 2^[torsionExponent] - 1.

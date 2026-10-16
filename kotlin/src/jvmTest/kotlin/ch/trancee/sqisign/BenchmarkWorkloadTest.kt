@@ -1,14 +1,14 @@
 // SPDX-License-Identifier: Apache-2.0
 
-package org.sqisign
+package ch.trancee.sqisign
 
+import ch.trancee.sqisign.benchmarks.ChallengeHashBenchmark
+import ch.trancee.sqisign.benchmarks.PrngBenchmark
+import ch.trancee.sqisign.benchmarks.Shake256Benchmark
+import ch.trancee.sqisign.benchmarks.WireFormatBenchmark
 import kotlin.test.Test
 import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
-import org.sqisign.benchmarks.ChallengeHashBenchmark
-import org.sqisign.benchmarks.PrngBenchmark
-import org.sqisign.benchmarks.Shake256Benchmark
-import org.sqisign.benchmarks.WireFormatBenchmark
 
 class BenchmarkWorkloadTest {
     @Test

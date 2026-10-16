@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-package org.sqisign
+package ch.trancee.sqisign
 
 /** Stable ASCII domain separators from specification table 6. */
 public enum class PrngDomain(internal val separator: String) {
@@ -19,7 +19,7 @@ public enum class PrngDomain(internal val separator: String) {
  * deterministic expansion, NOT an entropy source. Callers must supply secure seeds. Instances are
  * mutable and not thread-safe; no seed is retained separately.
  */
-public class SqisignPrng(seed: ByteArray, domain: PrngDomain) {
+public class SqiSignPrng(seed: ByteArray, domain: PrngDomain) {
     private val context: Shake256
 
     init {

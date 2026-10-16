@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-package org.sqisign
+package ch.trancee.sqisign
 
 /**
  * Byte-oriented FIPS 202 SHAKE256. Instances are mutable and not thread-safe. Absorption ends on

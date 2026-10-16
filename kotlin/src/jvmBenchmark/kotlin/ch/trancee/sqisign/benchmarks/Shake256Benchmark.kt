@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: Apache-2.0
 
-package org.sqisign.benchmarks
+package ch.trancee.sqisign.benchmarks
 
+import ch.trancee.sqisign.Shake256
 import kotlinx.benchmark.Benchmark
 import kotlinx.benchmark.Param
 import kotlinx.benchmark.Scope
 import kotlinx.benchmark.Setup
 import kotlinx.benchmark.State
-import org.sqisign.Shake256
 
 /** One-shot SHAKE256 including sponge allocation, 64 output bytes, and state clearing. */
 @State(Scope.Benchmark)

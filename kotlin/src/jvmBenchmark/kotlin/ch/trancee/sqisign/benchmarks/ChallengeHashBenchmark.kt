@@ -1,16 +1,16 @@
 // SPDX-License-Identifier: Apache-2.0
 
-package org.sqisign.benchmarks
+package ch.trancee.sqisign.benchmarks
 
+import ch.trancee.sqisign.ChallengeHash
+import ch.trancee.sqisign.EncodedPublicKey
+import ch.trancee.sqisign.ParameterSet
+import ch.trancee.sqisign.WireFormat
 import kotlinx.benchmark.Benchmark
 import kotlinx.benchmark.Param
 import kotlinx.benchmark.Scope
 import kotlinx.benchmark.Setup
 import kotlinx.benchmark.State
-import org.sqisign.ChallengeHash
-import org.sqisign.EncodedPublicKey
-import org.sqisign.ParameterSet
-import org.sqisign.WireFormat
 
 /** Fiat-Shamir hashing with canonical synthetic coefficients, not signature verification. */
 @State(Scope.Benchmark)

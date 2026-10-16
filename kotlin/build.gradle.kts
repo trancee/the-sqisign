@@ -14,7 +14,7 @@ plugins {
     jacoco
 }
 
-group = "org.sqisign"
+group = "ch.trancee.sqisign"
 
 version = "0.1.0-SNAPSHOT"
 
@@ -91,7 +91,7 @@ benchmark {
 spotless {
     kotlin {
         target("src/**/*.kt")
-        targetExclude("src/commonTest/kotlin/org/sqisign/TestVectors.kt")
+        targetExclude("src/commonTest/kotlin/ch/trancee/sqisign/TestVectors.kt")
         ktfmt("0.65").kotlinlangStyle()
     }
     kotlinGradle {

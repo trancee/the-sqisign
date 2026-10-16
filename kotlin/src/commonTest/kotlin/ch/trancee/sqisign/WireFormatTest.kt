@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-package org.sqisign
+package ch.trancee.sqisign
 
 import kotlin.test.Test
 import kotlin.test.assertContentEquals

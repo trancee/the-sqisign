@@ -110,7 +110,7 @@ jobs:
               "WireFormatBenchmark.parseSignature": {"parameterSet": ("NIST_I", "NIST_III", "NIST_V")},
           }
           expected = {
-              (f"org.sqisign.benchmarks.{name}", tuple(sorted(zip(parameters, values))))
+              (f"ch.trancee.sqisign.benchmarks.{name}", tuple(sorted(zip(parameters, values))))
               for name, parameters in workloads.items()
               for values in itertools.product(*parameters.values())
           }

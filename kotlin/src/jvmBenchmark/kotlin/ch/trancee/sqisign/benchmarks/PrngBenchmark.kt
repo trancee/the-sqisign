@@ -1,14 +1,14 @@
 // SPDX-License-Identifier: Apache-2.0
 
-package org.sqisign.benchmarks
+package ch.trancee.sqisign.benchmarks
 
+import ch.trancee.sqisign.PrngDomain
+import ch.trancee.sqisign.SqiSignPrng
 import kotlinx.benchmark.Benchmark
 import kotlinx.benchmark.Param
 import kotlinx.benchmark.Scope
 import kotlinx.benchmark.Setup
 import kotlinx.benchmark.State
-import org.sqisign.PrngDomain
-import org.sqisign.SqisignPrng
 
 /** Fresh deterministic PRNG expansion including initialization, output allocation, and clearing. */
 @State(Scope.Benchmark)
@@ -27,7 +27,7 @@ public open class PrngBenchmark {
     /** Returns a fresh key-domain stream prefix; state never carries across invocations. */
     @Benchmark
     public open fun expand(): ByteArray {
-        val prng = SqisignPrng(seed, PrngDomain.KEY_GENERATION)
+        val prng = SqiSignPrng(seed, PrngDomain.KEY_GENERATION)
         return try {
             prng.bytes(outputBytes)
         } finally {

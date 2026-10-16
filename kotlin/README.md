@@ -16,7 +16,7 @@ library. The existing C build is unchanged.
 | --- | --- |
 | `ParameterSet` | All three v3 parameter sets, primes, and encoded sizes |
 | `Shake256` | Portable Keccak-f[1600], incremental absorption and squeezing, FIPS 202 padding |
-| `SqisignPrng` | 48-byte seed expansion using `key`, `com`, `res`, and `def` domains |
+| `SqiSignPrng` | 48-byte seed expansion using `key`, `com`, `res`, and `def` domains |
 | `WireFormat` | Exact public-key/signature lengths, canonical field encodings, response scalar bit bounds, defensive byte copies |
 | `ChallengeHash` | Exact v3 Fiat-Shamir transcript using the commitment's Montgomery coefficient |
 
@@ -26,7 +26,7 @@ normalization/invertibility, or any signature equation. Secret-key parsing is
 deliberately deferred until the ideal and integer layers exist.
 
 ```kotlin
-import org.sqisign.Shake256
+import ch.trancee.sqisign.Shake256
 
 val output = Shake256.digest("abc".encodeToByteArray(), outputLength = 64)
 ```
@@ -84,7 +84,13 @@ ABI validator. `checkKotlinAbi` disables unsupported-target inference: all targe
 libraries must compile, even when their runtime tests require another host.
 After reviewing an intentional API change and its release impact, regenerate
 with `./gradlew updateKotlinAbi`; do not update dumps merely to silence a failure.
-The API is unchanged by this tooling adoption.
+The unreleased `0.1.0-SNAPSHOT` API uses `SqiSignPrng` (formerly `SqisignPrng`).
+This casing rename changes source and binary compatibility on every target:
+update callers and recompile; no old-name alias is retained.
+The Kotlin package and Gradle group have also moved from `org.sqisign` to
+`ch.trancee.sqisign` across all targets. Update imports to the new namespace;
+this relocation changes source/binary compatibility and the Native library identity.
+Byte encodings, domain separators, and runtime behavior are unchanged.
 
 JaCoCo `0.8.15` enforces **100% line and branch coverage** of all JVM-compiled
 `commonMain` code, with no production exclusions. HTML/XML reports are under
@@ -185,7 +191,7 @@ checks are variable-time and intended for public inputs only. `clear()` performs
 best-effort overwrites, not guaranteed secure erasure; returned output arrays and
 caller-supplied seeds remain the caller's responsibility.
 
-`SqisignPrng` is deterministic expansion, not an operating-system CSPRNG. It never
+`SqiSignPrng` is deterministic expansion, not an operating-system CSPRNG. It never
 falls back to `kotlin.random.Random`. A future key-generation/signing layer needs
 an explicit, failure-reporting platform entropy interface supplying a fresh
 48-byte seed for each operation. The mutable sponge and PRNG are not thread-safe.

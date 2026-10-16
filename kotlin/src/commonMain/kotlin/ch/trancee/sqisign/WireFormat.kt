@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-package org.sqisign
+package ch.trancee.sqisign
 
 /** Canonical byte encodings only. These types do NOT establish curve or signature validity. */
 public object WireFormat {
