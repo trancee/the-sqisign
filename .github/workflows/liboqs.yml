@@ -32,7 +32,7 @@ env:
 jobs:
   functional:
     name: ${{ matrix.platform }} / build + test
-    runs-on: [self-hosted, "${{ matrix.platform }}"]
+    runs-on: ${{ fromJSON('{"x64":"ubuntu-24.04","arm64":"ubuntu-24.04-arm"}')[matrix.platform] }}
     strategy:
       fail-fast: false
       matrix:
@@ -43,6 +43,10 @@ jobs:
         uses: actions/checkout@v7.0.1
         with:
           ref: ${{ inputs.commit_sha }}
+
+      - uses: ./.github/actions/setup-c-runner
+        with:
+          packages: valgrind
 
       - name: Integrate SQIsign into liboqs
         uses: ./.github/actions/integrate-sqisign
@@ -90,7 +94,7 @@ jobs:
 
   strict:
     name: x64 / strict warnings (compile, non-gating)
-    runs-on: [self-hosted, x64]
+    runs-on: ubuntu-24.04
     # SQIsign does not yet pass liboqs' full -DOQS_STRICT_WARNINGS set, so this
     # job is non-gating (continue-on-error) to surface warnings without blocking.
     continue-on-error: true
@@ -99,6 +103,8 @@ jobs:
         uses: actions/checkout@v7.0.1
         with:
           ref: ${{ inputs.commit_sha }}
+
+      - uses: ./.github/actions/setup-c-runner
 
       - name: Integrate SQIsign into liboqs
         uses: ./.github/actions/integrate-sqisign
@@ -119,7 +125,7 @@ jobs:
 
   constant-time:
     name: x64 / constant-time (valgrind, non-gating)
-    runs-on: [self-hosted, x64]
+    runs-on: ubuntu-24.04
     # SQIsign's own poison/declassify annotations are active here: the
     # integration/liboqs/ct_testing.h shim keys them off liboqs'
     # OQS_ENABLE_TEST_CONSTANT_TIME instead of SQIsign's ENABLE_CT_TESTING.
@@ -135,6 +141,10 @@ jobs:
         uses: actions/checkout@v7.0.1
         with:
           ref: ${{ inputs.commit_sha }}
+
+      - uses: ./.github/actions/setup-c-runner
+        with:
+          packages: valgrind
 
       - name: Integrate SQIsign into liboqs
         uses: ./.github/actions/integrate-sqisign

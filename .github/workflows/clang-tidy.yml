@@ -29,7 +29,9 @@ permissions:
 jobs:
   clang-tidy:
     name: ${{ matrix.config }} (${{ matrix.platform }})
-    runs-on: [self-hosted, "${{ matrix.platform }}"]
+    runs-on: ${{ fromJSON('{"x64":"ubuntu-24.04","arm64":"ubuntu-24.04-arm"}')[matrix.platform] }}
+    env:
+      CLANG_TIDY: clang-tidy-18
     strategy:
       fail-fast: false
       matrix:
@@ -49,11 +51,15 @@ jobs:
           # dispatched. A SHA here must be the full 40 characters.
           ref: ${{ inputs.commit_sha }}
 
+      - uses: ./.github/actions/setup-c-runner
+        with:
+          packages: clang-tidy-18
+
       - name: Report the clang-tidy version in use
         # Recorded explicitly because it is not pinned. When a finding appears or disappears without a code change, this
         # line is the first thing to check.
         run: |
-          clang-tidy --version
+          "$CLANG_TIDY" --version
           . /etc/os-release && echo "runner: $PRETTY_NAME ($(uname -m))"
 
       - name: Run clang-tidy

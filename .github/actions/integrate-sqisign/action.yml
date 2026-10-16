@@ -16,7 +16,7 @@ inputs:
 runs:
   using: composite
   steps:
-    - name: Preflight (self-hosted runners are provisioned by hand)
+    - name: Verify build prerequisites
       shell: bash
       run: |
         set -eu
@@ -43,15 +43,7 @@ runs:
       run: |
         set -eu
         rm -rf .venv
-        # Some runners lack python3-venv; create the venv without pip and
-        # bootstrap it with get-pip.py.
-        if ! python3 -m venv .venv 2>/dev/null; then
-          python3 -m venv --without-pip .venv
-        fi
-        if ! ./.venv/bin/python -m pip --version >/dev/null 2>&1; then
-          curl -sSL https://bootstrap.pypa.io/get-pip.py -o get-pip.py
-          ./.venv/bin/python get-pip.py
-        fi
+        python3 -m venv .venv
         echo "$PWD/.venv/bin" >> "$GITHUB_PATH"
         ./.venv/bin/python -m pip install --upgrade pip
         # Install each file separately: they are compiled independently and pin
@@ -64,7 +56,7 @@ runs:
       # Apply the core patch, point the-sqisign upstream at this checkout, and copy.
       # copy_from_upstream `git commit`s the patched upstream repos, which needs a
       # git identity. Provide it via env vars (process-scoped) rather than
-      # `git config --global` so we don't mutate the shared self-hosted runner.
+      # `git config --global` so the identity stays scoped to this integration.
       shell: bash
       env:
         GIT_AUTHOR_NAME: sqisign-ci

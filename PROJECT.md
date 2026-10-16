@@ -5,6 +5,26 @@ languages/toolchains= C11 and ASM with CMake 3.13 or later; independent Kotlin b
 supported_platforms= x64 and arm64 are exercised by CI; implementation types are `ref`, `opt`, `broadwell`, and `arm64`. Do not infer support for other targets from local builds.
 prerequisites= CMake and a C11-compatible compiler; CI uses Ninja. Constant-time tests additionally require Valgrind and its development header.
 
+## C CI runners
+
+C workflows use GitHub-hosted Ubuntu `24.04`: `ubuntu-24.04` for x64 and
+`ubuntu-24.04-arm` for native ARM64 execution. No registered self-hosted runner
+or persistent workstation checkout is required. The shared provisioning action
+[`.github/actions/setup-c-runner/action.yml`](.github/actions/setup-c-runner/action.yml)
+installs build tools and each job's declared Ubuntu packages. Apt package versions
+follow Ubuntu's maintained repositories; analyzer/coverage jobs log actual tool versions.
+The x86 32-bit jobs additionally install multilib and Clang's 32-bit sanitizer runtime.
+Formatting retains the exact clang-format pin from `.pre-commit-config.yaml` in a
+fresh per-job virtual environment.
+
+The pqm4 job checks out `SQISign/the-sqisign-pqm4` at
+`5dceca0448b3dec6cfa64929bcb89c03a2dd5293`, including pinned submodules,
+and installs the ARM bare-metal toolchain, newlib, QEMU, and upstream Python
+requirements. Its `mps2-an386` tests/benchmarks execute under emulation, not on
+physical Cortex-M4 hardware; emulator cycle counts are not hardware performance evidence.
+Shared-host C benchmark timings likewise cannot be compared directly to former
+dedicated-host baselines or used as hard regression gates.
+
 ## Setup and validation
 
 Configure and build a reference implementation:

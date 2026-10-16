@@ -1,0 +1,43 @@
+name: Set up C runner
+description: Install C build tools and job-specific dependencies on GitHub-hosted Ubuntu.
+
+inputs:
+  packages:
+    description: Additional Ubuntu package names, separated by spaces.
+    required: false
+    default: ''
+  multilib:
+    description: Install x86 32-bit compiler and runtime support.
+    required: false
+    default: 'false'
+
+runs:
+  using: composite
+  steps:
+    - name: Install build dependencies
+      shell: bash
+      env:
+        EXTRA_PACKAGES: ${{ inputs.packages }}
+        MULTILIB: ${{ inputs.multilib }}
+      run: |
+        set -euo pipefail
+        case "$RUNNER_ARCH:$(uname -m)" in
+          X64:x86_64|ARM64:aarch64) ;;
+          *) echo "::error::Unexpected runner architecture: $RUNNER_ARCH / $(uname -m)"; exit 1 ;;
+        esac
+        packages=(build-essential clang libclang-rt-18-dev cmake ninja-build python3-venv)
+        read -r -a extra <<< "$EXTRA_PACKAGES"
+        packages+=("${extra[@]}")
+        if [ "$MULTILIB" = true ]; then
+          if [ "$RUNNER_ARCH" != X64 ]; then
+            echo "::error::x86 multilib requires an x64 runner"
+            exit 1
+          fi
+          packages+=(gcc-multilib libc6-dev-i386)
+        fi
+        sudo apt-get update -qq
+        sudo apt-get install --yes --no-install-recommends "${packages[@]}"
+        printf 'Runner: %s / %s\n' "$RUNNER_OS" "$(uname -m)"
+        cc --version
+        clang --version
+        cmake --version
