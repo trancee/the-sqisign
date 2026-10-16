@@ -59,4 +59,7 @@ public open class UInt328Benchmark {
 
     /** Retains the entire result, including its low value and borrow flag. */
     @Benchmark public open fun subtract(): Any = left.subtract(right)
+
+    /** Retains all 656 product bits, including result encoding and ownership copies. */
+    @Benchmark public open fun multiply(): Any = left.multiply(right)
 }

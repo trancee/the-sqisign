@@ -174,8 +174,8 @@ handle these flags; modular truncation is not an implicit success.
 For ordinary limbs, addition including carry is at most `65535`, while subtraction
 including borrow is in `[-32768, 32767]`; both fit exactly in Kotlin `Int` on every
 target. The top-limb bounds are `16383` and `[-8192, 8191]`. Sign-bit extraction
-produces the borrow, and masking normalizes low bits. There is no multiplication
-or batched-product accumulation yet, so no multiplication bound is inferred.
+produces the borrow, and masking normalizes low bits. This initial decision did
+not include multiplication; its separate bounds and representation are recorded below.
 
 **Alternatives.** A 326-bit field-shaped integer would reject the two extra wire
 bits before field validation; a 330-bit whole-limb integer would need padding
@@ -199,10 +199,57 @@ performance budget, or a controlled benchmark baseline. Comparison is variable-t
 behavior are unchanged; no public API or release-version migration is needed.
 Development `check` now requires GCC/Clang for its external C oracle, not for the
 library or Kotlin runtime tests. The CI path filter includes its reference inputs.
-Milestone 1 remains incomplete: multiplication, division/remainder, checked wider
+Milestone 1 remains incomplete: division/remainder, additional checked wider
 intermediates, signed integers, GCD/inversion and larger parameter sets still need
 their own bounds, differential tests and representative performance measurements
 before any public signature API is introduced.
+
+## Arithmetic decision 2026-10-16: exact wide multiplication
+
+**Context.** Bounded unsigned arithmetic needs full products before any quotient
+or field-reduction layer. Dropping high bits at the 328-bit operand width would
+destroy information needed by those later operations.
+
+**Decision.** `UInt328.multiply(UInt328)` returns an internal immutable `UInt656`
+in `[0, 2^656)` with an exact 82-byte unsigned little-endian encoding. The result
+owns its bytes; import/export defensively copy, and non-exact input widths are
+rejected. There is no signed interpretation, overflow flag, modular reduction,
+or new public library API.
+
+Schoolbook multiplication uses 44 temporary radix-`2^15` limbs. Every inner
+multiply-add is normalized immediately: each input/output limb and incoming
+carry is at most `32767`, so the accumulator is at most
+`32767^2 + 32767 + 32767 = 2^30 - 1`. It fits exactly in a nonnegative Kotlin
+`Int` on JVM, JS and Native; no `Long`, floating-point approximation, or unchecked
+batched accumulation is required. At each row end the carry slot has not yet
+been written; the preceding row's carry is consumed by that row's final
+multiply-add. Operand bounds prove the final value is below `2^656`, so the
+last of the 44 normalized limbs needs at most 11 bits. Encoding all 82 bytes
+therefore discards no product bits.
+
+**Alternatives.** A low-half/overflow result is insufficient for later reduction.
+A generic wide-integer framework or additional wide arithmetic is not justified
+by current callers. Byte-backed `UInt656` is an opaque exact result, not a
+field/scalar type; it avoids exposing temporary limb ownership or assuming a
+future reduction representation. Encoding and defensive ownership copies are
+deliberately included in its retained JVM benchmark; no allocation/performance
+claim is made.
+
+**Evidence and risks.** The existing 276 independent Python-integer records now
+include full 82-byte products, checked by the pinned C `mp_mul_raw` using twelve
+64-bit output words. C storage is wider than the mathematical product; serialization
+retains all 656 possible bits. Common tests cover both operand orders, every
+single-bit product position from 0 through 654, the maximum square (including bit
+655), operand preservation, codec widths and ownership. JVM benchmark workloads
+also compare products to `BigInteger`; all six unsigned operations are retained
+across five synthetic shapes. This is not expert review, field conformance,
+constant-time proof, a performance budget, or a controlled benchmark baseline.
+
+**Migration.** No public ABI, wire parser, dependency, toolchain, or release-version
+change. The fixture generator owns the extended record format; existing consumers
+retain their field positions and multiplication consumes the appended product.
+CI requires the complete 47-case JVM smoke matrix. Division/remainder, signed
+arithmetic and field reduction remain separate work.
 
 ## Public API and randomness policy for the complete port
 

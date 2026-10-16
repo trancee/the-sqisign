@@ -23,11 +23,12 @@ library. The existing C build is unchanged.
 The internal arithmetic package now contains `UInt328`: the full 41-byte unsigned
 width needed to hold `p324_3` encodings, using 22 radix-`2^15` limbs (13 bits in
 the top limb). It supplies comparison, exact-width little-endian import/export,
-addition with an explicit carry, and subtraction with an explicit borrow.
+addition with an explicit carry, subtraction with an explicit borrow, and exact
+multiplication into an internal immutable `UInt656` (82-byte little-endian result).
 Instances own their storage and operations preserve both operands.
 The range is `[0, 2^328)`, **not** the field range `[0, p)`: importing `p` or larger
 does not reduce or validate a field element. This internal slice is not yet used
-by the public wire parser and does not supply multiplication, division, signed
+by the public wire parser and does not supply division, signed
 integers, field reduction, or the larger parameter-set widths.
 
 The wire types expose byte encodings, not mathematical field/curve objects.
@@ -146,13 +147,17 @@ pairs: zero/one/maximum, values around the `p324_3` prime, alternating bytes,
 radix-boundary carry/borrow chains, and SHAKE-derived full-width inputs.
 Python's arbitrary-precision integers provide the independent expected values.
 `checkUnsignedReference` also compares every result to the C reference's
-`mp_add_raw`, `mp_sub_raw`, and `mp_compare` at revision
+`mp_add_raw`, `mp_sub_raw`, `mp_compare`, and `mp_mul_raw` at revision
 `f417ebd4c2c336ad6a9feb6f9255f95fc03acc41`; source and transitive project headers
 are SHA-256-pinned in `tools/check_unsigned_reference.py`. It fails if those
 inputs drift: review a reference rebase and its fixture impact rather than
 silently updating checksums. The C adapter is an external test tool only.
 Common tests run the same vectors on each Kotlin target, including explicit
-carry/borrow and input/output ownership checks. No timing or arithmetic
+carry/borrow, full 82-byte products, and input/output ownership checks. `UInt328`
+uses normalized radix-`2^15` limbs; `multiply` returns an immutable `UInt656`
+without truncation or field reduction. The result owns an exact 82-byte
+little-endian encoding. Common tests additionally exercise every possible
+single-bit product position and the maximum-value square. No timing or arithmetic
 performance claim follows from these correctness checks.
 
 ## JVM benchmarks
@@ -184,6 +189,7 @@ Input preparation and parameter-name resolution occur outside timing.
 | `UInt328Benchmark.decode` / `encode` | Five operand shapes below | Exact 41-byte import/export with owned result allocation |
 | `UInt328Benchmark.compare` | Five operand shapes below | Unsigned variable-time comparison of prepared operands |
 | `UInt328Benchmark.add` / `subtract` | Five operand shapes below | Fixed-width arithmetic with the complete allocated value/flag result retained; no encoding or field reduction |
+| `UInt328Benchmark.multiply` | Five operand shapes below | Exact wide product, including 82-byte result encoding, allocation and ownership copies; no field reduction |
 
 The unsigned shapes are `ZERO_EQUAL` (`0`, `0`), `MAX_EQUAL` (`2^328 - 1`,
 `2^328 - 1`), `CARRY_CHAIN` (`2^328 - 1`, `1`), `BORROW_CHAIN` (`0`, `1`),
@@ -199,17 +205,17 @@ Unsigned workload tests check every shape against explicit encodings and JVM
 `BigInteger` arithmetic, including carry/borrow flags. Benchmark methods return
 outputs so the JMH harness retains their work; internal unsigned values and
 arithmetic result wrappers return as `Any` only at the public harness boundary.
-The internal production types and public library API are unchanged.
+The public library API is unchanged; internal wide results are not exposed by it.
 
 ```sh
 ./gradlew jvmTest                       # Check workload correctness before timing
-./gradlew jvmBenchmarkSmokeBenchmark    # Discovery/execution only: 42 cases
+./gradlew jvmBenchmarkSmokeBenchmark    # Discovery/execution only: 47 cases
 ./gradlew jvmBenchmarkBenchmarkJar      # Build the JMH harness before measurement
 ./gradlew jvmBenchmarkBenchmark         # Opt-in full profile on a controlled host
 ```
 
 The `smoke` profile uses one fork, one 50 ms warmup, and one 50 ms measurement
-per case. Linux CI requires the complete 42-case parameter matrix, the expected
+per case. Linux CI requires the complete 47-case parameter matrix, the expected
 mode/unit/profile, and finite positive samples. It uploads JSON reports,
 execution logs, and commit/host/JDK/Gradle metadata with the other Kotlin reports.
 The `main` measurement profile uses three forks, three 1 s warmups, and five 1 s

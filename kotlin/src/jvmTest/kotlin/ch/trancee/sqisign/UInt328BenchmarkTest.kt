@@ -3,6 +3,7 @@
 package ch.trancee.sqisign
 
 import ch.trancee.sqisign.arithmetic.UInt328
+import ch.trancee.sqisign.arithmetic.UInt656
 import ch.trancee.sqisign.benchmarks.UInt328Benchmark
 import java.math.BigInteger
 import kotlin.test.Test
@@ -78,6 +79,23 @@ class UInt328BenchmarkTest {
                 subtraction.value.toLittleEndian().unsignedInteger(),
             )
             assertEquals(if (expected.signum() < 0) 1 else 0, subtraction.borrow, fixture.shape)
+        }
+    }
+
+    @Test
+    fun multiplicationWorkloadsRetainTheEntireProduct() {
+        for (fixture in fixtures) {
+            val benchmark = fixture.prepare()
+            val expected = fixture.leftInteger * fixture.rightInteger
+
+            val output = benchmark.multiply()
+
+            val product = assertIs<UInt656>(output)
+            assertEquals(
+                expected,
+                product.toLittleEndian().unsignedInteger(),
+                fixture.shape,
+            )
         }
     }
 

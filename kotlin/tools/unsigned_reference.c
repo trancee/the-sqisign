@@ -28,9 +28,9 @@ decode(const char *hex, digit_t *words)
 }
 
 static void
-encode(const digit_t *words)
+encode(const digit_t *words, int bytes)
 {
-    for (int index = 0; index < ENCODED_BYTES; index++)
+    for (int index = 0; index < bytes; index++)
         printf("%02x", (unsigned)((words[index / 8] >> (8 * (index % 8))) & 0xff));
 }
 
@@ -41,6 +41,7 @@ main(void)
     int fields;
     while ((fields = scanf("%82s %82s", left_hex, right_hex)) == 2) {
         digit_t left[WORD_COUNT], right[WORD_COUNT], sum[WORD_COUNT], difference[WORD_COUNT];
+        digit_t product[2 * WORD_COUNT];
         if (!decode(left_hex, left) || !decode(right_hex, right)) {
             fprintf(stderr, "Invalid public unsigned reference operands\n");
             return 1;
@@ -52,14 +53,17 @@ main(void)
         }
         unsigned carry = (unsigned)(sum[WORD_COUNT - 1] >> 8);
         digit_t borrow = mp_sub_raw(difference, WORD_COUNT, left, WORD_COUNT, right, WORD_COUNT);
-        encode(left);
+        mp_mul_raw(product, left, WORD_COUNT, right, WORD_COUNT);
+        encode(left, ENCODED_BYTES);
         putchar(':');
-        encode(right);
+        encode(right, ENCODED_BYTES);
         putchar(':');
-        encode(sum);
+        encode(sum, ENCODED_BYTES);
         printf(":%u:", carry);
-        encode(difference);
-        printf(":%u:%d\n", (unsigned)borrow, mp_compare(left, right, WORD_COUNT));
+        encode(difference, ENCODED_BYTES);
+        printf(":%u:%d:", (unsigned)borrow, mp_compare(left, right, WORD_COUNT));
+        encode(product, 2 * ENCODED_BYTES);
+        putchar('\n');
     }
     if (fields != EOF || ferror(stdin)) {
         fprintf(stderr, "Incomplete unsigned reference input\n");

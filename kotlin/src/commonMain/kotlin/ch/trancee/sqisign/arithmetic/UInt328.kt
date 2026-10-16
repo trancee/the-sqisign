@@ -11,17 +11,7 @@ package ch.trancee.sqisign.arithmetic
  */
 internal class UInt328 private constructor(private val limbs: IntArray) {
     /** Exports an owned, exact-width, unsigned little-endian encoding. */
-    internal fun toLittleEndian(): ByteArray =
-        ByteArray(ENCODED_BYTES) { index ->
-            val bit = index * BYTE_BITS
-            val limb = bit / LIMB_BITS
-            val shift = bit % LIMB_BITS
-            var value = limbs[limb] ushr shift
-            if (shift + BYTE_BITS > LIMB_BITS) {
-                value = value or (limbs[limb + 1] shl (LIMB_BITS - shift))
-            }
-            value.toByte()
-        }
+    internal fun toLittleEndian(): ByteArray = encodeLittleEndian(limbs, ENCODED_BYTES)
 
     /** Returns -1, 0, or 1 according to the unsigned mathematical order. */
     internal operator fun compareTo(other: UInt328): Int {
@@ -47,6 +37,24 @@ internal class UInt328 private constructor(private val limbs: IntArray) {
         return Addition(UInt328(output), topSum ushr TOP_BITS)
     }
 
+    /** Returns all 656 product bits, without truncation or modular reduction. */
+    internal fun multiply(other: UInt328): UInt656 {
+        val output = IntArray(2 * LIMB_COUNT)
+        for (leftIndex in 0 until LIMB_COUNT) {
+            var carry = 0
+            for (rightIndex in 0 until LIMB_COUNT) {
+                val position = leftIndex + rightIndex
+                // Normalizing each multiply-add bounds the accumulator by 2^30 - 1.
+                val accumulated =
+                    limbs[leftIndex] * other.limbs[rightIndex] + output[position] + carry
+                output[position] = accumulated and LIMB_MASK
+                carry = accumulated ushr LIMB_BITS
+            }
+            output[leftIndex + LIMB_COUNT] = carry
+        }
+        return UInt656.fromLittleEndian(encodeLittleEndian(output, UInt656.ENCODED_BYTES))
+    }
+
     /** Returns the low 328 bits and borrow; value = this - other + borrow * 2^328. */
     internal fun subtract(other: UInt328): Subtraction {
         val output = IntArray(LIMB_COUNT)
@@ -60,6 +68,18 @@ internal class UInt328 private constructor(private val limbs: IntArray) {
         output[LAST_LIMB] = topDifference and TOP_MASK
         return Subtraction(UInt328(output), topDifference ushr (Int.SIZE_BITS - 1))
     }
+
+    private fun encodeLittleEndian(limbs: IntArray, encodedBytes: Int): ByteArray =
+        ByteArray(encodedBytes) { index ->
+            val bit = index * BYTE_BITS
+            val limb = bit / LIMB_BITS
+            val shift = bit % LIMB_BITS
+            var value = limbs[limb] ushr shift
+            if (shift + BYTE_BITS > LIMB_BITS) {
+                value = value or (limbs[limb + 1] shl (LIMB_BITS - shift))
+            }
+            value.toByte()
+        }
 
     /** Exact sum = value + carry * 2^328, with carry in {0, 1}. */
     internal class Addition

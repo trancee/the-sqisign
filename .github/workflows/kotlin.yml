@@ -117,7 +117,7 @@ jobs:
               "WireFormatBenchmark.parsePublicKey": {"parameterSet": ("NIST_I", "NIST_III", "NIST_V")},
               "WireFormatBenchmark.parseSignature": {"parameterSet": ("NIST_I", "NIST_III", "NIST_V")},
           }
-          for operation in ("decode", "encode", "compare", "add", "subtract"):
+          for operation in ("decode", "encode", "compare", "add", "subtract", "multiply"):
               workloads[f"UInt328Benchmark.{operation}"] = {
                   "operandShape": ("ZERO_EQUAL", "MAX_EQUAL", "CARRY_CHAIN", "BORROW_CHAIN", "FULL_WIDTH"),
               }

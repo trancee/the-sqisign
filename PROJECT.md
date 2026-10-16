@@ -67,7 +67,7 @@ Benchmark-only tooling: explicitly accepted Alpha `kotlinx-benchmark` plugin/run
 | Module / target | Host / prerequisites | Task from `kotlin/` | Proof / limitations |
 | --- | --- | --- | --- |
 | `:` / JVM | JDK `26` | `jvmTest jvmCoverageVerification` | Runtime; JaCoCo line/branch coverage of JVM-compiled `commonMain`, both thresholds `100%`, no production exclusions |
-| `:` / JVM benchmark | JDK `26`; controlled host for measurements | `jvmBenchmarkSmokeBenchmark`; opt-in `jvmBenchmarkBenchmark` | Linux CI validates 42 primitive/parameter cases and JSON samples; no score gate or baseline; no JS/Native benchmark proof |
+| `:` / JVM benchmark | JDK `26`; controlled host for measurements | `jvmBenchmarkSmokeBenchmark`; opt-in `jvmBenchmarkBenchmark` | Linux CI validates 47 primitive/parameter cases and JSON samples; no score gate or baseline; no JS/Native benchmark proof |
 | `:` / JS | JDK `26`; plugin downloads Node | `jsNodeTest` | Node runtime; no browser or coverage proof |
 | `:` / Linux x64 | x86-64 Linux; downloaded Kotlin/Native toolchain | `linuxX64Test` | Native runtime; no measured coverage |
 | `:` / macOS ARM64 | Apple Silicon macOS with Xcode tools | `macosArm64Test` | Native runtime; Linux cannot supply this proof; no measured coverage |
@@ -77,14 +77,17 @@ Fast checks: `./gradlew spotlessCheck detektMainJvm detektBenchmarkJvm detektTes
 
 Initial internal unsigned arithmetic: `UInt328` in `commonMain` uses 22 radix-`2^15`
 limbs and exact 41-byte encodings, with explicit addition carry/subtraction borrow.
+Multiplication retains all 656 bits in an immutable `UInt656` with an owned
+82-byte encoding; each radix multiply-add is bounded by `2^30 - 1`.
 No field reduction, signed arithmetic, or public API is added. The decision,
 bounds, oracle provenance, and remaining milestone scope are in `kotlin/PORTING.md`.
 `checkUnsignedReference` is part of `check`; it requires a host GCC/Clang `cc`
 compiler solely for the external C test adapter. SHA-256 pins cover the C source
 and project headers at `f417ebd4c2c336ad6a9feb6f9255f95fc03acc41`.
 `generate_test_vectors.py` owns the 276 Python-integer oracle records in
-`TestVectors.kt`; common tests consume them on all targets and the C gate
-cross-checks every record. No C runtime dependency enters the Kotlin artifact.
+`TestVectors.kt`, including exact wide products; common tests consume them on all
+targets and the C gate cross-checks every record. No C runtime dependency enters
+the Kotlin artifact.
 
 Formatting: Spotless `8.10.4` / ktfmt `0.65`; apply via `./gradlew spotlessApply`. Static analysis: accepted detekt `2.0.0-alpha.6`, including type-aware JVM tasks, no finding baseline. ABI: explicitly accepted Kotlin experimental validator; regenerate reviewed changes with `./gradlew updateKotlinAbi`. Reassess both experimental tools on compatible stable releases.
 

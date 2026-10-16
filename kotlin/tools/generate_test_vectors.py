@@ -45,7 +45,8 @@ def unsigned_record(left, right):
     encode = lambda value: (value % modulus).to_bytes(41, "little").hex()
     return ":".join((encode(left), encode(right), encode(left + right),
                      str((left + right) // modulus), encode(left - right),
-                     str(int(left < right)), str((left > right) - (left < right))))
+                     str(int(left < right)), str((left > right) - (left < right)),
+                     (left * right).to_bytes(82, "little").hex()))
 
 
 def generate():
@@ -95,7 +96,7 @@ def generate():
     lines += [
         ")", "",
         "// UInt328: Python integer oracle; C-reference cross-check: tools/check_unsigned_reference.py.",
-        "// Each record: left:right:sum:carry:difference:borrow:comparison (hex bytes are little-endian).",
+        "// Each record: left:right:sum:carry:difference:borrow:comparison:product (little-endian hex).",
         "internal val unsignedVectors: List<String> = listOf(",
     ]
     for left, right in unsigned_cases():
