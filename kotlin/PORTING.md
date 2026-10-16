@@ -1,0 +1,203 @@
+# SQIsign v3 pure-Kotlin porting design
+
+## Baseline and evidence
+
+Normative baseline: [SQIsign v3.0, 2026-09-01](https://sqisign.org/spec/sqisign-20260901.pdf),
+SHA-256 `843912e5eb3dee20288af9fc9f01c0e1f1055834d3ce87c4687795c13adfd73c`.
+The [project website](https://sqisign.org/) identifies v3 as its current submission.
+The submission's `nist-v3` tag resolves locally to
+[`6d017708db403bf83977fa70770fc4f7f9e9ff21`](https://github.com/SQISign/the-sqisign/tree/6d017708db403bf83977fa70770fc4f7f9e9ff21).
+
+The analyzed working reference is
+[`f417ebd4c2c336ad6a9feb6f9255f95fc03acc41`](https://github.com/SQISign/the-sqisign/tree/f417ebd4c2c336ad6a9feb6f9255f95fc03acc41).
+It is a development revision, not the submission tag. Its inspected public
+encoding, challenge-hash, PRNG, and encoded-size files are unchanged from
+`nist-v3`; this is not a claim that the entire repository is identical. The
+top-level CMake project still says `VERSION 2.0`; that metadata is not an algorithm
+version selector.
+
+Structural exploration used the graph indexed at `2026-10-16T14:05:52Z` and
+task-directed Tier 2 coverage checks. Parser gaps in `src/sqisign.c`,
+`src/signature/ref/lvlx/sign.c`, and `src/common/generic/prng.c` were inspected
+directly. This was a bounded porting analysis, not an exhaustive call-graph or
+security audit. Generated arithmetic includes have recorded whole-file parser
+gaps and must be read directly before porting them.
+
+## What changed in v3
+
+Specification section 1.4 makes a v2 port the wrong starting point:
+
+- The primes grew in response to the attack cited as `Wes26`; use the v3
+  parameters, not earlier `p248`/`p384`/`p512` families.
+- Quaternion ideals use the new inert representation. Integer bounds are
+  explicit; the reference no longer needs GMP or floating-point arithmetic.
+- Lattice reduction is integer-only and canonicalized; preserve its choices to
+  reproduce byte-level outputs.
+- Ideal-to-isogeny translation and dimension-two formulas changed.
+- The challenge has length `lambda`, and responses have odd degree, avoiding
+  shared challenge/response suffixes. This changes response packaging and the
+  underlying security statements.
+
+| Parameter | Prime | `lambda` | `e_rsp` | Field bytes | PK / SK / signature bytes |
+| --- | --- | --- | --- | --- | --- |
+| `p324_3` | `3 * 2^324 - 1` | `128` | `196` | `41` | `83 / 270 / 200` |
+| `p500_27` | `27 * 2^500 - 1` | `192` | `302` | `64` | `129 / 417 / 306` |
+| `p664_17` | `17 * 2^664 - 1` | `256` | `400` | `84` | `169 / 549 / 406` |
+
+Sources: specification chapters 5-6 and
+[`encoded_sizes.h`](../src/precomp/ref/p324_3/include/encoded_sizes.h),
+with the corresponding headers for `p500_27` and `p664_17`.
+
+## Protocol and reference mapping
+
+| Stage | Specification | Reference at the baseline |
+| --- | --- | --- |
+| Public API and length handling | Sections 3.4.6-3.4.8, chapter 6 | [`src/sqisign.c:10-133`](../src/sqisign.c#L10) |
+| Seed expansion | Algorithms 3.1-3.2, table 6 | [`prng.c:32-99`](../src/common/generic/prng.c#L32) |
+| Challenge transcript | Algorithm 3.3 | [`common.c:15-46`](../src/verification/ref/lvlx/common.c#L15) |
+| Public encodings | Chapter 6 | [`encode_public.c:104-180`](../src/verification/ref/lvlx/encode_public.c#L104) |
+| Key generation | Algorithm 3.22 | [`keygen.c:19-112`](../src/signature/ref/lvlx/keygen.c#L19) |
+| Signing | Algorithm 3.23 | [`sign.c:192-375`](../src/signature/ref/lvlx/sign.c#L192) |
+| Verification | Algorithm 3.24 | [`verify.c:169-217`](../src/verification/ref/lvlx/verify.c#L169) |
+
+Key generation samples an odd-prime-norm secret ideal, maps it to a curve and
+torsion basis, derives the public basis hint, and normalizes the change-of-basis
+matrix. Signing samples a commitment ideal, hashes the commitment and message,
+constructs the challenge ideal and quaternion response, translates/combines
+ideals through dimension-two isogenies, and packages the auxiliary curve, matrix,
+challenge, and hints.
+
+Verification has a smaller dependency surface than signing. The inspected
+`sqisign_verify` outbound trace reaches decoding and `protocols_verify`;
+the latter checks matrix representatives/normalization and curves, reconstructs
+the challenge isogeny and two bases, recovers the commitment through a verified
+dimension-two chain, and compares the challenge hash. It does not need the
+signer's ideal sampling or ideal-to-isogeny machinery. The C verifier does use
+integer helpers, so a Kotlin verifier still needs scalar/integer primitives.
+
+## Byte-level invariants already implemented
+
+SHAKE256 uses a `136`-byte rate, `512`-bit capacity, Keccak-f[1600]'s `24` rounds,
+little-endian lanes, and the SHAKE suffix `0x1f` with final padding bit `0x80`.
+Zero-length squeezing finalizes absorption. Split squeezes continue the same
+stream; they must not instantiate a fresh sponge.
+
+For a 48-byte seed, PRNG streams are exactly `SHAKE256(seed || domain)`, not
+`SHAKE256(domain || seed)`. Domains are three ASCII bytes without a NUL terminator:
+`key`, `com`, `res`, `def`. Each stream has independent mutable state; do not
+reproduce the C reference's thread-local root context as global Kotlin state.
+
+The challenge is exactly:
+
+```text
+SHAKE256(
+    ASCII("SQI") ||
+    LE(real(A_pk)) || LE(imag(A_pk)) || hint_pk ||
+    LE(real(A_com)) || LE(imag(A_com)) ||
+    message,
+    lambda / 8 output bytes
+)
+```
+
+Hash the normalized Montgomery coefficient `A_com`, **not** the j-invariant.
+The C comment mentioning `j(E_com)` is misleading; its actual call is
+`fp2_encode(..., &com_curve->A)`, matching specification algorithm 3.3.
+
+Field encodings are fixed-width unsigned little-endian representatives strictly
+below `p`, with real component before imaginary component. A public key appends
+one hint byte. A signature concatenates auxiliary `A`, four response entries in
+row-major order, challenge, auxiliary hint, then challenge hint. Response entries
+have width `e_rsp + 2` bits, encoded in `25`, `38`, or `51` bytes. All `256` hint
+byte values have a syntactic interpretation; whether a hint reconstructs the
+required basis is a mathematical check, not a byte-decoding check.
+
+The foundation intentionally rejects noncanonical field representatives and
+unused response bits rather than reducing attacker-supplied encodings. A future
+interop harness must distinguish this specified strictness from any acceptance
+of aliases by the C decoder.
+
+## Remaining implementation sequence and acceptance gates
+
+Implement one mathematical layer at a time, starting with `p324_3`, and promote
+each layer to all three parameter sets before exposing a public signature API.
+Keep this a single build initially; the following are dependency boundaries, not
+a request to add many Gradle subprojects.
+
+| Milestone | Work and sources | Required gate |
+| --- | --- | --- |
+| 1. Integer/scalar core | Specification 4.1; `src/mp`. Fixed-width unsigned operations, bounded signed integers, multiplication, division/remainder, GCD/inversion, square root and primality helpers as needed. | Carry/borrow, overflow bounds, signed division semantics, zero/one/max boundaries, randomized C differential tests. Never silently truncate a bound violation. |
+| 2. Field core | Specification 4.2; `src/gf/ref`. `Fp`, `Fp2 = Fp[i]/(i^2+1)`, reduction, inversion, square roots, canonical root/sign choices, select/swap and serialization. | All levels: algebraic identities, independent modular oracle, C differential vectors, strict decode boundaries and inverse/sqrt failures. |
+| 3. Curves and bases | Specification 4.4 and algorithms 3.5-3.12; `src/ec/ref`. Montgomery/projective arithmetic, x-only ladders, canonical torsion bases, hints, pairings, 2-isogeny chains. | Point-at-infinity and exceptional-curve handling; exact hint/root behavior; torsion-order checks; C basis, pairing and chain outputs. |
+| 4. Dimension-two isogenies | Specification 4.5; `src/hd/ref`, including gluing, theta chains, kernel validation and splitting. | Differential intermediate theta/curve outputs, exceptional/degenerate cases, malformed kernels and non-splitting rejection. A generic elliptic-curve library is not a substitute. |
+| 5. Verifier | Algorithm 3.24; `src/verification/ref`. Matrix normalization, checked reconstruction and challenge comparison. | Every supplied KAT signature verifies at every level. Mutated messages, hints, fields, matrices, padding and lengths fail appropriately; C/Kotlin cross-verification and fuzzing. |
+| 6. Quaternion and lattice core | Specification 4.3; `src/quaternion/ref`. Inert ideals, norms/intersections, integer-only lattice operations, canonical reduction and response sampling. | Differential exact outputs, proven intermediate integer bounds, reduction tie-breaking, sampling distribution and failure/retry behavior. |
+| 7. Ideal/isogeny bridge and constants | Specification 4.6-4.7 and appendix B; `src/id2iso/ref`, `src/precomp/ref`, `scripts/precomp`. | Reproduce canonical mathematical constants from scripts; test endomorphism/basis action, ideal norm/degree relationships and C intermediate outputs. |
+| 8. Key generation and signing | Algorithms 3.22-3.23; `src/signature/ref`. Secure entropy seam, seeds/domains, ideal sampling, normalized secret matrix, response packaging and secret-key codec. | Full deterministic KAT reproduction and two-way signing/verification at all levels, including error paths; no placeholder algorithms or fallback signature scheme. |
+| 9. Hardening and release | Specification 8.5 and chapter 9; reference CT harness documentation. | Independent mathematical/security review, malformed-input fuzzing, per-runtime leakage assessment and benchmarks; explicit release security policy. |
+
+For portable arithmetic, prefer fixed-radix `IntArray`/`LongArray` storage and
+explicit per-operation bounds rather than `java.math.BigInteger` or a native
+big-number dependency. A practical initial field radix is `2^15`: multiplying and
+accumulating one product plus normalized carry in `Long` has ample headroom and
+can be expressed exactly on every Kotlin target. Specify accumulation bounds
+before batching products. Benchmark a wider radix only after differential
+correctness is established; the optimal C/assembly radix is not automatically
+optimal for Kotlin/JS or managed runtimes.
+
+Keep signed quaternion integers distinct from unsigned field/scalar limbs.
+Port C's mathematical semantics, not machine pointer casts, native-endian memory
+copies, implementation-defined shifts, or the generated machine-specific field
+representation. Wire bytes always encode canonical mathematical representatives,
+not Montgomery-domain or redundant internal values.
+
+Precomputation generators may remain offline Sage/Python tooling. The shipped
+library must contain deterministic Kotlin constants and no Sage, GMP, C, or JNI
+runtime requirement. Do not directly copy internal Montgomery-domain tables
+without converting them for the Kotlin representation.
+
+## Public API and randomness policy for the complete port
+
+Do not publish `sign`/`verify` methods that throw "not implemented", return fixed
+values, or use a different signature algorithm. Introduce those APIs only when
+their milestone gates pass. Keep encoded public data immutable and copied at
+boundaries; secret data needs explicitly owned mutable storage and lifecycle
+documentation rather than ordinary data-class copying.
+
+Expose deterministic internal operations taking an explicit 48-byte seed for
+interoperability. Production key generation and signing should obtain fresh
+seeds through a small, explicit, platform-provided entropy interface, propagate
+entropy failures, and clear per-operation expansion state in `finally`. The
+mathematical core remains common Kotlin. Never seed from timestamps, UUIDs,
+`kotlin.random.Random`, or a fixed test seed. Platform entropy adapters are not
+implemented here.
+
+Use structured decode errors for malformed byte input and distinguish
+verification rejection from internal invariant/entropy failures. The current
+foundation uses explicit `IllegalArgumentException` and `IllegalStateException`
+instead of silent defaults. A future verifier may map *specified validation
+failures* to `false`, but must not hide arbitrary exceptions behind `false`.
+
+## Interoperability, reproducibility, and security
+
+The current common suite checks independent SHAKE/PRNG/transcript vectors and
+wire round-trips for public KAT record `0` at each level. It does **not** check
+the KAT signature equation, generate a secret key, or implement NIST's test DRBG.
+NIST KAT `seed` initializes an AES-CTR DRBG wrapper: it is not necessarily the
+48-byte seed passed directly to algorithm 3.22/3.23. Reproduce the entropy
+consumption sequence or capture root seeds in a **test-only** reference harness
+before requiring byte-for-byte key/signature matches.
+
+During the port, run a pinned C reference as an external development/test oracle,
+not as part of the Kotlin implementation. Export canonical input/output vectors
+at each mathematical seam. Keep reproducible vector provenance and checksums,
+run the same common tests on JVM, Node.js and both supported native hosts, and
+archive the all-level KAT results before declaring algorithm compatibility.
+Avoid treating self-consistency (`verify(sign(m))`) as sufficient evidence.
+
+The reference itself is not fully constant-time (specification 8.5 and the root
+README's CT harness qualifications). Neither pure Kotlin nor replacing large
+integers makes it constant-time. JVM JIT/GC, JS engines and Kotlin/Native require
+separate leakage analysis; source-level masks and overwritten arrays alone do
+not establish timing resistance or erasure. Keep those limitations in public
+documentation, and do not label the finished mathematical port production-ready
+without an explicit threat model and independent review.
