@@ -7,9 +7,45 @@ import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 
-internal data class ReferenceVector(val parameters: ParameterSet, val publicKey: String, val signature: String)
+internal data class ReferenceVector(
+    val parameters: ParameterSet,
+    val publicKey: String,
+    val signature: String,
+)
 
 class WireFormatTest {
+    @Test
+    fun extensionFieldValidationRejectsInvalidSlices() {
+        val parameters = ParameterSet.NIST_I
+        val encoded = ByteArray(parameters.extensionFieldBytes)
+        val invalidOffsets = listOf(-1, encoded.size + 1, Int.MAX_VALUE, 1)
+
+        for (offset in invalidOffsets) {
+            val error =
+                assertFailsWith<IllegalArgumentException> {
+                    WireFormat.checkExtensionField(parameters, encoded, offset)
+                }
+
+            assertEquals("Incorrect extension field length", error.message, "Offset $offset")
+        }
+    }
+
+    @Test
+    fun responseEntryRejectsEitherOutOfBoundsCoordinate() {
+        val parameters = ParameterSet.NIST_I
+        val signature = WireFormat.signature(parameters, ByteArray(parameters.signatureBytes))
+        val invalidCoordinates = listOf(-1 to 0, 2 to 0, 0 to -1, 0 to 2)
+
+        for ((row, column) in invalidCoordinates) {
+            val error =
+                assertFailsWith<IllegalArgumentException> {
+                    signature.responseEntry(row, column)
+                }
+
+            assertEquals("Matrix indices must be 0 or 1", error.message, "($row, $column)")
+        }
+    }
+
     @Test
     fun sizesAndPrimesMatchSpecification() {
         val sizes = listOf(listOf(83, 270, 200), listOf(129, 417, 306), listOf(169, 549, 406))
@@ -17,16 +53,21 @@ class WireFormatTest {
         for ((index, parameters) in ParameterSet.entries.withIndex()) {
             assertEquals(
                 sizes[index],
-                listOf(parameters.publicKeyBytes, parameters.secretKeyBytes, parameters.signatureBytes),
+                listOf(
+                    parameters.publicKeyBytes,
+                    parameters.secretKeyBytes,
+                    parameters.signatureBytes,
+                ),
             )
             val prime = parameters.primeBytes()
             assertEquals(parameters.fieldBytes, prime.size)
             assertEquals(topBytes[index], prime.last().toInt() and 0xff)
-            val hexadecimal = when (parameters) {
-                ParameterSet.NIST_I -> "2" + "f".repeat(81)
-                ParameterSet.NIST_III -> "01a" + "f".repeat(125)
-                ParameterSet.NIST_V -> "10" + "f".repeat(166)
-            }
+            val hexadecimal =
+                when (parameters) {
+                    ParameterSet.NIST_I -> "2" + "f".repeat(81)
+                    ParameterSet.NIST_III -> "01a" + "f".repeat(125)
+                    ParameterSet.NIST_V -> "10" + "f".repeat(166)
+                }
             assertContentEquals(hexadecimal.hexToByteArray().reversedArray(), prime)
             prime.fill(0)
             assertEquals(-1, parameters.primeBytes()[0].toInt())
@@ -43,14 +84,19 @@ class WireFormatTest {
             val sig = WireFormat.signature(parameters, sigBytes)
             assertContentEquals(pkBytes, key.toByteArray())
             assertContentEquals(sigBytes, sig.toByteArray())
-            assertContentEquals(pkBytes.copyOfRange(0, parameters.extensionFieldBytes), key.montgomeryCoefficient())
+            assertContentEquals(
+                pkBytes.copyOfRange(0, parameters.extensionFieldBytes),
+                key.montgomeryCoefficient(),
+            )
             assertContentEquals(
                 sigBytes.copyOfRange(0, parameters.extensionFieldBytes),
                 sig.auxiliaryMontgomeryCoefficient(),
             )
             for (row in 0..1) {
                 for (column in 0..1) {
-                    val start = parameters.extensionFieldBytes + (row * 2 + column) * parameters.responseBytes
+                    val start =
+                        parameters.extensionFieldBytes +
+                            (row * 2 + column) * parameters.responseBytes
                     assertContentEquals(
                         sigBytes.copyOfRange(start, start + parameters.responseBytes),
                         sig.responseEntry(row, column),
@@ -83,11 +129,17 @@ class WireFormatTest {
     @Test
     fun rejectsWrongLengthsAndNonCanonicalFields() {
         for (parameters in ParameterSet.entries) {
-            for (length in listOf(0, parameters.publicKeyBytes - 1, parameters.publicKeyBytes + 1)) {
-                assertFailsWith<IllegalArgumentException> { WireFormat.publicKey(parameters, ByteArray(length)) }
+            for (length in
+                listOf(0, parameters.publicKeyBytes - 1, parameters.publicKeyBytes + 1)) {
+                assertFailsWith<IllegalArgumentException> {
+                    WireFormat.publicKey(parameters, ByteArray(length))
+                }
             }
-            for (length in listOf(0, parameters.signatureBytes - 1, parameters.signatureBytes + 1)) {
-                assertFailsWith<IllegalArgumentException> { WireFormat.signature(parameters, ByteArray(length)) }
+            for (length in
+                listOf(0, parameters.signatureBytes - 1, parameters.signatureBytes + 1)) {
+                assertFailsWith<IllegalArgumentException> {
+                    WireFormat.signature(parameters, ByteArray(length))
+                }
             }
             val prime = parameters.primeBytes()
             val primeMinusOne = prime.copyOf().also { it[0] = (it[0] - 1).toByte() }
@@ -97,7 +149,9 @@ class WireFormatTest {
                 prime.copyInto(key, component * parameters.fieldBytes)
                 prime.copyInto(signature, component * parameters.fieldBytes)
                 assertFailsWith<IllegalArgumentException> { WireFormat.publicKey(parameters, key) }
-                assertFailsWith<IllegalArgumentException> { WireFormat.signature(parameters, signature) }
+                assertFailsWith<IllegalArgumentException> {
+                    WireFormat.signature(parameters, signature)
+                }
                 primeMinusOne.copyInto(key, component * parameters.fieldBytes)
                 primeMinusOne.copyInto(signature, component * parameters.fieldBytes)
                 WireFormat.publicKey(parameters, key)
@@ -118,10 +172,13 @@ class WireFormatTest {
             val remainder = scalarBits % 8
             for (entry in 0..3) {
                 val input = zero.copyOf()
-                val last = parameters.extensionFieldBytes + (entry + 1) * parameters.responseBytes - 1
+                val last =
+                    parameters.extensionFieldBytes + (entry + 1) * parameters.responseBytes - 1
                 if (remainder != 0) {
                     input[last] = (1 shl remainder).toByte()
-                    assertFailsWith<IllegalArgumentException> { WireFormat.signature(parameters, input) }
+                    assertFailsWith<IllegalArgumentException> {
+                        WireFormat.signature(parameters, input)
+                    }
                     input[last] = ((1 shl remainder) - 1).toByte()
                 } else {
                     input[last] = -1

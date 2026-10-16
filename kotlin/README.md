@@ -38,30 +38,63 @@ Stable versions verified on **2026-10-16**, pinned rather than dynamically resol
 | Tool | Version | Source |
 | --- | --- | --- |
 | Kotlin Multiplatform and `kotlin-test` | `2.4.21` | [Kotlin releases](https://kotlinlang.org/docs/releases.html) |
-| Gradle wrapper | `9.8.1` | [Gradle release metadata](https://services.gradle.org/versions/current) |
-| JDK | `27` | [Adoptium available releases](https://api.adoptium.net/v3/info/available_releases) |
+| Gradle wrapper | `9.7.0` | [Kotlin/Gradle compatibility](https://kotlinlang.org/docs/gradle-configure-project.html) |
+| JDK / JVM bytecode | `26` / `26` | [Kotlin JVM targets](https://kotlinlang.org/docs/gradle-compiler-options.html) |
 | Node.js, downloaded by Kotlin's Gradle plugin | `26.12.0` | [Node releases](https://nodejs.org/dist/index.json) |
 
-JetBrains lists Gradle `9.7.0` as the maximum **fully supported** version for
-Kotlin `2.4.21`, while allowing newer Gradle releases with compatibility caveats.
-This build uses the latest stable `9.8.1` as requested; do not interpret a working
-build as an upstream compatibility guarantee. See the
-[official compatibility table](https://kotlinlang.org/docs/gradle-configure-project.html).
-JDK `27` is the build/test toolchain; Kotlin `2.4.21` supports JVM bytecode only
-through `26`, which is selected explicitly instead of relying on its fallback.
+Gradle `9.7.0` is within JetBrains' fully supported range for Kotlin `2.4.21`.
+The build/test JDK and Kotlin JVM bytecode target are both `26`.
 The JS target uses ES2015, supported by the selected compiler, with portable
 Kotlin `Long` arithmetic rather than requiring JavaScript `BigInt`.
 Build-time test-runner dependencies are managed by the Kotlin plugin; the JS
 lockfile pins their resolved tree. There are no separately chosen application
 dependencies.
 
-Install JDK `27` and select it with `JAVA_HOME`. From this directory:
+Install JDK `26` and select it with `JAVA_HOME`. From this directory:
 
 ```sh
 ./gradlew jvmTest jsNodeTest
 ./gradlew macosArm64Test     # Apple Silicon macOS
 ./gradlew linuxX64Test       # x86-64 Linux
 ```
+
+## Quality and compatibility checks
+
+```sh
+./gradlew spotlessApply     # Format owned Kotlin sources and Gradle scripts
+./gradlew check             # Tests, formatting, static analysis, ABI, fixtures, coverage
+./gradlew clean check --no-build-cache --rerun-tasks  # CI-equivalent, on each native host
+```
+
+[Kotlin CI](../.github/workflows/kotlin.yml) runs on pushes and pull requests,
+using x86-64 Linux and Apple Silicon macOS. Each host runs JVM and Node.js tests
+and its own Native tests; an explicit result check rejects a missing Native run.
+It also scans Kotlin history and current files with redacted Gitleaks output.
+
+Spotless `8.10.4` with ktfmt `0.65` in Kotlin conventions style owns formatting.
+Generated `TestVectors.kt` is excluded from formatting and static analysis; its
+owning Python generator is checked byte-for-byte by `checkTestVectors`.
+detekt `2.0.0-alpha.6` runs default rules plus public API documentation checks,
+including JVM type-aware analysis (`detektMainJvm`, `detektTestJvm`), without a
+finding baseline or source suppressions.
+
+The initial public ABI is tracked in [`api/`](api) using Kotlin's experimental
+ABI validator. `checkKotlinAbi` disables unsupported-target inference: all target
+libraries must compile, even when their runtime tests require another host.
+After reviewing an intentional API change and its release impact, regenerate
+with `./gradlew updateKotlinAbi`; do not update dumps merely to silence a failure.
+The API is unchanged by this tooling adoption.
+
+JaCoCo `0.8.15` enforces **100% line and branch coverage** of all JVM-compiled
+`commonMain` code, with no production exclusions. HTML/XML reports are under
+`build/reports/jacoco/jvmCoverageReport/`. This measures JVM execution only;
+JavaScript and Native have runtime tests, not measured coverage.
+
+The detekt prerelease and experimental ABI format were explicitly accepted for
+this build. Replace/review them when compatible stable successors are available.
+These checks do not establish full constitutional compliance: expert crypto
+review, constant-time evidence, and performance budgets/baselines remain absent.
+No production security or performance claim follows from passing CI.
 
 Native tests must run on their corresponding hosts; a skipped foreign-host test
 is not evidence of compatibility. Gradle downloads Kotlin/Native and Node.js when

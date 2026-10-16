@@ -1,0 +1,100 @@
+name: Kotlin checks
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: kotlin-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  checks:
+    name: Kotlin (${{ matrix.target }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-24.04
+            architecture: x86_64
+            target: linuxX64
+          - os: macos-15
+            architecture: arm64
+            target: macosArm64
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: kotlin
+        shell: bash
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - name: Verify native host
+        env:
+          EXPECTED_ARCHITECTURE: ${{ matrix.architecture }}
+        run: test "$(uname -m)" = "$EXPECTED_ARCHITECTURE"
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '26.0.2+101'
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.14.0'
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Run clean checks
+        run: ./gradlew clean check --no-build-cache --rerun-tasks --console=plain
+      - name: Require native runtime results
+        env:
+          NATIVE_TARGET: ${{ matrix.target }}
+        run: |
+          python3 - <<'PY'
+          import os
+          from pathlib import Path
+          import xml.etree.ElementTree as ET
+
+          target = os.environ["NATIVE_TARGET"]
+          reports = list(Path(f"build/test-results/{target}Test").glob("TEST-*.xml"))
+          suites = [ET.parse(report).getroot() for report in reports]
+          executed = sum(int(suite.get("tests", "0")) - int(suite.get("skipped", "0")) for suite in suites)
+          if executed == 0:
+              raise SystemExit(f"No native runtime tests executed for {target}")
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: kotlin-reports-${{ matrix.target }}
+          path: |
+            kotlin/build/reports/
+            kotlin/build/test-results/
+          if-no-files-found: error
+
+  secrets:
+    name: Kotlin secret scan
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Install verified Gitleaks
+        working-directory: ${{ runner.temp }}
+        run: |
+          curl --fail --silent --show-error --location \
+            https://github.com/gitleaks/gitleaks/releases/download/v8.30.1/gitleaks_8.30.1_linux_x64.tar.gz \
+            --output gitleaks.tar.gz
+          echo '551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb  gitleaks.tar.gz' \
+            | sha256sum --check
+          tar -xzf gitleaks.tar.gz gitleaks
+      - name: Scan Kotlin history and current files
+        env:
+          GITLEAKS: ${{ runner.temp }}/gitleaks
+        run: |
+          "$GITLEAKS" git --redact --log-opts="--all -- kotlin"
+          "$GITLEAKS" dir --redact kotlin

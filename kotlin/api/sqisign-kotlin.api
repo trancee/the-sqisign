@@ -1,0 +1,83 @@
+public final class org/sqisign/ChallengeHash {
+	public static final field INSTANCE Lorg/sqisign/ChallengeHash;
+	public final fun compute (Lorg/sqisign/EncodedPublicKey;[B[B)[B
+}
+
+public final class org/sqisign/EncodedPublicKey {
+	public final fun getHint ()I
+	public final fun getParameters ()Lorg/sqisign/ParameterSet;
+	public final fun montgomeryCoefficient ()[B
+	public final fun toByteArray ()[B
+}
+
+public final class org/sqisign/EncodedSignature {
+	public final fun auxiliaryMontgomeryCoefficient ()[B
+	public final fun challenge ()[B
+	public final fun getAuxiliaryHint ()I
+	public final fun getChallengeHint ()I
+	public final fun getParameters ()Lorg/sqisign/ParameterSet;
+	public final fun responseEntry (II)[B
+	public final fun toByteArray ()[B
+}
+
+public final class org/sqisign/ParameterSet : java/lang/Enum {
+	public static final field NIST_I Lorg/sqisign/ParameterSet;
+	public static final field NIST_III Lorg/sqisign/ParameterSet;
+	public static final field NIST_V Lorg/sqisign/ParameterSet;
+	public final fun getChallengeBytes ()I
+	public final fun getCofactor ()I
+	public static fun getEntries ()Lkotlin/enums/EnumEntries;
+	public final fun getExtensionFieldBytes ()I
+	public final fun getFieldBytes ()I
+	public final fun getIdentifier ()Ljava/lang/String;
+	public final fun getPublicKeyBytes ()I
+	public final fun getResponseBits ()I
+	public final fun getResponseBytes ()I
+	public final fun getSecretKeyBytes ()I
+	public final fun getSecurityBits ()I
+	public final fun getSignatureBytes ()I
+	public final fun getTorsionExponent ()I
+	public final fun primeBytes ()[B
+	public static fun valueOf (Ljava/lang/String;)Lorg/sqisign/ParameterSet;
+	public static fun values ()[Lorg/sqisign/ParameterSet;
+}
+
+public final class org/sqisign/PrngDomain : java/lang/Enum {
+	public static final field COMMITMENT Lorg/sqisign/PrngDomain;
+	public static final field DEFAULT Lorg/sqisign/PrngDomain;
+	public static final field KEY_GENERATION Lorg/sqisign/PrngDomain;
+	public static final field RESPONSE Lorg/sqisign/PrngDomain;
+	public static fun getEntries ()Lkotlin/enums/EnumEntries;
+	public static fun valueOf (Ljava/lang/String;)Lorg/sqisign/PrngDomain;
+	public static fun values ()[Lorg/sqisign/PrngDomain;
+}
+
+public final class org/sqisign/Shake256 {
+	public static final field Companion Lorg/sqisign/Shake256$Companion;
+	public fun <init> ()V
+	public final fun absorb ([BII)Lorg/sqisign/Shake256;
+	public static synthetic fun absorb$default (Lorg/sqisign/Shake256;[BIIILjava/lang/Object;)Lorg/sqisign/Shake256;
+	public final fun clear ()V
+	public final fun squeeze (I)[B
+	public final fun squeezeInto ([BII)V
+	public static synthetic fun squeezeInto$default (Lorg/sqisign/Shake256;[BIIILjava/lang/Object;)V
+}
+
+public final class org/sqisign/Shake256$Companion {
+	public final fun digest ([BI)[B
+}
+
+public final class org/sqisign/SqisignPrng {
+	public fun <init> ([BLorg/sqisign/PrngDomain;)V
+	public final fun bytes (I)[B
+	public final fun bytesInto ([BII)V
+	public static synthetic fun bytesInto$default (Lorg/sqisign/SqisignPrng;[BIIILjava/lang/Object;)V
+	public final fun clear ()V
+}
+
+public final class org/sqisign/WireFormat {
+	public static final field INSTANCE Lorg/sqisign/WireFormat;
+	public final fun publicKey (Lorg/sqisign/ParameterSet;[B)Lorg/sqisign/EncodedPublicKey;
+	public final fun signature (Lorg/sqisign/ParameterSet;[B)Lorg/sqisign/EncodedSignature;
+}
+
