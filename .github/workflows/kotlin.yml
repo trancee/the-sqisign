@@ -32,21 +32,21 @@ jobs:
         working-directory: kotlin
         shell: bash
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7.0.1
         with:
           persist-credentials: false
       - name: Verify native host
         env:
           EXPECTED_ARCHITECTURE: ${{ matrix.architecture }}
         run: test "$(uname -m)" = "$EXPECTED_ARCHITECTURE"
-      - uses: actions/setup-java@v5
+      - uses: actions/setup-java@v6.1.0
         with:
           distribution: temurin
           java-version: '26.0.2+101'
-      - uses: actions/setup-python@v6
+      - uses: actions/setup-python@v7.0.0
         with:
           python-version: '3.14.0'
-      - uses: gradle/actions/setup-gradle@v4
+      - uses: gradle/actions/setup-gradle@v6.4.0
       - name: Run clean checks
         run: ./gradlew clean check --no-build-cache --rerun-tasks --console=plain
       - name: Require native runtime results
@@ -65,7 +65,7 @@ jobs:
           if executed == 0:
               raise SystemExit(f"No native runtime tests executed for {target}")
           PY
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7.0.2
         if: always()
         with:
           name: kotlin-reports-${{ matrix.target }}
@@ -79,7 +79,7 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7.0.1
         with:
           fetch-depth: 0
           persist-credentials: false

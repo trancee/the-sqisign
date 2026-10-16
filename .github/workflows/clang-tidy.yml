@@ -42,7 +42,7 @@ jobs:
             config: arm64
 
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7.0.1
         with:
           # An empty ref means the ref that triggered the run, so this covers both the unset and the set case. The
           # `inputs` context, not `github.event.inputs`: the latter is empty when this workflow is called rather than
@@ -66,7 +66,7 @@ jobs:
         # need when a configure fails on a runner you cannot log into, and stderr.log carries the diagnostics
         # clang-tidy writes about the invocation itself rather than about the code.
         if: always()
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v7.0.2
         with:
           name: clang-tidy-${{ matrix.platform }}-${{ matrix.config }}
           path: |

@@ -33,7 +33,7 @@ jobs:
             config: broadwell
 
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7.0.1
         with:
           # An empty ref means the ref that triggered the run, so this covers both the unset and the set case. A SHA
           # here must be the full 40 characters.
@@ -56,7 +56,7 @@ jobs:
         # Always upload: when the run fails, the logs are exactly what is needed to tell a broken runner from a
         # broken tree, and a report from a partly failing suite is still worth reading.
         if: always()
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v7.0.2
         with:
           name: coverage-${{ matrix.platform }}-${{ matrix.config }}
           path: |
