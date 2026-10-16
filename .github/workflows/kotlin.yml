@@ -65,6 +65,60 @@ jobs:
           if executed == 0:
               raise SystemExit(f"No native runtime tests executed for {target}")
           PY
+      - name: Run JVM benchmark smoke
+        if: runner.os == 'Linux'
+        run: |
+          {
+            git rev-parse HEAD
+            uname -a
+            lscpu
+            java -version
+            ./gradlew --version
+          } > build/benchmark-environment.txt 2>&1
+          ./gradlew jvmBenchmarkSmokeBenchmark --console=plain | tee build/benchmark-smoke.log
+      - name: Require complete JVM smoke results
+        if: runner.os == 'Linux'
+        run: |
+          python3 - <<'PY'
+          import itertools
+          import json
+          import math
+          from pathlib import Path
+
+          reports = list(Path("build/reports/benchmarks/smoke").glob("*/jvmBenchmark.json"))
+          if len(reports) != 1:
+              raise SystemExit(f"Expected one fresh JVM smoke report, found {len(reports)}")
+          rows = json.loads(reports[0].read_text())
+          workloads = {
+              "Shake256Benchmark.digest": {"inputBytes": ("0", "136", "4096")},
+              "PrngBenchmark.expand": {"outputBytes": ("64", "4096")},
+              "ChallengeHashBenchmark.compute": {
+                  "messageBytes": ("32", "4096"),
+                  "parameterSet": ("NIST_I", "NIST_III", "NIST_V"),
+              },
+              "WireFormatBenchmark.parsePublicKey": {"parameterSet": ("NIST_I", "NIST_III", "NIST_V")},
+              "WireFormatBenchmark.parseSignature": {"parameterSet": ("NIST_I", "NIST_III", "NIST_V")},
+          }
+          expected = {
+              (f"org.sqisign.benchmarks.{name}", tuple(sorted(zip(parameters, values))))
+              for name, parameters in workloads.items()
+              for values in itertools.product(*parameters.values())
+          }
+          actual = {(row["benchmark"], tuple(sorted(row["params"].items()))) for row in rows}
+          if actual != expected or len(rows) != len(expected):
+              raise SystemExit("JVM smoke benchmark/parameter matrix is incomplete or duplicated")
+          for row in rows:
+              metric = row["primaryMetric"]
+              if (row["mode"], metric["scoreUnit"], row["forks"], row["threads"]) != ("avgt", "ns/op", 1, 1):
+                  raise SystemExit(f"Unexpected smoke measurement configuration: {row['benchmark']}")
+              if (row["warmupIterations"], row["measurementIterations"],
+                  row["warmupTime"], row["measurementTime"]) != (1, 1, "50 ms", "50 ms"):
+                  raise SystemExit(f"Unexpected smoke iteration configuration: {row['benchmark']}")
+              score = metric["score"]
+              if not math.isfinite(score) or score <= 0 or metric["rawData"] != [[score]]:
+                  raise SystemExit(f"Missing or invalid smoke sample: {row['benchmark']}")
+          print(f"Validated {len(rows)} JVM smoke cases; scores are not regression baselines")
+          PY
       - uses: actions/upload-artifact@v7.0.2
         if: always()
         with:
@@ -72,6 +126,8 @@ jobs:
           path: |
             kotlin/build/reports/
             kotlin/build/test-results/
+            kotlin/build/benchmark-environment.txt
+            kotlin/build/benchmark-smoke.log
           if-no-files-found: error
 
   secrets:

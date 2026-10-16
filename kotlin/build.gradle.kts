@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
+import kotlinx.benchmark.gradle.JvmBenchmarkTarget
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 import org.jetbrains.kotlin.gradle.dsl.abi.ExperimentalAbiValidation
 import org.jetbrains.kotlin.gradle.targets.js.nodejs.NodeJsEnvSpec
@@ -9,6 +10,7 @@ plugins {
     kotlin("multiplatform") version "2.4.21"
     id("com.diffplug.spotless") version "8.10.4"
     id("dev.detekt") version "2.0.0-alpha.6"
+    alias(libs.plugins.kotlinx.benchmark)
     jacoco
 }
 
@@ -30,6 +32,14 @@ kotlin {
         compilerOptions {
             jvmTarget.set(JvmTarget.JVM_26)
         }
+        val benchmarkCompilation =
+            compilations.create("benchmark") {
+                associateWith(this@jvm.compilations.getByName("main"))
+                defaultSourceSet.dependencies {
+                    implementation(libs.kotlinx.benchmark.runtime)
+                }
+            }
+        compilations.getByName("test").associateWith(benchmarkCompilation)
     }
     js {
         nodejs()
@@ -43,6 +53,37 @@ kotlin {
     sourceSets {
         commonTest.dependencies {
             implementation(kotlin("test"))
+        }
+    }
+}
+
+benchmark {
+    targets {
+        register("jvmBenchmark") {
+            this as JvmBenchmarkTarget
+            jmhVersion = "1.37"
+        }
+    }
+    configurations {
+        named("main") {
+            mode = "avgt"
+            outputTimeUnit = "ns"
+            warmups = 3
+            iterations = 5
+            iterationTime = 1
+            iterationTimeUnit = "s"
+            advanced("jvmForks", 3)
+            reportFormat = "json"
+        }
+        register("smoke") {
+            mode = "avgt"
+            outputTimeUnit = "ns"
+            warmups = 1
+            iterations = 1
+            iterationTime = 50
+            iterationTimeUnit = "ms"
+            advanced("jvmForks", 1)
+            reportFormat = "json"
         }
     }
 }
@@ -61,7 +102,12 @@ spotless {
 
 detekt {
     toolVersion = "2.0.0-alpha.6"
-    source.setFrom("src/commonMain/kotlin", "src/commonTest/kotlin")
+    source.setFrom(
+        "src/commonMain/kotlin",
+        "src/commonTest/kotlin",
+        "src/jvmBenchmark/kotlin",
+        "src/jvmTest/kotlin",
+    )
     config.setFrom("config/detekt.yml")
     buildUponDefaultConfig = true
     basePath = projectDir
@@ -115,7 +161,13 @@ val checkTestVectors =
     }
 
 tasks.named("check") {
-    dependsOn(coverageVerification, checkTestVectors, "detektMainJvm", "detektTestJvm")
+    dependsOn(
+        coverageVerification,
+        checkTestVectors,
+        "detektMainJvm",
+        "detektBenchmarkJvm",
+        "detektTestJvm",
+    )
 }
 
 plugins.withType<NodeJsPlugin> {

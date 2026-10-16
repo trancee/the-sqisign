@@ -77,6 +77,7 @@ owning Python generator is checked byte-for-byte by `checkTestVectors`.
 detekt `2.0.0-alpha.6` runs default rules plus public API documentation checks,
 including JVM type-aware analysis (`detektMainJvm`, `detektTestJvm`), without a
 finding baseline or source suppressions.
+Owned JVM benchmark sources also undergo type-aware analysis (`detektBenchmarkJvm`).
 
 The initial public ABI is tracked in [`api/`](api) using Kotlin's experimental
 ABI validator. `checkKotlinAbi` disables unsupported-target inference: all target
@@ -119,6 +120,62 @@ python3 tools/generate_test_vectors.py
 SHAKE/transcript fixtures use CPython's `hashlib` implementation as an independent
 oracle. Public wire fixtures come from the parent `KAT/*.rsp` files; secret keys
 and NIST DRBG seed material are not copied into this project.
+
+## JVM benchmarks
+
+The explicitly accepted Alpha [`kotlinx-benchmark 0.5.0`](https://github.com/Kotlin/kotlinx-benchmark/releases/tag/v0.5.0)
+plugin/runtime share one pin in [`gradle/libs.versions.toml`](gradle/libs.versions.toml).
+JMH is pinned to `1.37`. The tools supply JVM benchmark generation, annotations,
+and measurement harnesses unavailable in the standard library. `kotlinx-benchmark`
+is Apache-2.0; [JMH is GPLv2 with the Classpath Exception](https://github.com/openjdk/jmh/blob/1.37/LICENSE).
+The runtime belongs only to the dedicated `jvmBenchmark` compilation (and its
+correctness tests); neither it nor JMH enters the production library artifact.
+JMH brings `jopt-simple 5.0.4` and `commons-math3 3.6.1` into the benchmark
+classpath only; production dependency and artifact size are unchanged. Use only
+synthetic public inputs, and review the transitive tree when upgrading tooling.
+Review/replace the Alpha dependency when a compatible stable release is available.
+There are no JS or Native benchmark targets.
+
+**Question:** how much average JVM time does one existing primitive operation
+take for these deterministic public workloads? The metric is `avgt`, `ns/op`,
+one thread, including operation-owned allocation and best-effort clearing.
+Input preparation and parameter-name resolution occur outside timing.
+
+| Benchmark method | Parameters | Timed boundary |
+| --- | --- | --- |
+| `Shake256Benchmark.digest` | Input bytes `0`, `136`, `4096`; output `64` | Fresh sponge, absorption, output allocation/squeezing, clearing |
+| `PrngBenchmark.expand` | Output bytes `64`, `4096` | Fresh 48-byte seeded key-domain PRNG, expansion, clearing; no accumulated stream state |
+| `ChallengeHashBenchmark.compute` | All parameter sets; message bytes `32`, `4096` | Commitment encoding checks and challenge transcript hashing, including allocation/clearing |
+| `WireFormatBenchmark.parsePublicKey` / `parseSignature` | All parameter sets | Canonical encoding checks and defensive copies, not curve/signature verification |
+
+Fixtures use synthetic public bytes, not secrets or real signatures. Ordinary
+JVM tests verify all workload cases against independent existing SHAKE vectors,
+explicit domain/transcript construction, and expected canonical wire bytes.
+Benchmark methods return outputs so the JMH harness retains their work.
+
+```sh
+./gradlew jvmTest                       # Check workload correctness before timing
+./gradlew jvmBenchmarkSmokeBenchmark    # Discovery/execution only: 17 cases
+./gradlew jvmBenchmarkBenchmarkJar      # Build the JMH harness before measurement
+./gradlew jvmBenchmarkBenchmark         # Opt-in full profile on a controlled host
+```
+
+The `smoke` profile uses one fork, one 50 ms warmup, and one 50 ms measurement
+per case. Linux CI requires the complete 17-case parameter matrix, the expected
+mode/unit/profile, and finite positive samples. It uploads JSON reports,
+execution logs, and commit/host/JDK/Gradle metadata with the other Kotlin reports.
+The `main` measurement profile uses three forks, three 1 s warmups, and five 1 s
+measurements per case. Reports are timestamped under
+`build/reports/benchmarks/{smoke,main}/`; generated harnesses stay in `build/`.
+
+**Smoke scores are not performance evidence or regression baselines.** No
+baseline/candidate comparison, practical effect-size threshold, numeric budget,
+or speed claim is established here. Full comparisons require the same controlled
+host/toolchain, stable power/thermal/load conditions, interleaved baseline and
+candidate runs, uncertainty analysis, and retained raw reports/environment
+metadata outside transient build output. Shared CI never gates score changes.
+JMH `1.37` currently emits deprecated `sun.misc.Unsafe` warnings on JDK `26`;
+these do not prevent execution, but future JDK upgrades require revalidation.
 
 ## Security boundary
 
