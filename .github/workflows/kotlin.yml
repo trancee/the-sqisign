@@ -132,6 +132,9 @@ jobs:
               "operandShape": ("ZERO_EQUAL", "ZERO_MAX", "MAX_ZERO", "MAX_EQUAL",
                                "SHARED_FACTOR", "COPRIME", "FIBONACCI"),
           }
+          workloads["UInt328ModInverseBenchmark.modInverse"] = {
+              "operandShape": ("ONE", "MAX_MINUS_ONE", "EVEN_MODULUS", "COMPOSITE", "FULL_WIDTH"),
+          }
           expected = {
               (f"ch.trancee.sqisign.benchmarks.{name}", tuple(sorted(zip(parameters, values))))
               for name, parameters in workloads.items()

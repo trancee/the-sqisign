@@ -117,6 +117,28 @@ def gcd_record(left, right):
     return ":".join((encode(left), encode(right), encode(math.gcd(left, right))))
 
 
+def inverse_cases():
+    """GCD operands plus invertible/non-invertible pairs for full-width even moduli."""
+    cases = gcd_cases()
+    maximum = (1 << 328) - 1
+    cases.extend(((0, 1), (maximum, 1), (maximum - 1, maximum), (maximum, 1 << 327)))
+    for bit in range(1, 328, 5):
+        modulus = 1 << bit
+        cases.extend(((modulus - 1, modulus), (modulus, modulus)))
+    return cases
+
+
+def inverse_record(value, modulus):
+    encode = lambda integer: integer.to_bytes(41, "little").hex()
+    if modulus < 2:
+        outcome = "invalid_modulus"
+    elif math.gcd(value, modulus) != 1:
+        outcome = "not_coprime"
+    else:
+        outcome = encode(pow(value, -1, modulus))
+    return ":".join((encode(value), encode(modulus), outcome))
+
+
 def generate():
     lines = [
         "// SPDX-License-Identifier: Apache-2.0",
@@ -186,6 +208,14 @@ def generate():
     ]
     for left, right in gcd_cases():
         lines.append(f"    {literal(gcd_record(left, right))},")
+    lines += [
+        ")", "",
+        "// UInt328 inverse: Python pow(value, -1, modulus), checked against pinned C ibz_invmod.",
+        "// Record: value:modulus:inverse; little-endian hex or invalid_modulus/not_coprime.",
+        "internal val inverseVectors: List<String> = listOf(",
+    ]
+    for value, modulus in inverse_cases():
+        lines.append(f"    {literal(inverse_record(value, modulus))},")
     lines += [")", ""]
     return "\n".join(lines)
 

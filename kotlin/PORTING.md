@@ -398,6 +398,50 @@ share the existing checksum-pinned verification gate. CI requires 67 JVM smoke
 cases, without a score gate. This is not expert review, a controlled performance
 baseline, numeric budget, signed GCD, extended GCD or modular inversion.
 
+## Arithmetic decision 2026-10-17: unsigned modular inversion
+
+**Context.** Milestone 1 needs a canonical modular inverse without first exposing
+signed integers or unbounded Bézout coefficients. Exact narrow division and
+wide product reduction already have independently checked bounds.
+
+**Decision.** Internal `UInt328.modInverse(modulus)` requires `modulus >= 2`
+and coprime operands, returning the unique inverse in `[0, modulus)`.
+Distinct stable `IllegalArgumentException` reasons reject invalid moduli before
+division and non-coprime inputs after Euclidean termination. Both inputs remain
+unchanged; an input above the modulus is reduced, not rejected.
+
+Euclid starts with remainders `(modulus, value % modulus)` and residue coefficients
+`(0, 1)`. Each quotient updates the coefficient to
+`(previousCoefficient - quotient * coefficient) mod modulus`.
+The invariant is `coefficient * value == remainder (mod modulus)`.
+All coefficients remain below the modulus; quotient and coefficient are below
+`2^328`, so their exact product fits `UInt656` without truncation. Wide division
+reduces it before subtraction. Ordered subtraction either directly yields a
+nonnegative difference or subtracts the positive difference from the modulus;
+these bounds prove every discarded subtraction borrow is zero. Remainders
+strictly decrease until zero. A terminal GCD of one establishes the inverse.
+
+**Alternatives.** Signed extended Euclid requires a new coefficient type and
+bounds not otherwise used by this slice. Binary inversion can exploit odd
+moduli, but would change the approved contract for even moduli and add shifts.
+Lehmer or field-specific inversion remains separate measurement-driven work.
+
+**Evidence and risks.** Common tests use 577 independent Python `pow` records
+cross-checked by pinned C `ibz_invmod`, including invalid moduli and nonunits.
+The C adapter uses nonnegative 329-bit inputs and classifies moduli below two
+before invoking C; a zero return marks non-coprime input rather than trusting
+its output. Successful records require exact canonical results, inverse identity
+and unchanged operands. Exhaustive small brute-force tests and full-width odd/
+even boundaries supplement those records. Five JVM benchmark workloads compare
+against independent `BigInteger.modInverse` before any timing.
+
+**Migration and limits.** No public ABI, dependency, toolchain, wire schema or
+release-version change. Separate inverse vectors and the `--inverse` adapter
+mode preserve all existing fixture formats. CI requires 72 JVM smoke cases,
+without score gates. Inversion is variable-time and allocation-heavy; this is
+not field inversion, extended GCD, expert crypto review, leakage proof, a
+controlled performance baseline, or a numeric resource budget.
+
 ## Public API and randomness policy for the complete port
 
 Do not publish `sign`/`verify` methods that throw "not implemented", return fixed

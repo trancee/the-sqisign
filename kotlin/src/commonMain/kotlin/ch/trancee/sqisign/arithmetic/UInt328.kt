@@ -102,6 +102,37 @@ internal class UInt328 private constructor(private val limbs: IntArray) {
         return left
     }
 
+    /**
+     * Returns the canonical inverse below modulus; rejects modulus < 2 and non-coprime inputs.
+     *
+     * Variable-time: not suitable for a constant-time or secret-input guarantee.
+     */
+    internal fun modInverse(modulus: UInt328): UInt328 {
+        val one = UInt328(IntArray(LIMB_COUNT).also { it[0] = 1 })
+        require(modulus > one) { "Unsigned modular inverse requires a modulus of at least two" }
+        var previousRemainder = modulus
+        var remainder = divideAndRemainder(modulus).remainder
+        var previousCoefficient = UInt328(IntArray(LIMB_COUNT))
+        var coefficient = one
+        while (remainder.limbs.any { it != 0 }) {
+            val division = previousRemainder.divideAndRemainder(remainder)
+            val product =
+                division.quotient.multiply(coefficient).divideAndRemainder(modulus).remainder
+            // Both residues are below modulus; subtract without relying on wrapped arithmetic.
+            val nextCoefficient =
+                if (previousCoefficient >= product) previousCoefficient.subtract(product).value
+                else modulus.subtract(product.subtract(previousCoefficient).value).value
+            previousRemainder = remainder
+            remainder = division.remainder
+            previousCoefficient = coefficient
+            coefficient = nextCoefficient
+        }
+        require(previousRemainder.compareTo(one) == 0) {
+            "Unsigned modular inverse requires coprime operands"
+        }
+        return previousCoefficient
+    }
+
     private fun subtractLimbs(left: IntArray, right: IntArray, output: IntArray): Int {
         var borrow = 0
         for (index in 0 until LAST_LIMB) {

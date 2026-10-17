@@ -11,6 +11,7 @@ import tempfile
 from generate_test_vectors import (
     ROOT, unsigned_cases, unsigned_record, wide_division_cases, wide_division_record,
     gcd_cases, gcd_record,
+    inverse_cases, inverse_record,
 )
 
 
@@ -47,6 +48,7 @@ def main():
     cases = unsigned_cases()
     wide_cases = wide_division_cases()
     common_divisor_cases = gcd_cases()
+    modular_inverse_cases = inverse_cases()
     inputs = "\n".join(f"{left.to_bytes(41, 'little').hex()} {right.to_bytes(41, 'little').hex()}"
                        for left, right in cases) + "\n"
     with tempfile.TemporaryDirectory(prefix="sqisign-unsigned-") as directory:
@@ -71,6 +73,11 @@ def main():
             for left, right in common_divisor_cases) + "\n"
         gcd_result = subprocess.run([str(binary), "--gcd"], input=gcd_inputs,
                                     capture_output=True, text=True, check=True)
+        inverse_inputs = "\n".join(
+            f"{value.to_bytes(41, 'little').hex()} {modulus.to_bytes(41, 'little').hex()}"
+            for value, modulus in modular_inverse_cases) + "\n"
+        inverse_result = subprocess.run([str(binary), "--inverse"], input=inverse_inputs,
+                                        capture_output=True, text=True, check=True)
     actual = result.stdout.splitlines()
     expected = [unsigned_record(left, right) for left, right in cases]
     if actual != expected:
@@ -81,8 +88,11 @@ def main():
     gcd_expected = [gcd_record(left, right) for left, right in common_divisor_cases]
     if gcd_result.stdout.splitlines() != gcd_expected:
         raise SystemExit("C/Python GCD differential mismatch")
-    print(f"Verified {len(cases)} UInt328, {len(wide_cases)} wide division and "
-          f"{len(common_divisor_cases)} GCD public cases "
+    inverse_expected = [inverse_record(value, modulus) for value, modulus in modular_inverse_cases]
+    if inverse_result.stdout.splitlines() != inverse_expected:
+        raise SystemExit("C/Python modular inverse differential mismatch")
+    print(f"Verified {len(cases)} UInt328, {len(wide_cases)} wide division, "
+          f"{len(common_divisor_cases)} GCD and {len(modular_inverse_cases)} modular inverse public cases "
           f"against C {REFERENCE_COMMIT} and Python integers")
 
 

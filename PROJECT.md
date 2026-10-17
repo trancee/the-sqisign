@@ -67,7 +67,7 @@ Benchmark-only tooling: explicitly accepted Alpha `kotlinx-benchmark` plugin/run
 | Module / target | Host / prerequisites | Task from `kotlin/` | Proof / limitations |
 | --- | --- | --- | --- |
 | `:` / JVM | JDK `26` | `jvmTest jvmCoverageVerification` | Runtime; JaCoCo line/branch coverage of JVM-compiled `commonMain`, both thresholds `100%`, no production exclusions |
-| `:` / JVM benchmark | JDK `26`; controlled host for measurements | `jvmBenchmarkSmokeBenchmark`; opt-in `jvmBenchmarkBenchmark` | Linux CI validates 67 primitive/parameter cases and JSON samples; no score gate or baseline; no JS/Native benchmark proof |
+| `:` / JVM benchmark | JDK `26`; controlled host for measurements | `jvmBenchmarkSmokeBenchmark`; opt-in `jvmBenchmarkBenchmark` | Linux CI validates 72 primitive/parameter cases and JSON samples; no score gate or baseline; no JS/Native benchmark proof |
 | `:` / JS | JDK `26`; plugin downloads Node | `jsNodeTest` | Node runtime; no browser or coverage proof |
 | `:` / Linux x64 | x86-64 Linux; downloaded Kotlin/Native toolchain | `linuxX64Test` | Native runtime; no measured coverage |
 | `:` / macOS ARM64 | Apple Silicon macOS with Xcode tools | `macosArm64Test` | Native runtime; Linux cannot supply this proof; no measured coverage |
@@ -99,6 +99,11 @@ nonzero divisors are cross-checked against C and eight are explicitly invalid.
 `gcd(0, x) = x` and `gcd(0, 0) = 0`; operands remain immutable and execution is
 variable-time. A separate 441-record fixture list uses Python `math.gcd` and the
 pinned C `ibz_gcd`, including shared factors and consecutive Fibonacci pairs.
+`UInt328.modInverse` returns a canonical inverse for moduli of at least two,
+rejecting smaller moduli and non-coprime inputs with explicit reasons.
+Reduced Euclidean coefficients and exact wide products avoid signed arithmetic;
+577 independent Python `pow`/pinned C `ibz_invmod` records cover success and failure.
+Inversion is variable-time and does not establish a field or secret-input contract.
 
 Formatting: Spotless `8.10.4` / ktfmt `0.65`; apply via `./gradlew spotlessApply`. Static analysis: accepted detekt `2.0.0-alpha.6`, including type-aware JVM tasks, no finding baseline. ABI: explicitly accepted Kotlin experimental validator; regenerate reviewed changes with `./gradlew updateKotlinAbi`. Reassess both experimental tools on compatible stable releases.
 
