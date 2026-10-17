@@ -442,6 +442,61 @@ without score gates. Inversion is variable-time and allocation-heavy; this is
 not field inversion, extended GCD, expert crypto review, leakage proof, a
 controlled performance baseline, or a numeric resource budget.
 
+## Arithmetic decision 2026-10-17: checked bounded signed integers
+
+**Context.** Milestone 1 still needs signed integer semantics for later
+quaternion/lattice work. This first bounded slice establishes sign, codec,
+comparison and exact addition/subtraction without guessing larger algorithmic
+bounds or exposing a public signature API.
+
+**Decision.** Internal immutable `Int328` represents `[-2^327, 2^327 - 1]`
+with an exact 41-byte two's-complement little-endian codec. All bit patterns
+are valid and zero is unique; import/export preserve defensive ownership.
+This is an internal integer encoding, not an SQIsign wire format.
+Private storage reuses `UInt328` bits plus their derived sign. Comparison orders
+different signs directly and same-sign operands by unsigned bit order.
+
+Addition/subtraction reuse the unsigned low result bits, intentionally ignoring
+the unsigned carry/borrow only within this explicit two's-complement contract.
+For addition, signed overflow occurs exactly when equal-sign inputs produce
+the opposite sign. For subtraction, it occurs exactly when opposite-sign inputs
+produce a sign different from the left input. These checks distinguish signed
+overflow from unsigned carry/borrow and throw operation-specific
+`ArithmeticException` reasons without exposing a wrapped result. Direct
+subtraction does not negate the minimum signed value, so `minimum - minimum`
+correctly returns zero. All limb bounds remain those of the existing unsigned
+kernel; no new multiply accumulator or signed machine overflow is introduced.
+
+**Alternatives.** Sign/magnitude with a separate sign and full 328-bit magnitude
+would produce a different symmetric range and require a distinct codec/zero
+canonicalization policy. A generic arbitrary-width signed framework is not
+justified before callers establish bounds. The approved fixed-width,
+two's-complement contract instead preserves conventional signed semantics and
+explicitly rejects mathematical results outside its range.
+
+**Evidence and risks.** The generator owns 314 records independently computed
+with Python signed integers: boundary pairs, radix transitions and SHAKE-derived
+full-width operands. Pinned C `ibz_cmp`, `ibz_add` and `ibz_sub` check the results
+in a separate `--signed` adapter mode. Imports sign-extend the 328-bit input into
+six 64-bit words with a 329-bit signed bound; sums/differences fit 329 signed
+bits, and the C operations retain a wider declared bound. Overflow detection
+requires bits 327 through 383 to agree before serializing 41 result bytes;
+otherwise an explicit marker is emitted. The check is independent of Kotlin's
+input/result sign conditions. Common tests cover all sign pairs, both overflow
+directions and unchanged inputs, exhaustive small exact arithmetic, codec bits,
+sign bytes, invalid widths and defensive ownership. Thirty JVM codec/comparison/
+arithmetic workloads across six valid shapes use independent `BigInteger`
+expectations before timing.
+
+**Migration and limits.** No public ABI, dependency, toolchain, wire schema or
+release-version change. Existing vectors and unsigned operations are unchanged;
+a separate signed list/mode extends the same pinned external oracle gate.
+CI requires all 102 JVM smoke cases without score thresholds. Execution remains
+variable-time, with no expert cryptographic review, leakage proof, numeric
+budget or controlled performance baseline. This fixed bound does not establish
+all later quaternion/lattice intermediate bounds; larger signed types,
+multiplication, division, conversions and signed extended GCD remain separate.
+
 ## Public API and randomness policy for the complete port
 
 Do not publish `sign`/`verify` methods that throw "not implemented", return fixed

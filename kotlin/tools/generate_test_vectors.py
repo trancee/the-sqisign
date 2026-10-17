@@ -139,6 +139,32 @@ def inverse_record(value, modulus):
     return ":".join((encode(value), encode(modulus), outcome))
 
 
+def signed_cases():
+    """Signed boundaries, radix transitions and deterministic full-width public operands."""
+    minimum = -(1 << 327)
+    maximum = (1 << 327) - 1
+    boundaries = (minimum, minimum + 1, -2, -1, 0, 1, 2, maximum - 1, maximum)
+    cases = [(left, right) for left in boundaries for right in boundaries]
+    for bit in range(15, 327, 15):
+        power = 1 << bit
+        cases.extend(((power - 1, 1), (-power, -1), (power, -power),
+                      (minimum, power), (maximum, -power)))
+    for index in range(128):
+        block = hashlib.shake_256(f"SQIsign Int328 public vector {index}".encode()).digest(82)
+        cases.append((int.from_bytes(block[:41], "little", signed=True),
+                      int.from_bytes(block[41:], "little", signed=True)))
+    return cases
+
+
+def signed_record(left, right):
+    minimum = -(1 << 327)
+    maximum = (1 << 327) - 1
+    encode = lambda value: value.to_bytes(41, "little", signed=True).hex()
+    checked = lambda value: encode(value) if minimum <= value <= maximum else "overflow"
+    return ":".join((encode(left), encode(right), str((left > right) - (left < right)),
+                     checked(left + right), checked(left - right)))
+
+
 def generate():
     lines = [
         "// SPDX-License-Identifier: Apache-2.0",
@@ -216,6 +242,14 @@ def generate():
     ]
     for value, modulus in inverse_cases():
         lines.append(f"    {literal(inverse_record(value, modulus))},")
+    lines += [
+        ")", "",
+        "// Int328: Python signed integer oracle, cross-checked against pinned C ibz operations.",
+        "// Record: left:right:comparison:sum:difference; two's-complement LE hex or overflow.",
+        "internal val signedVectors: List<String> = listOf(",
+    ]
+    for left, right in signed_cases():
+        lines.append(f"    {literal(signed_record(left, right))},")
     lines += [")", ""]
     return "\n".join(lines)
 

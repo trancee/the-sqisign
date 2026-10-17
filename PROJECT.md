@@ -67,7 +67,7 @@ Benchmark-only tooling: explicitly accepted Alpha `kotlinx-benchmark` plugin/run
 | Module / target | Host / prerequisites | Task from `kotlin/` | Proof / limitations |
 | --- | --- | --- | --- |
 | `:` / JVM | JDK `26` | `jvmTest jvmCoverageVerification` | Runtime; JaCoCo line/branch coverage of JVM-compiled `commonMain`, both thresholds `100%`, no production exclusions |
-| `:` / JVM benchmark | JDK `26`; controlled host for measurements | `jvmBenchmarkSmokeBenchmark`; opt-in `jvmBenchmarkBenchmark` | Linux CI validates 72 primitive/parameter cases and JSON samples; no score gate or baseline; no JS/Native benchmark proof |
+| `:` / JVM benchmark | JDK `26`; controlled host for measurements | `jvmBenchmarkSmokeBenchmark`; opt-in `jvmBenchmarkBenchmark` | Linux CI validates 102 primitive/parameter cases and JSON samples; no score gate or baseline; no JS/Native benchmark proof |
 | `:` / JS | JDK `26`; plugin downloads Node | `jsNodeTest` | Node runtime; no browser or coverage proof |
 | `:` / Linux x64 | x86-64 Linux; downloaded Kotlin/Native toolchain | `linuxX64Test` | Native runtime; no measured coverage |
 | `:` / macOS ARM64 | Apple Silicon macOS with Xcode tools | `macosArm64Test` | Native runtime; Linux cannot supply this proof; no measured coverage |
@@ -83,7 +83,7 @@ Multiplication retains all 656 bits in an immutable `UInt656` with an owned
 zero divisor; restoring binary division is variable-time, not field reduction.
 `UInt656.divideAndRemainder(UInt328)` retains a full `UInt656` quotient and a
 `UInt328` remainder, including the 329-bit trial remainder before subtraction.
-No field reduction, signed arithmetic, or public API is added. The decision,
+No field reduction or public API is added. The decision,
 bounds, oracle provenance, and remaining milestone scope are in `kotlin/PORTING.md`.
 `checkUnsignedReference` is part of `check`; it requires a host GCC/Clang `cc`
 compiler solely for the external C test adapter. SHA-256 pins cover the C source
@@ -104,6 +104,14 @@ rejecting smaller moduli and non-coprime inputs with explicit reasons.
 Reduced Euclidean coefficients and exact wide products avoid signed arithmetic;
 577 independent Python `pow`/pinned C `ibz_invmod` records cover success and failure.
 Inversion is variable-time and does not establish a field or secret-input contract.
+Internal `Int328` adds checked signed arithmetic in `[-2^327, 2^327 - 1]`,
+with exact 41-byte two's-complement little-endian codecs and signed comparison.
+Addition/subtraction return exact results or throw `ArithmeticException` on
+overflow; no wrapped result is returned. Storage reuses immutable `UInt328`
+bits, not a signed reinterpretation of field values. Another 314 Python/C
+records independently check ordering, sum/difference and overflow markers.
+Six valid operand shapes retain signed codecs/comparison/addition/subtraction
+benchmarks. Signed multiplication, division and wider bounds remain separate.
 
 Formatting: Spotless `8.10.4` / ktfmt `0.65`; apply via `./gradlew spotlessApply`. Static analysis: accepted detekt `2.0.0-alpha.6`, including type-aware JVM tasks, no finding baseline. ABI: explicitly accepted Kotlin experimental validator; regenerate reviewed changes with `./gradlew updateKotlinAbi`. Reassess both experimental tools on compatible stable releases.
 

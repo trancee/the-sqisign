@@ -38,8 +38,18 @@ reasons. It is variable-time, including its coefficient products and reductions.
 Instances own their storage and operations preserve both operands.
 The range is `[0, 2^328)`, **not** the field range `[0, p)`: importing `p` or larger
 does not reduce or validate a field element. This internal slice is not yet used
-by the public wire parser and does not supply signed integers, field reduction,
-or the larger parameter-set widths.
+by the public wire parser and does not supply field reduction or the larger
+parameter-set widths.
+
+The separate internal `Int328` represents `[-2^327, 2^327 - 1]`, using the same
+owned unsigned bit storage with exact 41-byte **two's-complement** little-endian
+codecs. All 41-byte patterns are valid, with a single zero representation.
+Signed comparison returns `-1`, `0` or `1`. Addition/subtraction either return
+the exact signed result or throw `ArithmeticException` with a stable operation-
+specific overflow reason; neither silently wraps or mutates its operands.
+Operations are variable-time. This is an internal integer codec, not an SQIsign
+wire format or a field interpretation. Signed multiplication/division,
+larger signed bounds, extended GCD and conversions remain separate work.
 
 The wire types expose byte encodings, not mathematical field/curve objects.
 They do not check curve validity, supersingularity, basis-hint validity, matrix
@@ -204,6 +214,17 @@ The implementation keeps Euclidean coefficients reduced modulo the modulus,
 using exact wide products before reduction; no signed coefficients are exposed.
 This does not add extended GCD or field inversion.
 
+Another 314 signed records use Python signed integers and the pinned C
+`ibz_cmp`, `ibz_add`, and `ibz_sub` in `--signed` mode. They cover the signed
+minimum/maximum, all sign combinations, radix transitions and deterministic
+full-width inputs. C imports sign-extend bit 327 into its wider storage and
+preserve the exact wider result before detecting 328-bit signed overflow.
+Each record contains comparison and exact sum/difference encodings or explicit
+`overflow` markers. Common tests additionally exercise exhaustive small sums/
+differences, both overflow directions, minimum-value subtraction, every codec
+bit/sign byte, invalid widths and defensive ownership. No signed C code is
+shipped in the Kotlin library.
+
 ## JVM benchmarks
 
 The explicitly accepted Alpha [`kotlinx-benchmark 0.5.0`](https://github.com/Kotlin/kotlinx-benchmark/releases/tag/v0.5.0)
@@ -238,6 +259,7 @@ Input preparation and parameter-name resolution occur outside timing.
 | `UInt656DivisionBenchmark.divideAndRemainder` | Seven nonzero-divisor shapes below | Full wide quotient and narrow remainder, divisor export, validation, scratch/result allocation; no setup or field reduction |
 | `UInt328GcdBenchmark.gcd` | Seven GCD shapes below | Complete Euclidean remainder loop and its allocations; no fixture preparation or output encoding |
 | `UInt328ModInverseBenchmark.modInverse` | Five invertible shapes below | Complete residue-coefficient Euclidean loop, exact wide products/reductions and allocations; no fixture preparation or output encoding |
+| `Int328Benchmark.decode`, `encode`, `compare`, `add`, `subtract` | Six valid signed shapes below | Owned codec results or complete signed operation, including wrapper/sign construction and overflow checks; no fixture preparation |
 
 The unsigned shapes are `ZERO_EQUAL` (`0`, `0`), `MAX_EQUAL` (`2^328 - 1`,
 `2^328 - 1`), `CARRY_CHAIN` (`2^328 - 1`, `1`), `BORROW_CHAIN` (`0`, `1`),
@@ -277,6 +299,14 @@ outside timing; ordinary JVM tests compare results with `BigInteger.modInverse`.
 The benchmark retains the full canonical result, including all coefficient
 products, reductions and immutable result allocations in the timed boundary.
 
+Signed workloads use `ZERO_EQUAL` (`0`, `0`), `MIN_BY_ZERO` (`-2^327`, `0`),
+`MAX_BY_ZERO` (`2^327 - 1`, `0`), `NEGATIVE_EQUAL` (`-2^326`, `-2^326`),
+`MIXED_SIGN` (`2^325`, `-2^325`), and `CARRY_CHAIN` (`2^315 - 1`, `1`).
+All sums and differences fit the signed range; timed paths do not measure
+exception handling. Construction/decoding is outside timing except in the
+dedicated decode method. Ordinary JVM tests compare every operation to signed
+`BigInteger` arithmetic and exact two's-complement encodings.
+
 Fixtures use synthetic public bytes, not secrets or real signatures. Ordinary
 JVM tests verify all workload cases against independent existing SHAKE vectors,
 explicit domain/transcript construction, and expected canonical wire bytes.
@@ -288,13 +318,13 @@ The public library API is unchanged; internal wide results are not exposed by it
 
 ```sh
 ./gradlew jvmTest                       # Check workload correctness before timing
-./gradlew jvmBenchmarkSmokeBenchmark    # Discovery/execution only: 72 cases
+./gradlew jvmBenchmarkSmokeBenchmark    # Discovery/execution only: 102 cases
 ./gradlew jvmBenchmarkBenchmarkJar      # Build the JMH harness before measurement
 ./gradlew jvmBenchmarkBenchmark         # Opt-in full profile on a controlled host
 ```
 
 The `smoke` profile uses one fork, one 50 ms warmup, and one 50 ms measurement
-per case. Linux CI requires the complete 72-case parameter matrix, the expected
+per case. Linux CI requires the complete 102-case parameter matrix, the expected
 mode/unit/profile, and finite positive samples. It uploads JSON reports,
 execution logs, and commit/host/JDK/Gradle metadata with the other Kotlin reports.
 The `main` measurement profile uses three forks, three 1 s warmups, and five 1 s

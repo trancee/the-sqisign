@@ -36,14 +36,35 @@ encode(const digit_t *words, int bytes)
         printf("%02x", (unsigned)((words[index / 8] >> (8 * (index % 8))) & 0xff));
 }
 
+static void
+import_signed(ibz_t *value, const digit_t *words)
+{
+    value->bitlen = 8 * ENCODED_BYTES + 1;
+    memcpy(value->limbs, words, WORD_COUNT * sizeof(digit_t));
+    if ((words[WORD_COUNT - 1] & 0x80) != 0)
+        value->limbs[WORD_COUNT - 1] |= ~(digit_t)0xff;
+}
+
+static void
+encode_signed_result(const ibz_t *value)
+{
+    // Every result fits 329 signed bits; bits 327..383 must agree to fit 328.
+    digit_t high = value->limbs[WORD_COUNT - 1] >> 7;
+    if (high != 0 && high != (~(digit_t)0 >> 7))
+        printf("overflow");
+    else
+        encode(value->limbs, ENCODED_BYTES);
+}
+
 int
 main(int argc, char **argv)
 {
     int wide_division = argc == 2 && strcmp(argv[1], "--wide-division") == 0;
     int gcd_mode = argc == 2 && strcmp(argv[1], "--gcd") == 0;
     int inverse_mode = argc == 2 && strcmp(argv[1], "--inverse") == 0;
-    if (argc != 1 && !wide_division && !gcd_mode && !inverse_mode) {
-        fprintf(stderr, "Expected no arguments, --wide-division, --gcd or --inverse\n");
+    int signed_mode = argc == 2 && strcmp(argv[1], "--signed") == 0;
+    if (argc != 1 && !wide_division && !gcd_mode && !inverse_mode && !signed_mode) {
+        fprintf(stderr, "Expected no arguments, --wide-division, --gcd, --inverse or --signed\n");
         return 1;
     }
     int left_bytes = wide_division ? 2 * ENCODED_BYTES : ENCODED_BYTES;
@@ -60,6 +81,19 @@ main(int argc, char **argv)
         encode(left, left_bytes);
         putchar(':');
         encode(right, ENCODED_BYTES);
+        if (signed_mode) {
+            ibz_t a = { 0 }, b = { 0 }, result = { 0 };
+            import_signed(&a, left);
+            import_signed(&b, right);
+            printf(":%d:", ibz_cmp(&a, &b));
+            ibz_add(&result, &a, &b);
+            encode_signed_result(&result);
+            putchar(':');
+            ibz_sub(&result, &a, &b);
+            encode_signed_result(&result);
+            putchar('\n');
+            continue;
+        }
         if (gcd_mode || inverse_mode) {
             // A 329-bit signed bound leaves the sign bit clear for every 328-bit input.
             ibz_t a = { .bitlen = 8 * ENCODED_BYTES + 1 };
