@@ -224,6 +224,28 @@ def signed_wide_division_record(dividend, divisor):
     return ":".join((encode_wide(dividend), encode_narrow(divisor), quotient, remainder))
 
 
+def signed_wide_cases():
+    """Signed 656-bit boundary pairs and deterministic full-width public operands."""
+    minimum = -(1 << 655)
+    maximum = (1 << 655) - 1
+    boundaries = (minimum, minimum + 1, -2, -1, 0, 1, 2, maximum - 1, maximum)
+    cases = [(left, right) for left in boundaries for right in boundaries]
+    for index in range(128):
+        block = hashlib.shake_256(f"SQIsign Int656 arithmetic public vector {index}".encode()).digest(164)
+        cases.append((int.from_bytes(block[:82], "little", signed=True),
+                      int.from_bytes(block[82:], "little", signed=True)))
+    return cases
+
+
+def signed_wide_record(left, right):
+    minimum = -(1 << 655)
+    maximum = (1 << 655) - 1
+    encode = lambda value: value.to_bytes(82, "little", signed=True).hex()
+    checked = lambda value: encode(value) if minimum <= value <= maximum else "overflow"
+    return ":".join((encode(left), encode(right), str((left > right) - (left < right)),
+                     checked(left + right), checked(left - right)))
+
+
 def generate():
     lines = [
         "// SPDX-License-Identifier: Apache-2.0",
@@ -325,6 +347,14 @@ def generate():
     ]
     for dividend, divisor in signed_wide_division_cases():
         lines.append(f"    {literal(signed_wide_division_record(dividend, divisor))},")
+    lines += [
+        ")", "",
+        "// Int656: Python signed integer oracle, cross-checked against pinned C ibz operations.",
+        "// Record: left:right:comparison:sum:difference; signed LE hex or overflow.",
+        "internal val signedWideVectors: List<String> = listOf(",
+    ]
+    for left, right in signed_wide_cases():
+        lines.append(f"    {literal(signed_wide_record(left, right))},")
     lines += [")", ""]
     return "\n".join(lines)
 

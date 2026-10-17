@@ -52,16 +52,19 @@ wire format or a field interpretation.
 `Int328.multiply(Int328)` returns an immutable `Int656`, retaining the exact
 signed product in an owned 82-byte two's-complement little-endian encoding.
 It handles `minimum * minimum` and `minimum * -1` without narrowing, overflow
-or a special invalid minimum case. `Int656` codecs accept every exact-width
-pattern in `[-2^655, 2^655 - 1]`; this slice adds no other wide signed operations.
+or a special invalid minimum case. `Int656` accepts every exact-width pattern
+in `[-2^655, 2^655 - 1]` and provides signed comparison plus checked
+addition/subtraction that throw `ArithmeticException` on overflow.
 `Int328.divideAndRemainder` returns a quotient truncated toward zero and a
 remainder satisfying `dividend = quotient * divisor + remainder`. A nonzero
 remainder has the dividend's sign and magnitude strictly below the divisor's.
 Zero divisors throw `IllegalArgumentException`; `minimum / -1` throws
 `ArithmeticException` instead of returning a wrapped quotient. Inputs remain
 immutable, and both results have canonical two's-complement encodings.
-Division is variable-time. Wide signed division, larger operand bounds,
-extended GCD and conversions remain separate work.
+Division is variable-time. `Int656.divideAndRemainder(Int328)` returns a full
+signed wide quotient and signed narrow remainder under the same rounding and
+failure rules. Larger operand bounds, extended GCD and conversions remain
+separate work.
 
 The wire types expose byte encodings, not mathematical field/curve objects.
 They do not check curve validity, supersingularity, basis-hint validity, matrix
@@ -240,6 +243,15 @@ reconstruction and the strict remainder bound. The implementation reuses
 unsigned magnitude division without narrowing the quotient; it remains
 variable-time and does not imply support for secret operands.
 
+Another 209 `Int656` comparison/addition/subtraction records use Python signed
+integers and pinned C `ibz_cmp`, `ibz_add` and `ibz_sub` in `--signed-wide` mode.
+They cover signed bounds, overflow, and deterministic full-width operands;
+results are exact 82-byte two's-complement values or explicit overflow markers.
+The C adapter sign-extends both 656-bit operands into the reference's wider
+integer storage before checking result bounds. Common tests preserve both
+operands and verify each operation on every target. Six retained JVM shapes per
+operation compare their results with independent `BigInteger` arithmetic.
+
 Another 314 signed records use Python signed integers and the pinned C
 `ibz_cmp`, `ibz_add`, `ibz_sub`, and `ibz_mul` in `--signed` mode. They cover the signed
 minimum/maximum, all sign combinations, radix transitions and deterministic
@@ -305,6 +317,8 @@ Input preparation and parameter-name resolution occur outside timing.
 | `Int328Benchmark.decode`, `encode`, `compare`, `add`, `subtract` | Six valid signed shapes below | Owned codec results or complete signed operation, including wrapper/sign construction and overflow checks; no fixture preparation |
 | `Int328MultiplyBenchmark.multiply` | Six full-product signed shapes below | Exact unsigned magnitude multiplication, signed encoding and immutable wide-result ownership; no fixture preparation or result export |
 | `Int328DivisionBenchmark.divideAndRemainder` | Eight valid signed division shapes below | Complete magnitude division, sign restoration, overflow check and both immutable results; no fixture preparation or result export |
+| `Int656Benchmark.compare`, `add`, `subtract` | Six valid signed-wide shapes below | Signed comparison or full-width checked arithmetic, including overflow checks and owned results; no fixture preparation |
+| `Int656DivisionBenchmark.divideAndRemainder` | Eight valid signed-wide division shapes below | Full-width magnitude division, sign restoration, overflow check and both immutable results; no fixture preparation or result export |
 
 The unsigned shapes are `ZERO_EQUAL` (`0`, `0`), `MAX_EQUAL` (`2^328 - 1`,
 `2^328 - 1`), `CARRY_CHAIN` (`2^328 - 1`, `1`), `BORROW_CHAIN` (`0`, `1`),
@@ -367,6 +381,13 @@ and `LARGER_DIVISOR` (`-1`, `-2^327`). Every divisor is nonzero and quotient
 representable. Ordinary JVM tests compare both results with `BigInteger`,
 including the reconstruction identity and strict remainder-magnitude bound.
 
+Signed-wide arithmetic uses `ZERO_EQUAL` (`0`, `0`), `MIN_BY_ZERO`
+(`-2^655`, `0`), `MAX_BY_ZERO` (`2^655 - 1`, `0`), `NEGATIVE_EQUAL`
+(`-2^654`, `-2^654`), `MIXED_SIGN` (`2^653`, `-2^653`), and `CARRY_CHAIN`
+(`2^645 - 1`, `1`). Every sum and difference is representable; common fixtures
+separately cover both overflow directions. Signed-wide division shapes and
+their representability are checked against `BigInteger` by their workload test.
+
 Fixtures use synthetic public bytes, not secrets or real signatures. Ordinary
 JVM tests verify all workload cases against independent existing SHAKE vectors,
 explicit domain/transcript construction, and expected canonical wire bytes.
@@ -378,13 +399,13 @@ The public library API is unchanged; internal wide results are not exposed by it
 
 ```sh
 ./gradlew jvmTest                       # Check workload correctness before timing
-./gradlew jvmBenchmarkSmokeBenchmark    # Discovery/execution only: 124 cases
+./gradlew jvmBenchmarkSmokeBenchmark    # Discovery/execution only: 142 cases
 ./gradlew jvmBenchmarkBenchmarkJar      # Build the JMH harness before measurement
 ./gradlew jvmBenchmarkBenchmark         # Opt-in full profile on a controlled host
 ```
 
 The `smoke` profile uses one fork, one 50 ms warmup, and one 50 ms measurement
-per case. Linux CI requires the complete 124-case parameter matrix, the expected
+per case. Linux CI requires the complete 142-case parameter matrix, the expected
 mode/unit/profile, and finite positive samples. It uploads JSON reports,
 execution logs, and commit/host/JDK/Gradle metadata with the other Kotlin reports.
 The `main` measurement profile uses three forks, three 1 s warmups, and five 1 s

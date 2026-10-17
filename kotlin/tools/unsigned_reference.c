@@ -87,27 +87,33 @@ main(int argc, char **argv)
     int signed_mode = argc == 2 && strcmp(argv[1], "--signed") == 0;
     int signed_division = argc == 2 && strcmp(argv[1], "--signed-division") == 0;
     int signed_wide_division = argc == 2 && strcmp(argv[1], "--signed-wide-division") == 0;
+    int signed_wide_mode = argc == 2 && strcmp(argv[1], "--signed-wide") == 0;
     if (argc != 1 && !wide_division && !gcd_mode && !inverse_mode && !signed_mode && !signed_division &&
-        !signed_wide_division) {
+        !signed_wide_division && !signed_wide_mode) {
         fprintf(stderr,
                 "Expected no arguments, --wide-division, --gcd, --inverse, --signed, "
-                "--signed-division or --signed-wide-division\n");
+                "--signed-division, --signed-wide-division or --signed-wide\n");
         return 1;
     }
-    int left_bytes = wide_division || signed_wide_division ? 2 * ENCODED_BYTES : ENCODED_BYTES;
-    int left_words = wide_division ? 2 * WORD_COUNT : signed_wide_division ? WIDE_SIGNED_WORD_COUNT : WORD_COUNT;
-    char left_hex[WIDE_HEX_CHARS + 1], right_hex[HEX_CHARS + 1];
+    int left_bytes = wide_division || signed_wide_division || signed_wide_mode ? 2 * ENCODED_BYTES : ENCODED_BYTES;
+    int left_words = wide_division                              ? 2 * WORD_COUNT
+                     : signed_wide_division || signed_wide_mode ? WIDE_SIGNED_WORD_COUNT
+                                                                : WORD_COUNT;
+    int right_bytes = signed_wide_mode ? 2 * ENCODED_BYTES : ENCODED_BYTES;
+    int right_words = signed_wide_mode ? WIDE_SIGNED_WORD_COUNT : WORD_COUNT;
+    const char *input_format = signed_wide_mode ? "%164s %164s" : "%164s %82s";
+    char left_hex[WIDE_HEX_CHARS + 1], right_hex[WIDE_HEX_CHARS + 1];
     int fields;
-    while ((fields = scanf("%164s %82s", left_hex, right_hex)) == 2) {
-        digit_t left[2 * WORD_COUNT], right[WORD_COUNT], sum[WORD_COUNT], difference[WORD_COUNT];
+    while ((fields = scanf(input_format, left_hex, right_hex)) == 2) {
+        digit_t left[2 * WORD_COUNT], right[2 * WORD_COUNT], sum[WORD_COUNT], difference[WORD_COUNT];
         digit_t product[2 * WORD_COUNT];
-        if (!decode(left_hex, left, left_bytes, left_words) || !decode(right_hex, right, ENCODED_BYTES, WORD_COUNT)) {
+        if (!decode(left_hex, left, left_bytes, left_words) || !decode(right_hex, right, right_bytes, right_words)) {
             fprintf(stderr, "Invalid public unsigned reference operands\n");
             return 1;
         }
         encode(left, left_bytes);
         putchar(':');
-        encode(right, ENCODED_BYTES);
+        encode(right, right_bytes);
         if (signed_division) {
             ibz_t a = { 0 }, b = { 0 }, quotient = { 0 }, remainder = { 0 };
             import_signed(&a, left);
@@ -122,6 +128,19 @@ main(int argc, char **argv)
                 encode_signed_result(&remainder);
                 putchar('\n');
             }
+            continue;
+        }
+        if (signed_wide_mode) {
+            ibz_t a = { 0 }, b = { 0 }, sum = { 0 }, difference = { 0 };
+            import_signed_wide(&a, left);
+            import_signed_wide(&b, right);
+            printf(":%d:", ibz_cmp(&a, &b));
+            ibz_add(&sum, &a, &b);
+            encode_signed_wide_result(&sum);
+            putchar(':');
+            ibz_sub(&difference, &a, &b);
+            encode_signed_wide_result(&difference);
+            putchar('\n');
             continue;
         }
         if (signed_wide_division) {

@@ -199,10 +199,10 @@ performance budget, or a controlled benchmark baseline. Comparison is variable-t
 behavior are unchanged; no public API or release-version migration is needed.
 Development `check` now requires GCC/Clang for its external C oracle, not for the
 library or Kotlin runtime tests. The CI path filter includes its reference inputs.
-Milestone 1 remains incomplete: additional checked wider
-intermediates, signed integers, extended GCD/inversion and larger parameter sets still need
-their own bounds, differential tests and representative performance measurements
-before any public signature API is introduced.
+Milestone 1 remains incomplete: additional wider intermediates, extended
+GCD/inversion, square root and primality helpers, and larger parameter sets
+still need their own bounds, differential tests and representative performance
+measurements before any public signature API is introduced.
 
 ## Arithmetic decision 2026-10-16: exact wide multiplication
 
@@ -620,6 +620,26 @@ reconstruction and strict remainder bounds against `BigInteger`. The CI smoke
 matrix grows from 116 to 124 cases. No public ABI, dependency, wire format,
 toolchain or release-version change; this does not establish constant-time
 behavior, expert review, numeric performance budgets or a controlled baseline.
+
+## Arithmetic decision 2026-10-17: checked wide signed arithmetic
+
+The detailed rationale and migration record is
+[`adr/0002-int656-checked-arithmetic.md`](adr/0002-int656-checked-arithmetic.md).
+`Int656` comparison returns `-1`, `0` or `1`; checked addition and subtraction
+return exact immutable values or throw operation-specific `ArithmeticException`
+on signed overflow. The implementation uses exact-width two's-complement bytes,
+unsigned byte carries/borrows and standard signed overflow conditions; it neither
+narrows nor mutates operands. All operations are variable-time.
+
+A separate 209-record list uses Python integers and pinned C `ibz_cmp`,
+`ibz_add` and `ibz_sub`, preserving all earlier fixture schemas. The adapter
+sign-extends 657-bit values in the reference's 1,920-bit storage and validates
+the returned 656-bit bounds. Common tests assert exact results, both overflow
+directions, signed ordering and operand/result ownership. Six retained JVM
+shapes per operation verify behavior against `BigInteger`; the smoke matrix
+grows from 124 to 142 cases. No public ABI, dependency, wire format, toolchain
+or release-version changes; this is not constant-time evidence, expert review,
+a numeric performance budget or a controlled comparison baseline.
 
 ## Public API and randomness policy for the complete port
 

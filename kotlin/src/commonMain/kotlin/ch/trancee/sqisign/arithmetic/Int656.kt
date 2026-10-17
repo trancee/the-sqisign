@@ -9,8 +9,61 @@ package ch.trancee.sqisign.arithmetic
  * secure-erasure guarantee is provided.
  */
 internal class Int656 private constructor(private val encoded: ByteArray) {
+    private val negative: Boolean = encoded[encoded.lastIndex] < 0
+
     /** Exports an owned, exact-width, two's-complement little-endian encoding. */
     internal fun toLittleEndian(): ByteArray = encoded.copyOf()
+
+    /** Returns -1, 0 or 1 according to signed mathematical order. */
+    internal operator fun compareTo(other: Int656): Int {
+        if (negative != other.negative) return if (negative) -1 else 1
+        var comparison = 0
+        for (index in encoded.lastIndex downTo 0) {
+            val leftByte = encoded[index].toInt() and BYTE_MASK
+            val rightByte = other.encoded[index].toInt() and BYTE_MASK
+            if (leftByte != rightByte) {
+                comparison = if (leftByte < rightByte) -1 else 1
+                break
+            }
+        }
+        return comparison
+    }
+
+    /** Returns the exact sum; throws ArithmeticException if it exceeds the signed range. */
+    internal fun add(other: Int656): Int656 {
+        val result = ByteArray(ENCODED_BYTES)
+        var carry = 0
+        for (index in encoded.indices) {
+            val sum =
+                (encoded[index].toInt() and BYTE_MASK) +
+                    (other.encoded[index].toInt() and BYTE_MASK) +
+                    carry
+            result[index] = sum.toByte()
+            carry = sum ushr Byte.SIZE_BITS
+        }
+        if (negative == other.negative && (result[result.lastIndex] < 0) != negative) {
+            throw ArithmeticException("Signed 656-bit addition overflow")
+        }
+        return Int656(result)
+    }
+
+    /** Returns the exact difference; throws ArithmeticException if it exceeds the signed range. */
+    internal fun subtract(other: Int656): Int656 {
+        val result = ByteArray(ENCODED_BYTES)
+        var borrow = 0
+        for (index in encoded.indices) {
+            val difference =
+                (encoded[index].toInt() and BYTE_MASK) -
+                    (other.encoded[index].toInt() and BYTE_MASK) -
+                    borrow
+            result[index] = difference.toByte()
+            borrow = if (difference < 0) 1 else 0
+        }
+        if (negative != other.negative && (result[result.lastIndex] < 0) != negative) {
+            throw ArithmeticException("Signed 656-bit subtraction overflow")
+        }
+        return Int656(result)
+    }
 
     /**
      * Returns a quotient truncated toward zero and a remainder with the dividend's sign.
