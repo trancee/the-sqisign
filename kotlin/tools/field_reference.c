@@ -86,15 +86,14 @@ main(int argc, char **argv)
     int fp2_mode = argc == 2 && strcmp(argv[1], "--fp2") == 0;
     int fp2_nonlinear_mode = argc == 2 && strcmp(argv[1], "--fp2-nonlinear") == 0;
     int fp2_control_mode = argc == 2 && strcmp(argv[1], "--fp2-control") == 0;
-    if (!field_mode && !field_nonlinear_mode && !field_control_mode && !fp2_mode &&
-        !fp2_nonlinear_mode && !fp2_control_mode) {
+    if (!field_mode && !field_nonlinear_mode && !field_control_mode && !fp2_mode && !fp2_nonlinear_mode &&
+        !fp2_control_mode) {
         fprintf(stderr, "Expected a supported field reference mode\n");
         return 1;
     }
 
     int single_operand_mode = field_nonlinear_mode || fp2_nonlinear_mode;
-    size_t input_hex_width =
-        fp2_mode || fp2_nonlinear_mode || fp2_control_mode ? FP2_HEX_CHARS : FIELD_HEX_CHARS;
+    size_t input_hex_width = fp2_mode || fp2_nonlinear_mode || fp2_control_mode ? FP2_HEX_CHARS : FIELD_HEX_CHARS;
     char input_format[32];
     snprintf(input_format, sizeof(input_format), "%%%zus", input_hex_width);
     char left_hex[FP2_HEX_CHARS + 1], right_hex[FP2_HEX_CHARS + 1];
@@ -143,10 +142,8 @@ main(int argc, char **argv)
             unsigned char left_bytes[FIELD_BYTES], right_bytes[FIELD_BYTES];
             unsigned char left_encoding[FIELD_BYTES], negative_encoding[FIELD_BYTES];
             fp_t left, right, negative, selected, swapped_left, swapped_right;
-            if (!decode_hex(left_hex, left_bytes, FIELD_BYTES) ||
-                !decode_hex(right_hex, right_bytes, FIELD_BYTES) ||
-                fp_decode(&left, left_bytes) != UINT32_MAX ||
-                fp_decode(&right, right_bytes) != UINT32_MAX) {
+            if (!decode_hex(left_hex, left_bytes, FIELD_BYTES) || !decode_hex(right_hex, right_bytes, FIELD_BYTES) ||
+                fp_decode(&left, left_bytes) != UINT32_MAX || fp_decode(&right, right_bytes) != UINT32_MAX) {
                 fprintf(stderr, "Invalid canonical prime-field operands\n");
                 return 1;
             }
@@ -212,9 +209,8 @@ main(int argc, char **argv)
                 fprintf(stderr, "Invalid canonical extension-field operand\n");
                 return 1;
             }
-            if ((fp2_mode || fp2_control_mode) &&
-                (!decode_hex(right_hex, right_bytes, 2 * FIELD_BYTES) ||
-                             fp2_decode(&right, right_bytes) != UINT32_MAX)) {
+            if ((fp2_mode || fp2_control_mode) && (!decode_hex(right_hex, right_bytes, 2 * FIELD_BYTES) ||
+                                                   fp2_decode(&right, right_bytes) != UINT32_MAX)) {
                 fprintf(stderr, "Invalid canonical extension-field operand\n");
                 return 1;
             }
@@ -229,8 +225,7 @@ main(int argc, char **argv)
                 fp2_copy(&swapped_left, &left);
                 fp2_copy(&swapped_right, &right);
                 fp2_cswap(&swapped_left, &swapped_right, control);
-                printf("%u:", compare_encoded(left_encoding, negative_encoding,
-                                              2 * FIELD_BYTES) > 0);
+                printf("%u:", compare_encoded(left_encoding, negative_encoding, 2 * FIELD_BYTES) > 0);
                 encode_fp2(&selected);
                 putchar(':');
                 encode_fp2(&swapped_left);
