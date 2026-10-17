@@ -16,7 +16,8 @@ Kotlin push/PR checks watch non-Markdown files under `kotlin/`, the shared `KAT/
 fixtures, the unsigned-oracle inputs (`src/mp/ref/`, `src/common/generic/include/`,
 the `p324_3`, `p500_27`, and `p664_17` precomputation headers and field sources,
 the shared `fp`/`fp2` headers and implementations, `scripts/add_parameter_set.py`,
-and `include/sqisign_namespace.h`), and its workflow. Kotlin-only changes do
+`include/sqisign_namespace.h`, `src/ec/ref/lvlx/ec.c`,
+`src/ec/ref/include/ec.h`, and `include/ct_testing.h`), and its workflow. Kotlin-only changes do
 not launch C checks; C-only changes do not launch Kotlin checks unless they
 change those shared fixtures or reference inputs. Root documentation/
 governance-only changes launch neither.
@@ -70,7 +71,7 @@ Benchmark-only tooling: explicitly accepted Alpha `kotlinx-benchmark` plugin/run
 | Module / target | Host / prerequisites | Task from `kotlin/` | Proof / limitations |
 | --- | --- | --- | --- |
 | `:` / JVM | JDK `26` | `jvmTest jvmCoverageVerification` | Runtime; JaCoCo line/branch coverage of JVM-compiled `commonMain`, both thresholds `100%`, no production exclusions |
-| `:` / JVM benchmark | JDK `26`; controlled host for measurements | `jvmBenchmarkSmokeBenchmark`; opt-in `jvmBenchmarkBenchmark` | Linux CI validates 156 primitive/parameter cases and JSON samples; no score gate or baseline; no JS/Native benchmark proof |
+| `:` / JVM benchmark | JDK `26`; controlled host for measurements | `jvmBenchmarkSmokeBenchmark`; opt-in `jvmBenchmarkBenchmark` | Linux CI validates 164 primitive/parameter cases and JSON samples; no score gate or baseline; no JS/Native benchmark proof |
 | `:` / JS | JDK `26`; plugin downloads Node | `jsNodeTest` | Node runtime; 30-second per-test timeout accommodates wide-field nonlinear vectors; no browser or coverage proof |
 | `:` / Linux x64 | x86-64 Linux; downloaded Kotlin/Native toolchain | `linuxX64Test` | Native runtime; no measured coverage |
 | `:` / macOS ARM64 | Apple Silicon macOS with Xcode tools | `macosArm64Test` | Native runtime; Linux cannot supply this proof; no measured coverage |
@@ -173,8 +174,23 @@ the completed scope and control contract are in
 
 Formatting: Spotless `8.10.4` / ktfmt `0.65`; apply via `./gradlew spotlessApply`. Static analysis: accepted detekt `2.0.0-alpha.6`, including type-aware JVM tasks, no finding baseline. ABI: explicitly accepted Kotlin experimental validator; regenerate reviewed changes with `./gradlew updateKotlinAbi`. Reassess both experimental tools on compatible stable releases.
 
+Initial internal curve arithmetic: `MontgomeryCurveP324` and
+`MontgomeryPointP324` supply nonsingular `(A:C)` construction, `A/C`
+normalization, projective equality/infinity, doubling, differential addition
+and the full unsigned 328-bit scalar ladder. Coordinate construction does not
+prove membership, supersingularity or torsion order; all operations remain
+variable-time and unsuitable for secret inputs. Fourteen independent affine
+Python records and pinned C outputs cover the operations. The generator is
+`python3 tools/generate_curve_vectors.py`, owning `ec/CurveVectors.kt` in
+common tests. `checkCurveReference`, included in `check`, requires host `cc`
+and pins the C curve source plus transitive project headers. Eight JVM
+workloads retain these operations with short/full-width scalars.
+[`ADR 0007`](kotlin/adr/0007-p324_3-montgomery-arithmetic.md) records the
+contract, alternatives, risks and remaining milestone scope. No public ABI,
+wire format, runtime dependency, toolchain or release version changes.
+
 Generated fixture owner: `python3 tools/generate_test_vectors.py`; output `src/commonTest/kotlin/ch/trancee/sqisign/TestVectors.kt`; `checkTestVectors` checks exact content from Python hashlib and the parent public KATs. This generated test file is excluded from Spotless/detekt, not from execution. No generated API docs or publication pipeline is configured.
 
-Benchmark owner: `kotlin/src/jvmBenchmark/`, with workload correctness tests in `kotlin/src/jvmTest/`. `kotlin/README.md` defines timed boundaries, workloads, profiles, and comparison controls. CI validates 156 JVM smoke cases and retains raw reports under `build/reports/benchmarks/smoke/`, logs, and commit/host/runtime metadata in uploaded artifacts; these are executability evidence only. Generated harnesses and benchmark sources are outside production coverage; production exclusions remain empty. JMH's deprecated Unsafe warnings on JDK `26` require revalidation on future JDK upgrades.
+Benchmark owner: `kotlin/src/jvmBenchmark/`, with workload correctness tests in `kotlin/src/jvmTest/`. `kotlin/README.md` defines timed boundaries, workloads, profiles, and comparison controls. CI validates 164 JVM smoke cases and retains raw reports under `build/reports/benchmarks/smoke/`, logs, and commit/host/runtime metadata in uploaded artifacts; these are executability evidence only. Generated harnesses and benchmark sources are outside production coverage; production exclusions remain empty. JMH's deprecated Unsafe warnings on JDK `26` require revalidation on future JDK upgrades.
 
 Limitations: passing Kotlin gates is not full constitutional compliance. Crypto expert review, constant-time guarantees, numeric performance budgets, and committed controlled-measurement baselines are not established. Retained JVM workloads do not establish performance or portability on other targets. JVM coverage does not imply coverage on JS/Native. C coverage remains measurement-only as documented in `DEVELOPERS.md`; this Kotlin-only change does not alter C gates.

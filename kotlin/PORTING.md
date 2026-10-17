@@ -787,3 +787,35 @@ variable-time and unsuitable for secret inputs. These tests do not establish
 constant-time behavior, performance suitability, or independent expert
 cryptographic review. The Linux checks cover JVM, JS and Linux Native; the
 macOS ARM64 runtime test still requires its supported CI host.
+
+## Curve decision 2026-10-17: initial `p324_3` x-only arithmetic
+
+The next milestone is curves and bases, as specified in section 4.4 and
+algorithms 3.5-3.12. The first internal slice implements algorithm 3.5 and the
+underlying projective operations in algorithms 4.84, 4.85 and 4.87.
+[`adr/0007-p324_3-montgomery-arithmetic.md`](adr/0007-p324_3-montgomery-arithmetic.md)
+records the representation, exceptional-input contract, alternatives and risks.
+
+`MontgomeryCurveP324` accepts nonsingular projective coefficients `(A:C)` and
+normalizes to `A/C`. `MontgomeryPointP324` rejects `(0:0)`, compares by
+projective equality and represents infinity explicitly, without inversion of
+zero. Doubling, differential addition and the full unsigned 328-bit scalar
+ladder preserve input ownership. Differential addition requires a consistent
+finite, nonzero-x difference; membership, supersingularity and torsion order
+are not implied by coordinate construction.
+
+Fourteen independent affine Python records, cross-checked by the checksum-
+pinned C reference, cover normalized coefficients and the three operations
+with projectively scaled inputs and scalar boundaries. The fixture owner is
+`python3 tools/generate_curve_vectors.py`; `checkCurveReference` verifies it
+and the C outputs as part of `check`. Eight retained JVM workloads extend the
+smoke matrix from 156 to 164 cases. Public ABI, wire formats and production
+dependencies are unchanged; all operations remain variable-time and unsuitable
+for secret inputs.
+
+Milestone 3 is not complete. The next slice starts with three-point/biscalar
+ladders and deterministic point differences, before bases/hints, pairings and
+change-of-basis, canonical curve normalization and 2-isogeny chains. Promote
+the layer to `p500_27` and `p664_17` before declaring the milestone complete.
+Expert review, constant-time evidence, numeric performance budgets and a
+controlled committed benchmark baseline remain absent.

@@ -97,6 +97,20 @@ all six types. The portable implementation is internal and adds no runtime
 dependency; it is not evidence of expert cryptographic review or production
 readiness.
 
+The initial internal curve slice provides `MontgomeryCurveP324` and
+`MontgomeryPointP324` over `Fp2P324`. Curves reject `C=0` and
+`A^2=4C^2`; points reject `(0:0)`, compare projectively, and return null from
+`affineX()` for infinity. The curve returns its normalized coefficient `A/C`,
+doubles points and multiplies by any unsigned 328-bit scalar (zero included).
+Differential addition requires a consistent difference on the same curve/twist
+and rejects infinity or `(0:1)` as that difference. Constructors do not prove
+membership, supersingularity or torsion order. All operations are immutable,
+variable-time and unsuitable for secret inputs.
+Fourteen independent affine Python records and the pinned C reference cover
+these operations; [`ADR 0007`](adr/0007-p324_3-montgomery-arithmetic.md)
+records the boundary and remaining scope. Bases/hints, pairings, isogenies,
+three-point/biscalar ladders and wider-parameter curves are not implemented.
+
 The wire types expose byte encodings, not mathematical field/curve objects.
 They do not check curve validity, supersingularity, basis-hint validity, matrix
 normalization/invertibility, or any signature equation. Secret-key parsing is
@@ -141,6 +155,7 @@ Install JDK `26` and select it with `JAVA_HOME`. From this directory:
 ./gradlew spotlessApply     # Format owned Kotlin sources and Gradle scripts
 ./gradlew check             # Tests, formatting, static analysis, ABI, fixtures, coverage
 ./gradlew checkUnsignedReference  # Python/C cross-check of public integer vectors
+./gradlew checkCurveReference     # Independent affine Python / pinned C curve checks
 ./gradlew clean check --no-build-cache --rerun-tasks  # CI-equivalent, on each native host
 ```
 
@@ -150,8 +165,9 @@ and its own Native tests; an explicit result check rejects a missing Native run.
 It also scans Kotlin history and current files with redacted Gitleaks output.
 
 Spotless `8.10.4` with ktfmt `0.65` in Kotlin conventions style owns formatting.
-Generated `TestVectors.kt` is excluded from formatting and static analysis; its
-owning Python generator is checked byte-for-byte by `checkTestVectors`.
+Generated `TestVectors.kt` and `ec/CurveVectors.kt` are excluded from formatting
+and static analysis; their owning Python generators are checked byte-for-byte
+by `checkTestVectors` and `checkCurveReference`, respectively.
 detekt `2.0.0-alpha.6` runs default rules plus public API documentation checks,
 including JVM type-aware analysis (`detektMainJvm`, `detektTestJvm`), without a
 finding baseline or source suppressions.
@@ -185,7 +201,8 @@ Native tests must run on their corresponding hosts; a skipped foreign-host test
 is not evidence of compatibility. Gradle downloads Kotlin/Native and Node.js when
 needed. The wrapper verifies the Gradle distribution against its pinned SHA-256.
 The Kotlin library and its runtime tests do not require C interop or C libraries.
-The development-only `checkUnsignedReference` task, included in `check`, requires
+The development-only `checkUnsignedReference` and `checkCurveReference` tasks,
+included in `check`, require
 a host `cc` compiler (GCC or Clang) and the parent C reference sources/headers.
 Both hosted CI images provide it; no C code enters the library artifact.
 
@@ -200,8 +217,10 @@ with Python 3's standard library only:
 
 ```sh
 python3 tools/generate_test_vectors.py --check
+python3 tools/generate_curve_vectors.py --check
 # To intentionally regenerate:
 python3 tools/generate_test_vectors.py
+python3 tools/generate_curve_vectors.py
 ```
 
 SHAKE/transcript fixtures use CPython's `hashlib` implementation as an independent
@@ -369,6 +388,9 @@ Input preparation and parameter-name resolution occur outside timing.
 | `Int328ExtendedGcdBenchmark.extendedGcd` | Seven valid signed extended-GCD shapes below | Complete variable-time Euclidean loop, exact wide coefficient updates and immutable result; no fixture preparation |
 | `Int656Benchmark.compare`, `add`, `subtract` | Six valid signed-wide shapes below | Signed comparison or full-width checked arithmetic, including overflow checks and owned results; no fixture preparation |
 | `Int656DivisionBenchmark.divideAndRemainder` | Eight valid signed-wide division shapes below | Full-width magnitude division, sign restoration, overflow check and both immutable results; no fixture preparation or result export |
+| `MontgomeryP324Benchmark.coefficient` | `SHORT`, `FULL_WIDTH` | `A/C`, including inversion and canonical field result allocation |
+| `MontgomeryP324Benchmark.doublePoint` / `differentialAdd` | `SHORT`, `FULL_WIDTH` | Complete x-only operation and projective result allocation, without affine normalization |
+| `MontgomeryP324Benchmark.multiply` | `SHORT`, `FULL_WIDTH` | Scalar export, full ladder and all intermediate/result allocations; no setup or affine normalization |
 
 The unsigned shapes are `ZERO_EQUAL` (`0`, `0`), `MAX_EQUAL` (`2^328 - 1`,
 `2^328 - 1`), `CARRY_CHAIN` (`2^328 - 1`, `1`), `BORROW_CHAIN` (`0`, `1`),
@@ -452,6 +474,12 @@ Signed-wide arithmetic uses `ZERO_EQUAL` (`0`, `0`), `MIN_BY_ZERO`
 separately cover both overflow directions. Signed-wide division shapes and
 their representability are checked against `BigInteger` by their workload test.
 
+Curve workloads use `A=0`, `P=(2:1)` and `[2]P=(9:40)`, with the known
+difference `P-[2]P=-P`. `SHORT` uses scalar `17`; `FULL_WIDTH` uses
+`2^328-1`. The other three methods intentionally retain identical inputs
+across these two shapes. JVM workload tests compare all results with the
+independent affine Python/C records, outside the timed boundary.
+
 Fixtures use synthetic public bytes, not secrets or real signatures. Ordinary
 JVM tests verify all workload cases against independent existing SHAKE vectors,
 explicit domain/transcript construction, and expected canonical wire bytes.
@@ -463,13 +491,13 @@ The public library API is unchanged; internal wide results are not exposed by it
 
 ```sh
 ./gradlew jvmTest                       # Check workload correctness before timing
-./gradlew jvmBenchmarkSmokeBenchmark    # Discovery/execution only: 156 cases
+./gradlew jvmBenchmarkSmokeBenchmark    # Discovery/execution only: 164 cases
 ./gradlew jvmBenchmarkBenchmarkJar      # Build the JMH harness before measurement
 ./gradlew jvmBenchmarkBenchmark         # Opt-in full profile on a controlled host
 ```
 
 The `smoke` profile uses one fork, one 50 ms warmup, and one 50 ms measurement
-per case. Linux CI requires the complete 156-case parameter matrix, the expected
+per case. Linux CI requires the complete 164-case parameter matrix, the expected
 mode/unit/profile, and finite positive samples. It uploads JSON reports,
 execution logs, and commit/host/JDK/Gradle metadata with the other Kotlin reports.
 The `main` measurement profile uses three forks, three 1 s warmups, and five 1 s

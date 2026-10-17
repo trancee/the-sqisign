@@ -97,7 +97,10 @@ benchmark {
 spotless {
     kotlin {
         target("src/**/*.kt")
-        targetExclude("src/commonTest/kotlin/ch/trancee/sqisign/TestVectors.kt")
+        targetExclude(
+            "src/commonTest/kotlin/ch/trancee/sqisign/TestVectors.kt",
+            "src/commonTest/kotlin/ch/trancee/sqisign/ec/CurveVectors.kt",
+        )
         ktfmt("0.65").kotlinlangStyle()
     }
     kotlinGradle {
@@ -121,6 +124,7 @@ detekt {
 
 tasks.withType<dev.detekt.gradle.Detekt>().configureEach {
     exclude("**/TestVectors.kt")
+    exclude("**/CurveVectors.kt")
 }
 
 jacoco {
@@ -174,11 +178,20 @@ val checkUnsignedReference =
         commandLine("python3", "-B", "tools/check_unsigned_reference.py")
     }
 
+val checkCurveReference =
+    tasks.register<Exec>("checkCurveReference") {
+        group = "verification"
+        description =
+            "Cross-checks independent affine curve vectors against the pinned C reference."
+        commandLine("python3", "-B", "tools/check_curve_reference.py")
+    }
+
 tasks.named("check") {
     dependsOn(
         coverageVerification,
         checkTestVectors,
         checkUnsignedReference,
+        checkCurveReference,
         "detektMainJvm",
         "detektBenchmarkJvm",
         "detektTestJvm",
