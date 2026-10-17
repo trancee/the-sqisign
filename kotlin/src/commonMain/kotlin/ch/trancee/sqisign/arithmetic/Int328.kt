@@ -49,6 +49,30 @@ internal class Int328 private constructor(private val bits: UInt328) {
         return Int656.fromLittleEndian(encoded)
     }
 
+    /**
+     * Returns a quotient truncated toward zero and a remainder with the dividend's sign.
+     *
+     * Variable-time; rejects zero divisors and the unrepresentable minimum / -1 quotient.
+     */
+    internal fun divideAndRemainder(divisor: Int328): Division {
+        require(divisor.bits.compareTo(ZERO) != 0) { "Signed division requires a nonzero divisor" }
+        val division = magnitude().divideAndRemainder(divisor.magnitude())
+        val quotientNegative = negative != divisor.negative
+        // Only minimum / -1 can produce a nonnegative magnitude of 2^327.
+        if (!quotientNegative && division.quotient >= SIGN_BIT) {
+            throw ArithmeticException("Signed 328-bit division overflow")
+        }
+        val quotientBits =
+            if (quotientNegative) ZERO.subtract(division.quotient).value else division.quotient
+        val remainderBits =
+            if (negative) ZERO.subtract(division.remainder).value else division.remainder
+        return Division(Int328(quotientBits), Int328(remainderBits))
+    }
+
+    /** Immutable exact signed quotient and remainder. */
+    internal class Division
+    internal constructor(internal val quotient: Int328, internal val remainder: Int328)
+
     private fun magnitude(): UInt328 =
         // Modular negation yields the exact unsigned magnitude, including 2^327 for minimum.
         if (negative) ZERO.subtract(bits).value else bits

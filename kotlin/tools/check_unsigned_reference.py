@@ -13,6 +13,7 @@ from generate_test_vectors import (
     gcd_cases, gcd_record,
     inverse_cases, inverse_record,
     signed_cases, signed_record,
+    signed_division_cases, signed_division_record,
 )
 
 
@@ -51,6 +52,7 @@ def main():
     common_divisor_cases = gcd_cases()
     modular_inverse_cases = inverse_cases()
     signed_integer_cases = signed_cases()
+    signed_quotient_cases = signed_division_cases()
     inputs = "\n".join(f"{left.to_bytes(41, 'little').hex()} {right.to_bytes(41, 'little').hex()}"
                        for left, right in cases) + "\n"
     with tempfile.TemporaryDirectory(prefix="sqisign-unsigned-") as directory:
@@ -85,6 +87,12 @@ def main():
             for left, right in signed_integer_cases) + "\n"
         signed_result = subprocess.run([str(binary), "--signed"], input=signed_inputs,
                                        capture_output=True, text=True, check=True)
+        signed_division_inputs = "\n".join(
+            f"{left.to_bytes(41, 'little', signed=True).hex()} {right.to_bytes(41, 'little', signed=True).hex()}"
+            for left, right in signed_quotient_cases) + "\n"
+        signed_division_result = subprocess.run(
+            [str(binary), "--signed-division"], input=signed_division_inputs,
+            capture_output=True, text=True, check=True)
     actual = result.stdout.splitlines()
     expected = [unsigned_record(left, right) for left, right in cases]
     if actual != expected:
@@ -101,9 +109,12 @@ def main():
     signed_expected = [signed_record(left, right) for left, right in signed_integer_cases]
     if signed_result.stdout.splitlines() != signed_expected:
         raise SystemExit("C/Python signed arithmetic differential mismatch")
+    signed_division_expected = [signed_division_record(left, right) for left, right in signed_quotient_cases]
+    if signed_division_result.stdout.splitlines() != signed_division_expected:
+        raise SystemExit("C/Python signed division differential mismatch")
     print(f"Verified {len(cases)} UInt328, {len(wide_cases)} wide division, "
-          f"{len(common_divisor_cases)} GCD, {len(modular_inverse_cases)} modular inverse "
-          f"and {len(signed_integer_cases)} Int328 public cases "
+          f"{len(common_divisor_cases)} GCD, {len(modular_inverse_cases)} modular inverse, "
+          f"{len(signed_integer_cases)} Int328 and {len(signed_quotient_cases)} signed division public cases "
           f"against C {REFERENCE_COMMIT} and Python integers")
 
 

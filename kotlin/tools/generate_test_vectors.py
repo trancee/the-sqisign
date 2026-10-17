@@ -166,6 +166,31 @@ def signed_record(left, right):
                      (left * right).to_bytes(82, "little", signed=True).hex()))
 
 
+def signed_division_cases():
+    """Existing signed pairs plus all signs of varying-width odd nonzero divisors."""
+    cases = signed_cases()
+    for index in range(64):
+        block = hashlib.shake_256(f"SQIsign Int328 division public vector {index}".encode()).digest(82)
+        dividend = int.from_bytes(block[:41], "little") & ((1 << 327) - 1)
+        divisor = (int.from_bytes(block[41:], "little") & ((1 << (1 + 5 * index)) - 1)) | 1
+        for left_sign in (-1, 1):
+            for right_sign in (-1, 1):
+                cases.append((left_sign * dividend, right_sign * divisor))
+    return cases
+
+
+def signed_division_record(dividend, divisor):
+    encode = lambda value: value.to_bytes(41, "little", signed=True).hex()
+    if divisor == 0:
+        quotient, remainder = "zero_divisor", "zero_divisor"
+    else:
+        magnitude = abs(dividend) // abs(divisor)
+        value = -magnitude if (dividend < 0) != (divisor < 0) else magnitude
+        quotient = "overflow" if value >= (1 << 327) else encode(value)
+        remainder = encode(dividend - value * divisor)
+    return ":".join((encode(dividend), encode(divisor), quotient, remainder))
+
+
 def generate():
     lines = [
         "// SPDX-License-Identifier: Apache-2.0",
@@ -251,6 +276,14 @@ def generate():
     ]
     for left, right in signed_cases():
         lines.append(f"    {literal(signed_record(left, right))},")
+    lines += [
+        ")", "",
+        "// Int328 division: Python truncation-toward-zero oracle, checked against pinned C ibz_div.",
+        "// Record: dividend:divisor:quotient:remainder; signed LE hex, overflow or zero_divisor.",
+        "internal val signedDivisionVectors: List<String> = listOf(",
+    ]
+    for dividend, divisor in signed_division_cases():
+        lines.append(f"    {literal(signed_division_record(dividend, divisor))},")
     lines += [")", ""]
     return "\n".join(lines)
 

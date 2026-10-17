@@ -546,6 +546,60 @@ preserving existing workloads. This is not signed division, wider operand
 support, field arithmetic, expert review, leakage proof, a numeric performance
 budget or a controlled comparison baseline.
 
+## Arithmetic decision 2026-10-17: truncating signed division
+
+**Context.** The signed integer slice needs quotient/remainder semantics before
+later integer algorithms. Unsigned division already handles the full magnitude
+of the signed minimum; signed division must separately define rounding, remainder
+sign and the single unrepresentable narrow quotient.
+
+**Decision.** Internal `Int328.divideAndRemainder(Int328)` returns immutable
+`Division(quotient, remainder)`, with quotient truncated toward zero,
+`dividend = quotient * divisor + remainder`, and `abs(remainder) < abs(divisor)`.
+A nonzero remainder has the dividend's sign; zero has its single canonical
+encoding. A zero divisor throws `IllegalArgumentException` before magnitude
+division, and `minimum / -1` throws `ArithmeticException` before any result is
+returned. Both operands remain unchanged. All paths are variable-time.
+
+Unsigned modular negation obtains exact magnitudes, including `2^327` for the
+minimum, reusing multiplication's existing helper. Exact unsigned division
+produces quotient magnitude at most `2^327`; a nonnegative quotient of that
+magnitude can occur only for `minimum / -1` and is rejected. Negative quotients
+allow that magnitude, preserving `minimum / 1`. Remainder magnitude is strictly
+below the divisor magnitude, hence below or equal to `2^327 - 1`. Modular
+negation restores the quotient sign from the input-sign difference and the
+remainder sign from the dividend; it cannot overflow these bounds or create a
+second zero representation. No new limb accumulator bounds are introduced.
+
+**Alternatives.** Euclidean division with nonnegative remainder or Python-style
+floor division would require quotient/remainder correction and a different
+consumer contract. The approved truncation-toward-zero convention matches
+Kotlin/JVM signed operators and the inspected pinned C `ibz_div` behavior
+despite that source's "Euclidean division" description. Treating `minimum / -1`
+as wrapped success would violate the checked signed contract; a wide quotient
+belongs to a separate API.
+
+**Evidence and risks.** A separate 570-record list uses Python integer magnitude
+division/sign restoration and pinned C `ibz_div`, retaining all prior schemas.
+The C adapter imports sign-extended 329-bit values and can preserve the positive
+overflow quotient before classifying its 328-bit range. It rejects nine zero
+divisors without calling C division; the single overflow record carries an
+overflow quotient and mathematical zero remainder. Kotlin rejects the entire
+overflow operation, not just one field. Cases include the 314 prior signed
+pairs and all four sign combinations for 64 varying-width odd divisors.
+Common tests verify exact outputs, explicit rejection reasons, exhaustive small
+signed arithmetic, remainder signs, signed-minimum boundaries, same-instance
+division and operand/result ownership. Eight retained JVM benchmark shapes
+compare both results, reconstruction and strict remainder bounds against
+independent `BigInteger` arithmetic.
+
+**Migration and limits.** No public ABI, dependency, toolchain, SQIsign wire
+format or release-version change. Existing fixture records and benchmark inputs
+are unchanged. CI requires 116 complete JVM smoke cases without score gates.
+This is not wide signed division, field reduction, extended GCD, larger operand
+bounds, expert review, leakage proof, a numeric performance budget or a
+controlled comparison baseline.
+
 ## Public API and randomness policy for the complete port
 
 Do not publish `sign`/`verify` methods that throw "not implemented", return fixed

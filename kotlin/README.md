@@ -54,8 +54,14 @@ signed product in an owned 82-byte two's-complement little-endian encoding.
 It handles `minimum * minimum` and `minimum * -1` without narrowing, overflow
 or a special invalid minimum case. `Int656` codecs accept every exact-width
 pattern in `[-2^655, 2^655 - 1]`; this slice adds no other wide signed operations.
-Signed division, larger operand bounds, extended GCD and conversions remain
-separate work.
+`Int328.divideAndRemainder` returns a quotient truncated toward zero and a
+remainder satisfying `dividend = quotient * divisor + remainder`. A nonzero
+remainder has the dividend's sign and magnitude strictly below the divisor's.
+Zero divisors throw `IllegalArgumentException`; `minimum / -1` throws
+`ArithmeticException` instead of returning a wrapped quotient. Inputs remain
+immutable, and both results have canonical two's-complement encodings.
+Division is variable-time. Wide signed division, larger operand bounds,
+extended GCD and conversions remain separate work.
 
 The wire types expose byte encodings, not mathematical field/curve objects.
 They do not check curve validity, supersingularity, basis-hint validity, matrix
@@ -216,6 +222,9 @@ maximum-width and invalid-modulus cases. Moduli below two are classified before
 calling C; a nonunit is explicitly marked, never serialized as an inverse.
 Common tests check exact canonical results, the inverse identity, exhaustive
 small brute-force expectations, stable failure reasons and operand preservation.
+The inverse records are interleaved across four test batches to keep long
+Euclidean chains within Node's unchanged per-test timeout; all records and
+assertions are retained.
 The implementation keeps Euclidean coefficients reduced modulo the modulus,
 using exact wide products before reduction; no signed coefficients are exposed.
 This does not add extended GCD or field inversion.
@@ -234,6 +243,19 @@ shipped in the Kotlin library. Multiplication tests check both operand orders,
 every possible product bit through bit 654 (the signed minimum square),
 small signed products, minimum times negative one, canonical zero and ownership.
 Separate `Int656` codec tests include bit 655, invalid widths and defensive copies.
+
+An additional 570 signed-division records preserve all earlier fixture formats.
+Python uses exact magnitude division and sign restoration (not floating-point
+division or Python's floor division on signed inputs). Pinned C `ibz_div` in
+`--signed-division` mode independently supplies truncating quotient/remainder
+results. The C source calls this Euclidean division, but restores signs without
+floor correction: its nonzero remainder follows the dividend. Nine zero-divisor
+records carry explicit markers before any C division; the one `minimum / -1`
+case marks the quotient overflow and retains its mathematical zero remainder
+only in the oracle record. Kotlin rejects the entire operation.
+The cases include all 314 signed pairs and 256 varying-divisor-width cases with
+all sign combinations. Common tests check both outputs, failure reasons, signs,
+exhaustive small signed divisions, minimum boundaries and defensive ownership.
 
 ## JVM benchmarks
 
@@ -271,6 +293,7 @@ Input preparation and parameter-name resolution occur outside timing.
 | `UInt328ModInverseBenchmark.modInverse` | Five invertible shapes below | Complete residue-coefficient Euclidean loop, exact wide products/reductions and allocations; no fixture preparation or output encoding |
 | `Int328Benchmark.decode`, `encode`, `compare`, `add`, `subtract` | Six valid signed shapes below | Owned codec results or complete signed operation, including wrapper/sign construction and overflow checks; no fixture preparation |
 | `Int328MultiplyBenchmark.multiply` | Six full-product signed shapes below | Exact unsigned magnitude multiplication, signed encoding and immutable wide-result ownership; no fixture preparation or result export |
+| `Int328DivisionBenchmark.divideAndRemainder` | Eight valid signed division shapes below | Complete magnitude division, sign restoration, overflow check and both immutable results; no fixture preparation or result export |
 
 The unsigned shapes are `ZERO_EQUAL` (`0`, `0`), `MAX_EQUAL` (`2^328 - 1`,
 `2^328 - 1`), `CARRY_CHAIN` (`2^328 - 1`, `1`), `BORROW_CHAIN` (`0`, `1`),
@@ -325,6 +348,14 @@ Signed multiplication uses `ZERO_NEGATIVE` (`0`, `-2^327`), `MIN_SQUARE`
 Both full results and every setup shape are independently checked against
 `BigInteger`; none of the earlier signed workloads is changed.
 
+Signed division uses `ZERO_NEGATIVE` (`0`, `-1`), `MIN_BY_ONE` (`-2^327`, `1`),
+`MIN_EQUAL` (`-2^327`, `-2^327`), `NEGATIVE_POSITIVE` (`-2^327`, `7`),
+`POSITIVE_NEGATIVE` (`2^327 - 1`, `-7`), `BOTH_NEGATIVE` (`-2^327`, `-7`),
+`FULL_WIDTH` (41 bytes of `0xaa`, 41 bytes of `0x55`, interpreted as signed),
+and `LARGER_DIVISOR` (`-1`, `-2^327`). Every divisor is nonzero and quotient
+representable. Ordinary JVM tests compare both results with `BigInteger`,
+including the reconstruction identity and strict remainder-magnitude bound.
+
 Fixtures use synthetic public bytes, not secrets or real signatures. Ordinary
 JVM tests verify all workload cases against independent existing SHAKE vectors,
 explicit domain/transcript construction, and expected canonical wire bytes.
@@ -336,13 +367,13 @@ The public library API is unchanged; internal wide results are not exposed by it
 
 ```sh
 ./gradlew jvmTest                       # Check workload correctness before timing
-./gradlew jvmBenchmarkSmokeBenchmark    # Discovery/execution only: 108 cases
+./gradlew jvmBenchmarkSmokeBenchmark    # Discovery/execution only: 116 cases
 ./gradlew jvmBenchmarkBenchmarkJar      # Build the JMH harness before measurement
 ./gradlew jvmBenchmarkBenchmark         # Opt-in full profile on a controlled host
 ```
 
 The `smoke` profile uses one fork, one 50 ms warmup, and one 50 ms measurement
-per case. Linux CI requires the complete 108-case parameter matrix, the expected
+per case. Linux CI requires the complete 116-case parameter matrix, the expected
 mode/unit/profile, and finite positive samples. It uploads JSON reports,
 execution logs, and commit/host/JDK/Gradle metadata with the other Kotlin reports.
 The `main` measurement profile uses three forks, three 1 s warmups, and five 1 s

@@ -10,9 +10,26 @@ import kotlin.test.assertFailsWith
 
 class UInt328ModInverseTest {
     @Test
-    fun inversesMatchIndependentVectorsAndExplicitFailureCategories() {
+    fun inversesMatchIndependentVectorsAndExplicitFailureCategoriesFirstBatch() =
+        assertInverseVectors(0)
+
+    @Test
+    fun inversesMatchIndependentVectorsAndExplicitFailureCategoriesSecondBatch() =
+        assertInverseVectors(1)
+
+    @Test
+    fun inversesMatchIndependentVectorsAndExplicitFailureCategoriesThirdBatch() =
+        assertInverseVectors(2)
+
+    @Test
+    fun inversesMatchIndependentVectorsAndExplicitFailureCategoriesFourthBatch() =
+        assertInverseVectors(3)
+
+    private fun assertInverseVectors(batch: Int) {
         val oneBytes = smallUnsigned(1).toLittleEndian()
-        for ((index, record) in inverseVectors.withIndex()) {
+        // Interleave long Euclidean chains across Node's existing per-test timeout boundaries.
+        for (index in batch until inverseVectors.size step INVERSE_VECTOR_BATCHES) {
+            val record = inverseVectors[index]
             val fields = record.split(':')
             val inputBytes = fields[0].hexToByteArray()
             val modulusBytes = fields[1].hexToByteArray()
@@ -140,3 +157,5 @@ class UInt328ModInverseTest {
 
 private fun smallUnsigned(value: Int): UInt328 =
     UInt328.fromLittleEndian(ByteArray(UInt328.ENCODED_BYTES).also { it[0] = value.toByte() })
+
+private const val INVERSE_VECTOR_BATCHES = 4

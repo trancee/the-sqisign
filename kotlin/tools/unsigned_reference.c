@@ -63,8 +63,9 @@ main(int argc, char **argv)
     int gcd_mode = argc == 2 && strcmp(argv[1], "--gcd") == 0;
     int inverse_mode = argc == 2 && strcmp(argv[1], "--inverse") == 0;
     int signed_mode = argc == 2 && strcmp(argv[1], "--signed") == 0;
-    if (argc != 1 && !wide_division && !gcd_mode && !inverse_mode && !signed_mode) {
-        fprintf(stderr, "Expected no arguments, --wide-division, --gcd, --inverse or --signed\n");
+    int signed_division = argc == 2 && strcmp(argv[1], "--signed-division") == 0;
+    if (argc != 1 && !wide_division && !gcd_mode && !inverse_mode && !signed_mode && !signed_division) {
+        fprintf(stderr, "Expected no arguments, --wide-division, --gcd, --inverse, --signed or --signed-division\n");
         return 1;
     }
     int left_bytes = wide_division ? 2 * ENCODED_BYTES : ENCODED_BYTES;
@@ -81,6 +82,22 @@ main(int argc, char **argv)
         encode(left, left_bytes);
         putchar(':');
         encode(right, ENCODED_BYTES);
+        if (signed_division) {
+            ibz_t a = { 0 }, b = { 0 }, quotient = { 0 }, remainder = { 0 };
+            import_signed(&a, left);
+            import_signed(&b, right);
+            if (ibz_is_zero(&b)) {
+                printf(":zero_divisor:zero_divisor\n");
+            } else {
+                ibz_div(&quotient, &remainder, &a, &b);
+                putchar(':');
+                encode_signed_result(&quotient);
+                putchar(':');
+                encode_signed_result(&remainder);
+                putchar('\n');
+            }
+            continue;
+        }
         if (signed_mode) {
             ibz_t a = { 0 }, b = { 0 }, result = { 0 };
             import_signed(&a, left);

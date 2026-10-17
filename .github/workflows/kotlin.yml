@@ -144,6 +144,10 @@ jobs:
               "operandShape": ("ZERO_NEGATIVE", "MIN_SQUARE", "MIN_NEGATIVE_ONE",
                                "MIN_MAX", "MAX_SQUARE", "FULL_WIDTH"),
           }
+          workloads["Int328DivisionBenchmark.divideAndRemainder"] = {
+              "operandShape": ("ZERO_NEGATIVE", "MIN_BY_ONE", "MIN_EQUAL", "NEGATIVE_POSITIVE",
+                               "POSITIVE_NEGATIVE", "BOTH_NEGATIVE", "FULL_WIDTH", "LARGER_DIVISOR"),
+          }
           expected = {
               (f"ch.trancee.sqisign.benchmarks.{name}", tuple(sorted(zip(parameters, values))))
               for name, parameters in workloads.items()
