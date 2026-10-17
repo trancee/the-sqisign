@@ -377,7 +377,8 @@ otherwise needed by this slice. Lehmer's algorithm, used by the C reference,
 reduces division cost but introduces coefficient bounds and correction paths.
 Neither is justified without controlled evidence that the simpler reuse of
 the existing remainder operation is insufficient. Extended GCD and inversion
-have additional coefficient/error contracts and remain separate work.
+have additional coefficient/error contracts and are specified as separate
+operations.
 
 **Evidence and risks.** The generator owns 441 independent Python `math.gcd`
 records: all 340 unsigned pairs, 64 shared-factor pairs, 15 consecutive Fibonacci
@@ -421,8 +422,9 @@ nonnegative difference or subtracts the positive difference from the modulus;
 these bounds prove every discarded subtraction borrow is zero. Remainders
 strictly decrease until zero. A terminal GCD of one establishes the inverse.
 
-**Alternatives.** Signed extended Euclid requires a new coefficient type and
-bounds not otherwise used by this slice. Binary inversion can exploit odd
+**Alternatives.** Reusing signed extended GCD would not cover arbitrary
+328-bit moduli with coefficients constrained to signed `Int328`, and would
+require modular coefficient correction. Binary inversion can exploit odd
 moduli, but would change the approved contract for even moduli and add shifts.
 Lehmer or field-specific inversion remains separate measurement-driven work.
 
@@ -495,7 +497,8 @@ CI requires all 102 JVM smoke cases without score thresholds. Execution remains
 variable-time, with no expert cryptographic review, leakage proof, numeric
 budget or controlled performance baseline. This fixed bound does not establish
 all later quaternion/lattice intermediate bounds; larger signed types,
-multiplication, division, conversions and signed extended GCD remain separate.
+multiplication, division and conversions remain separate. Signed extended GCD
+has its own contract below.
 
 ## Arithmetic decision 2026-10-17: exact wide signed multiplication
 
@@ -708,3 +711,33 @@ separate leakage analysis; source-level masks and overwritten arrays alone do
 not establish timing resistance or erasure. Keep those limitations in public
 documentation, and do not label the finished mathematical port production-ready
 without an explicit threat model and independent review.
+
+## Arithmetic decision 2026-10-17: signed extended GCD
+
+The detailed rationale and migration record is
+[`adr/0003-int328-extended-gcd.md`](adr/0003-int328-extended-gcd.md).
+Internal `Int328.extendedGcd` returns an unsigned nonnegative `UInt328` GCD and
+signed `Int328` coefficients satisfying Bezout's identity. It operates on
+unsigned magnitudes so `abs(Int328.minimum) = 2^327` is representable. The
+`(0, 0)` result has all zero fields; for exactly one zero input, the coefficient
+for the nonzero input is its sign. General coefficient selection is not
+canonical. Euclidean coefficient updates use exact signed `Int656` products
+and checked subtraction before a checked narrow; the final zero-remainder
+coefficient is not computed because it is unused and may exceed signed 328 bits.
+The result coefficients are sign-adjusted only after the nonnegative-magnitude
+algorithm completes.
+
+The generator owns 117 Python integer records: signed boundary pairs, 32
+deterministic full-width pairs and a largest-fitting Fibonacci chain. Common
+tests compare each GCD with the oracle and verify Bezout identities both for
+the generated Python coefficients and returned Kotlin coefficients. The
+pinned C `ibz_xgcd` adapter is checked for the same GCD and its returned
+coefficients independently satisfy the identity; exact coefficient equality
+is intentionally not required because Lehmer batching may choose another valid
+pair. Seven JVM benchmark shapes check GCD and identity against `BigInteger`;
+the smoke matrix grows from 149 to 156 cases.
+
+No public ABI, dependency, wire format, toolchain or release-version change.
+The operation is variable-time and is not intended for secret inputs. It is
+not expert cryptographic review, constant-time evidence, a numeric performance
+budget or a controlled comparison baseline.

@@ -191,6 +191,58 @@ def signed_record(left, right):
                      (left * right).to_bytes(82, "little", signed=True).hex()))
 
 
+def extended_gcd_cases():
+    """Signed boundary pairs and deterministic full-width inputs for Bezout identities."""
+    minimum = -(1 << 327)
+    maximum = (1 << 327) - 1
+    boundaries = (minimum, minimum + 1, -2, -1, 0, 1, 2, maximum - 1, maximum)
+    cases = [(left, right) for left in boundaries for right in boundaries]
+    for index in range(32):
+        block = hashlib.shake_256(f"SQIsign Int328 extended GCD vector {index}".encode()).digest(82)
+        cases.append(
+            (
+                int.from_bytes(block[:41], "little", signed=True),
+                int.from_bytes(block[41:], "little", signed=True),
+            )
+        )
+    previous, current = 0, 1
+    while previous + current <= (1 << 327) - 1:
+        previous, current = current, previous + current
+    cases.extend(((current, previous), (-current, previous), (current, -previous), (-current, -previous)))
+    return cases
+
+
+def extended_gcd_values(left, right):
+    if left == 0 and right == 0:
+        return 0, 0, 0
+    old_remainder, remainder = abs(left), abs(right)
+    old_left, left_coefficient = 1, 0
+    old_right, right_coefficient = 0, 1
+    while remainder:
+        quotient = old_remainder // remainder
+        old_remainder, remainder = remainder, old_remainder - quotient * remainder
+        old_left, left_coefficient = left_coefficient, old_left - quotient * left_coefficient
+        old_right, right_coefficient = right_coefficient, old_right - quotient * right_coefficient
+    if left < 0:
+        old_left = -old_left
+    if right < 0:
+        old_right = -old_right
+    return old_remainder, old_left, old_right
+
+
+def extended_gcd_record(left, right):
+    gcd, left_coefficient, right_coefficient = extended_gcd_values(left, right)
+    return ":".join(
+        (
+            left.to_bytes(41, "little", signed=True).hex(),
+            right.to_bytes(41, "little", signed=True).hex(),
+            gcd.to_bytes(41, "little").hex(),
+            left_coefficient.to_bytes(41, "little", signed=True).hex(),
+            right_coefficient.to_bytes(41, "little", signed=True).hex(),
+        )
+    )
+
+
 def signed_division_cases():
     """Existing signed pairs plus all signs of varying-width odd nonzero divisors."""
     cases = signed_cases()
@@ -364,6 +416,14 @@ def generate():
     ]
     for left, right in signed_cases():
         lines.append(f"    {literal(signed_record(left, right))},")
+    lines += [
+        ")", "",
+        "// Int328 extended GCD: Python signed Euclid coefficients, cross-checked against pinned C ibz_xgcd.",
+        "// Record: left:right:gcd:left-coefficient:right-coefficient; signed/unsigned 41-byte LE hex.",
+        "internal val extendedGcdVectors: List<String> = listOf(",
+    ]
+    for left, right in extended_gcd_cases():
+        lines.append(f"    {literal(extended_gcd_record(left, right))},")
     lines += [
         ")", "",
         "// Int328 division: Python truncation-toward-zero oracle, checked against pinned C ibz_div.",

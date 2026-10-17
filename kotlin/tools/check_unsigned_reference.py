@@ -14,6 +14,7 @@ from generate_test_vectors import (
     gcd_cases, gcd_record,
     inverse_cases, inverse_record,
     signed_cases, signed_record,
+    extended_gcd_cases, extended_gcd_record,
     signed_division_cases, signed_division_record,
     signed_wide_division_cases, signed_wide_division_record,
     signed_wide_cases, signed_wide_record,
@@ -56,6 +57,7 @@ def main():
     common_divisor_cases = gcd_cases()
     modular_inverse_cases = inverse_cases()
     signed_integer_cases = signed_cases()
+    signed_extended_gcd_cases = extended_gcd_cases()
     signed_quotient_cases = signed_division_cases()
     signed_wide_quotient_cases = signed_wide_division_cases()
     signed_wide_integer_cases = signed_wide_cases()
@@ -98,6 +100,13 @@ def main():
             for left, right in signed_integer_cases) + "\n"
         signed_result = subprocess.run([str(binary), "--signed"], input=signed_inputs,
                                        capture_output=True, text=True, check=True)
+        extended_gcd_inputs = "\n".join(
+            f"{left.to_bytes(41, 'little', signed=True).hex()} "
+            f"{right.to_bytes(41, 'little', signed=True).hex()}"
+            for left, right in signed_extended_gcd_cases) + "\n"
+        extended_gcd_result = subprocess.run(
+            [str(binary), "--extended-gcd"], input=extended_gcd_inputs,
+            capture_output=True, text=True, check=True)
         signed_division_inputs = "\n".join(
             f"{left.to_bytes(41, 'little', signed=True).hex()} {right.to_bytes(41, 'little', signed=True).hex()}"
             for left, right in signed_quotient_cases) + "\n"
@@ -137,6 +146,29 @@ def main():
     signed_expected = [signed_record(left, right) for left, right in signed_integer_cases]
     if signed_result.stdout.splitlines() != signed_expected:
         raise SystemExit("C/Python signed arithmetic differential mismatch")
+    extended_gcd_expected = [
+        extended_gcd_record(left, right) for left, right in signed_extended_gcd_cases
+    ]
+    extended_gcd_actual = extended_gcd_result.stdout.splitlines()
+    if len(extended_gcd_actual) != len(extended_gcd_expected):
+        raise SystemExit("C extended-GCD result count differs from the Python oracle")
+    for index, (actual, expected) in enumerate(zip(extended_gcd_actual, extended_gcd_expected)):
+        actual_fields = actual.split(":")
+        expected_fields = expected.split(":")
+        if len(actual_fields) != 5 or actual_fields[:3] != expected_fields[:3]:
+            raise SystemExit(f"C/Python extended-GCD input/GCD mismatch at case {index}")
+        if "overflow" in actual_fields[3:]:
+            raise SystemExit(f"C extended-GCD coefficient exceeded signed 328 bits at case {index}")
+        left, right = signed_extended_gcd_cases[index]
+        gcd = int.from_bytes(bytes.fromhex(actual_fields[2]), "little")
+        left_coefficient = int.from_bytes(
+            bytes.fromhex(actual_fields[3]), "little", signed=True
+        )
+        right_coefficient = int.from_bytes(
+            bytes.fromhex(actual_fields[4]), "little", signed=True
+        )
+        if left * left_coefficient + right * right_coefficient != gcd:
+            raise SystemExit(f"C extended-GCD Bezout identity mismatch at case {index}")
     signed_division_expected = [signed_division_record(left, right) for left, right in signed_quotient_cases]
     if signed_division_result.stdout.splitlines() != signed_division_expected:
         raise SystemExit("C/Python signed division differential mismatch")
@@ -154,7 +186,8 @@ def main():
     print(f"Verified {len(cases)} UInt328, {len(wide_cases)} wide division, "
           f"{len(square_root_cases)} floor square root, "
           f"{len(common_divisor_cases)} GCD, {len(modular_inverse_cases)} modular inverse, "
-          f"{len(signed_integer_cases)} Int328, {len(signed_quotient_cases)} signed division and "
+          f"{len(signed_integer_cases)} Int328, {len(signed_extended_gcd_cases)} signed extended GCD, "
+          f"{len(signed_quotient_cases)} signed division and "
           f"{len(signed_wide_quotient_cases)} signed wide division and "
           f"{len(signed_wide_integer_cases)} Int656 arithmetic public cases against "
           f"C {REFERENCE_COMMIT} and Python integers")

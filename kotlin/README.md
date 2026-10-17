@@ -65,7 +65,14 @@ Zero divisors throw `IllegalArgumentException`; `minimum / -1` throws
 immutable, and both results have canonical two's-complement encodings.
 Division is variable-time. `Int656.divideAndRemainder(Int328)` returns a full
 signed wide quotient and signed narrow remainder under the same rounding and
-failure rules. Larger operand bounds, extended GCD and conversions remain
+failure rules.
+`Int328.extendedGcd` returns an unsigned nonnegative GCD and signed coefficients
+satisfying Bezout's identity. The `(0, 0)` result is all zero; for one zero
+operand, the nonzero input receives its sign as coefficient. Coefficient
+selection is not canonical, and callers should rely on the GCD and identity,
+not a particular valid coefficient pair. The signed minimum's magnitude is
+retained in the unsigned GCD result. Execution is variable-time and is not
+intended for secret inputs. Conversions and larger operand bounds remain
 separate work.
 
 The wire types expose byte encodings, not mathematical field/curve objects.
@@ -239,7 +246,7 @@ Euclidean chains within Node's unchanged per-test timeout; all records and
 assertions are retained.
 The implementation keeps Euclidean coefficients reduced modulo the modulus,
 using exact wide products before reduction; no signed coefficients are exposed.
-This does not add extended GCD or field inversion.
+It does not perform field inversion.
 
 Another 209 signed-wide division records use Python truncation-toward-zero
 arithmetic and pinned C `ibz_div`, covering signed 656-bit dividends, signed
@@ -289,6 +296,16 @@ The cases include all 314 signed pairs and 256 varying-divisor-width cases with
 all sign combinations. Common tests check both outputs, failure reasons, signs,
 exhaustive small signed divisions, minimum boundaries and defensive ownership.
 
+Another 117 signed extended-GCD records cover signed boundaries, 32
+deterministic full-width pairs and a near-maximum Fibonacci chain. Python
+computes the reference GCD and coefficient pair; pinned C `ibz_xgcd` is
+cross-checked on the GCD and its returned coefficients are checked against
+Bezout's identity, without requiring identical coefficient choices. Common
+tests check the GCD and identity for both oracle and Kotlin coefficients,
+including zero conventions and the signed minimum. Seven retained JVM
+workloads are checked against `BigInteger` for both the GCD and identity.
+The variable-time implementation is not evidence of secret-input suitability.
+
 ## JVM benchmarks
 
 The explicitly accepted Alpha [`kotlinx-benchmark 0.5.0`](https://github.com/Kotlin/kotlinx-benchmark/releases/tag/v0.5.0)
@@ -327,6 +344,7 @@ Input preparation and parameter-name resolution occur outside timing.
 | `Int328Benchmark.decode`, `encode`, `compare`, `add`, `subtract` | Six valid signed shapes below | Owned codec results or complete signed operation, including wrapper/sign construction and overflow checks; no fixture preparation |
 | `Int328MultiplyBenchmark.multiply` | Six full-product signed shapes below | Exact unsigned magnitude multiplication, signed encoding and immutable wide-result ownership; no fixture preparation or result export |
 | `Int328DivisionBenchmark.divideAndRemainder` | Eight valid signed division shapes below | Complete magnitude division, sign restoration, overflow check and both immutable results; no fixture preparation or result export |
+| `Int328ExtendedGcdBenchmark.extendedGcd` | Seven valid signed extended-GCD shapes below | Complete variable-time Euclidean loop, exact wide coefficient updates and immutable result; no fixture preparation |
 | `Int656Benchmark.compare`, `add`, `subtract` | Six valid signed-wide shapes below | Signed comparison or full-width checked arithmetic, including overflow checks and owned results; no fixture preparation |
 | `Int656DivisionBenchmark.divideAndRemainder` | Eight valid signed-wide division shapes below | Full-width magnitude division, sign restoration, overflow check and both immutable results; no fixture preparation or result export |
 
@@ -396,6 +414,15 @@ and `LARGER_DIVISOR` (`-1`, `-2^327`). Every divisor is nonzero and quotient
 representable. Ordinary JVM tests compare both results with `BigInteger`,
 including the reconstruction identity and strict remainder-magnitude bound.
 
+Signed extended GCD uses `ZERO_EQUAL` (`0`, `0`), `ZERO_NEGATIVE` (`0`, `-2^327`),
+`MIN_ZERO` (`-2^327`, `0`), `MIN_ONE` (`-2^327`, `1`), `MIN_MAX`
+(`-2^327`, `2^327 - 1`), `FULL_WIDTH` (41 bytes of `0xaa` and `0x55`,
+interpreted as signed), and `FIBONACCI` (the largest consecutive positive
+Fibonacci pair fitting in the signed range). Setup is outside timing; workload
+correctness checks compare the unsigned GCD and Bezout identity with
+`BigInteger`. These are synthetic public workloads, not a secret-input
+distribution or constant-time claim.
+
 Signed-wide arithmetic uses `ZERO_EQUAL` (`0`, `0`), `MIN_BY_ZERO`
 (`-2^655`, `0`), `MAX_BY_ZERO` (`2^655 - 1`, `0`), `NEGATIVE_EQUAL`
 (`-2^654`, `-2^654`), `MIXED_SIGN` (`2^653`, `-2^653`), and `CARRY_CHAIN`
@@ -414,13 +441,13 @@ The public library API is unchanged; internal wide results are not exposed by it
 
 ```sh
 ./gradlew jvmTest                       # Check workload correctness before timing
-./gradlew jvmBenchmarkSmokeBenchmark    # Discovery/execution only: 149 cases
+./gradlew jvmBenchmarkSmokeBenchmark    # Discovery/execution only: 156 cases
 ./gradlew jvmBenchmarkBenchmarkJar      # Build the JMH harness before measurement
 ./gradlew jvmBenchmarkBenchmark         # Opt-in full profile on a controlled host
 ```
 
 The `smoke` profile uses one fork, one 50 ms warmup, and one 50 ms measurement
-per case. Linux CI requires the complete 149-case parameter matrix, the expected
+per case. Linux CI requires the complete 156-case parameter matrix, the expected
 mode/unit/profile, and finite positive samples. It uploads JSON reports,
 execution logs, and commit/host/JDK/Gradle metadata with the other Kotlin reports.
 The `main` measurement profile uses three forks, three 1 s warmups, and five 1 s

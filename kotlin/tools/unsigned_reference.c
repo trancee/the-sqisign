@@ -67,6 +67,27 @@ encode_signed_result(const ibz_t *value)
 }
 
 static void
+encode_xgcd_coefficient(const ibz_t *value)
+{
+    ibz_t minimum = { .bitlen = 8 * ENCODED_BYTES + 1 };
+    ibz_t maximum = { .bitlen = 8 * ENCODED_BYTES + 1 };
+    for (int index = 0; index < WORD_COUNT - 1; index++)
+        maximum.limbs[index] = ~(digit_t)0;
+    maximum.limbs[WORD_COUNT - 1] = 0x7f;
+    minimum.limbs[WORD_COUNT - 1] = ~(digit_t)0 ^ 0x7f;
+    if (ibz_cmp(value, &minimum) < 0 || ibz_cmp(value, &maximum) > 0) {
+        printf("overflow");
+        return;
+    }
+    digit_t words[WORD_COUNT];
+    digit_t extension = ibz_is_positive(value) ? 0 : ~(digit_t)0;
+    int used_words = NUM_LIMBS(value->bitlen);
+    for (int index = 0; index < WORD_COUNT; index++)
+        words[index] = index < used_words ? value->limbs[index] : extension;
+    encode(words, ENCODED_BYTES);
+}
+
+static void
 encode_signed_wide_result(const ibz_t *value)
 {
     digit_t sign = (value->limbs[WIDE_SIGNED_WORD_COUNT - 1] >> 15) & 1;
@@ -83,17 +104,18 @@ main(int argc, char **argv)
 {
     int wide_division = argc == 2 && strcmp(argv[1], "--wide-division") == 0;
     int sqrt_floor_mode = argc == 2 && strcmp(argv[1], "--sqrt-floor") == 0;
+    int extended_gcd_mode = argc == 2 && strcmp(argv[1], "--extended-gcd") == 0;
     int gcd_mode = argc == 2 && strcmp(argv[1], "--gcd") == 0;
     int inverse_mode = argc == 2 && strcmp(argv[1], "--inverse") == 0;
     int signed_mode = argc == 2 && strcmp(argv[1], "--signed") == 0;
     int signed_division = argc == 2 && strcmp(argv[1], "--signed-division") == 0;
     int signed_wide_division = argc == 2 && strcmp(argv[1], "--signed-wide-division") == 0;
     int signed_wide_mode = argc == 2 && strcmp(argv[1], "--signed-wide") == 0;
-    if (argc != 1 && !wide_division && !sqrt_floor_mode && !gcd_mode && !inverse_mode && !signed_mode &&
-        !signed_division && !signed_wide_division && !signed_wide_mode) {
+    if (argc != 1 && !wide_division && !sqrt_floor_mode && !extended_gcd_mode && !gcd_mode && !inverse_mode &&
+        !signed_mode && !signed_division && !signed_wide_division && !signed_wide_mode) {
         fprintf(stderr,
-                "Expected no arguments, --wide-division, --sqrt-floor, --gcd, --inverse, --signed, "
-                "--signed-division, --signed-wide-division or --signed-wide\n");
+                "Expected no arguments, --wide-division, --sqrt-floor, --extended-gcd, --gcd, --inverse, "
+                "--signed, --signed-division, --signed-wide-division or --signed-wide\n");
         return 1;
     }
     int left_bytes = wide_division || signed_wide_division || signed_wide_mode ? 2 * ENCODED_BYTES : ENCODED_BYTES;
@@ -128,6 +150,20 @@ main(int argc, char **argv)
         encode(left, left_bytes);
         putchar(':');
         encode(right, right_bytes);
+        if (extended_gcd_mode) {
+            ibz_t a = { 0 }, b = { 0 }, gcd = { 0 }, left_coefficient = { 0 }, right_coefficient = { 0 };
+            import_signed(&a, left);
+            import_signed(&b, right);
+            ibz_xgcd(&gcd, &left_coefficient, &right_coefficient, &a, &b);
+            putchar(':');
+            encode(gcd.limbs, ENCODED_BYTES);
+            putchar(':');
+            encode_xgcd_coefficient(&left_coefficient);
+            putchar(':');
+            encode_xgcd_coefficient(&right_coefficient);
+            putchar('\n');
+            continue;
+        }
         if (signed_division) {
             ibz_t a = { 0 }, b = { 0 }, quotient = { 0 }, remainder = { 0 };
             import_signed(&a, left);
