@@ -229,6 +229,17 @@ The implementation keeps Euclidean coefficients reduced modulo the modulus,
 using exact wide products before reduction; no signed coefficients are exposed.
 This does not add extended GCD or field inversion.
 
+Another 209 signed-wide division records use Python truncation-toward-zero
+arithmetic and pinned C `ibz_div`, covering signed 656-bit dividends, signed
+328-bit divisors, both sign combinations, zero divisors, the wide minimum and
+the positive quotient overflow for `minimum / -1`. Each record checks both
+exact outputs or the explicit failure marker. Common tests run four
+interleaved batches on JVM, Node.js and Native. Eight retained JVM shapes
+compare the complete quotient and remainder against `BigInteger`, including
+reconstruction and the strict remainder bound. The implementation reuses
+unsigned magnitude division without narrowing the quotient; it remains
+variable-time and does not imply support for secret operands.
+
 Another 314 signed records use Python signed integers and the pinned C
 `ibz_cmp`, `ibz_add`, `ibz_sub`, and `ibz_mul` in `--signed` mode. They cover the signed
 minimum/maximum, all sign combinations, radix transitions and deterministic
@@ -367,13 +378,13 @@ The public library API is unchanged; internal wide results are not exposed by it
 
 ```sh
 ./gradlew jvmTest                       # Check workload correctness before timing
-./gradlew jvmBenchmarkSmokeBenchmark    # Discovery/execution only: 116 cases
+./gradlew jvmBenchmarkSmokeBenchmark    # Discovery/execution only: 124 cases
 ./gradlew jvmBenchmarkBenchmarkJar      # Build the JMH harness before measurement
 ./gradlew jvmBenchmarkBenchmark         # Opt-in full profile on a controlled host
 ```
 
 The `smoke` profile uses one fork, one 50 ms warmup, and one 50 ms measurement
-per case. Linux CI requires the complete 116-case parameter matrix, the expected
+per case. Linux CI requires the complete 124-case parameter matrix, the expected
 mode/unit/profile, and finite positive samples. It uploads JSON reports,
 execution logs, and commit/host/JDK/Gradle metadata with the other Kotlin reports.
 The `main` measurement profile uses three forks, three 1 s warmups, and five 1 s

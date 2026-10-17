@@ -14,6 +14,7 @@ from generate_test_vectors import (
     inverse_cases, inverse_record,
     signed_cases, signed_record,
     signed_division_cases, signed_division_record,
+    signed_wide_division_cases, signed_wide_division_record,
 )
 
 
@@ -53,6 +54,7 @@ def main():
     modular_inverse_cases = inverse_cases()
     signed_integer_cases = signed_cases()
     signed_quotient_cases = signed_division_cases()
+    signed_wide_quotient_cases = signed_wide_division_cases()
     inputs = "\n".join(f"{left.to_bytes(41, 'little').hex()} {right.to_bytes(41, 'little').hex()}"
                        for left, right in cases) + "\n"
     with tempfile.TemporaryDirectory(prefix="sqisign-unsigned-") as directory:
@@ -93,6 +95,13 @@ def main():
         signed_division_result = subprocess.run(
             [str(binary), "--signed-division"], input=signed_division_inputs,
             capture_output=True, text=True, check=True)
+        signed_wide_division_inputs = "\n".join(
+            f"{dividend.to_bytes(82, 'little', signed=True).hex()} "
+            f"{divisor.to_bytes(41, 'little', signed=True).hex()}"
+            for dividend, divisor in signed_wide_quotient_cases) + "\n"
+        signed_wide_division_result = subprocess.run(
+            [str(binary), "--signed-wide-division"], input=signed_wide_division_inputs,
+            capture_output=True, text=True, check=True)
     actual = result.stdout.splitlines()
     expected = [unsigned_record(left, right) for left, right in cases]
     if actual != expected:
@@ -112,10 +121,17 @@ def main():
     signed_division_expected = [signed_division_record(left, right) for left, right in signed_quotient_cases]
     if signed_division_result.stdout.splitlines() != signed_division_expected:
         raise SystemExit("C/Python signed division differential mismatch")
+    signed_wide_division_expected = [
+        signed_wide_division_record(dividend, divisor)
+        for dividend, divisor in signed_wide_quotient_cases
+    ]
+    if signed_wide_division_result.stdout.splitlines() != signed_wide_division_expected:
+        raise SystemExit("C/Python signed wide division differential mismatch")
     print(f"Verified {len(cases)} UInt328, {len(wide_cases)} wide division, "
           f"{len(common_divisor_cases)} GCD, {len(modular_inverse_cases)} modular inverse, "
-          f"{len(signed_integer_cases)} Int328 and {len(signed_quotient_cases)} signed division public cases "
-          f"against C {REFERENCE_COMMIT} and Python integers")
+          f"{len(signed_integer_cases)} Int328, {len(signed_quotient_cases)} signed division and "
+          f"{len(signed_wide_quotient_cases)} signed wide division public cases against "
+          f"C {REFERENCE_COMMIT} and Python integers")
 
 
 if __name__ == "__main__":

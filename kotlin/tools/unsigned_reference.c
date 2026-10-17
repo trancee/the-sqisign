@@ -9,7 +9,8 @@ enum
     ENCODED_BYTES = 41,
     HEX_CHARS = 2 * ENCODED_BYTES,
     WIDE_HEX_CHARS = 2 * HEX_CHARS,
-    WORD_COUNT = 6
+    WORD_COUNT = 6,
+    WIDE_SIGNED_WORD_COUNT = 11
 };
 _Static_assert(sizeof(digit_t) == 8, "The reference adapter requires 64-bit C limbs");
 
@@ -46,6 +47,15 @@ import_signed(ibz_t *value, const digit_t *words)
 }
 
 static void
+import_signed_wide(ibz_t *value, const digit_t *words)
+{
+    value->bitlen = 16 * ENCODED_BYTES + 1;
+    memcpy(value->limbs, words, WIDE_SIGNED_WORD_COUNT * sizeof(digit_t));
+    if ((words[WIDE_SIGNED_WORD_COUNT - 1] & 0x8000) != 0)
+        value->limbs[WIDE_SIGNED_WORD_COUNT - 1] |= ~(digit_t)0xffff;
+}
+
+static void
 encode_signed_result(const ibz_t *value)
 {
     // Every result fits 329 signed bits; bits 327..383 must agree to fit 328.
@@ -56,6 +66,18 @@ encode_signed_result(const ibz_t *value)
         encode(value->limbs, ENCODED_BYTES);
 }
 
+static void
+encode_signed_wide_result(const ibz_t *value)
+{
+    digit_t sign = (value->limbs[WIDE_SIGNED_WORD_COUNT - 1] >> 15) & 1;
+    digit_t high = value->limbs[WIDE_SIGNED_WORD_COUNT - 1] >> 16;
+    digit_t expected = sign ? ~(digit_t)0 >> 16 : 0;
+    if (high != expected)
+        printf("overflow");
+    else
+        encode(value->limbs, 2 * ENCODED_BYTES);
+}
+
 int
 main(int argc, char **argv)
 {
@@ -64,12 +86,16 @@ main(int argc, char **argv)
     int inverse_mode = argc == 2 && strcmp(argv[1], "--inverse") == 0;
     int signed_mode = argc == 2 && strcmp(argv[1], "--signed") == 0;
     int signed_division = argc == 2 && strcmp(argv[1], "--signed-division") == 0;
-    if (argc != 1 && !wide_division && !gcd_mode && !inverse_mode && !signed_mode && !signed_division) {
-        fprintf(stderr, "Expected no arguments, --wide-division, --gcd, --inverse, --signed or --signed-division\n");
+    int signed_wide_division = argc == 2 && strcmp(argv[1], "--signed-wide-division") == 0;
+    if (argc != 1 && !wide_division && !gcd_mode && !inverse_mode && !signed_mode && !signed_division &&
+        !signed_wide_division) {
+        fprintf(stderr,
+                "Expected no arguments, --wide-division, --gcd, --inverse, --signed, "
+                "--signed-division or --signed-wide-division\n");
         return 1;
     }
-    int left_bytes = wide_division ? 2 * ENCODED_BYTES : ENCODED_BYTES;
-    int left_words = wide_division ? 2 * WORD_COUNT : WORD_COUNT;
+    int left_bytes = wide_division || signed_wide_division ? 2 * ENCODED_BYTES : ENCODED_BYTES;
+    int left_words = wide_division ? 2 * WORD_COUNT : signed_wide_division ? WIDE_SIGNED_WORD_COUNT : WORD_COUNT;
     char left_hex[WIDE_HEX_CHARS + 1], right_hex[HEX_CHARS + 1];
     int fields;
     while ((fields = scanf("%164s %82s", left_hex, right_hex)) == 2) {
@@ -92,6 +118,22 @@ main(int argc, char **argv)
                 ibz_div(&quotient, &remainder, &a, &b);
                 putchar(':');
                 encode_signed_result(&quotient);
+                putchar(':');
+                encode_signed_result(&remainder);
+                putchar('\n');
+            }
+            continue;
+        }
+        if (signed_wide_division) {
+            ibz_t a = { 0 }, b = { 0 }, quotient = { 0 }, remainder = { 0 };
+            import_signed_wide(&a, left);
+            import_signed(&b, right);
+            if (ibz_is_zero(&b)) {
+                printf(":zero_divisor:zero_divisor\n");
+            } else {
+                ibz_div(&quotient, &remainder, &a, &b);
+                putchar(':');
+                encode_signed_wide_result(&quotient);
                 putchar(':');
                 encode_signed_result(&remainder);
                 putchar('\n');

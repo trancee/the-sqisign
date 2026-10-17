@@ -600,6 +600,27 @@ This is not wide signed division, field reduction, extended GCD, larger operand
 bounds, expert review, leakage proof, a numeric performance budget or a
 controlled comparison baseline.
 
+## Arithmetic decision 2026-10-17: full-width signed division
+
+The approved detailed record is
+[`adr/0001-int656-signed-division.md`](adr/0001-int656-signed-division.md).
+Internal `Int656.divideAndRemainder(Int328)` reuses the exact unsigned
+`UInt656 / UInt328` kernel over unsigned magnitudes and returns an `Int656`
+quotient with an `Int328` remainder. It truncates toward zero, the remainder
+follows the dividend's sign, and `dividend = quotient * divisor + remainder`.
+Zero divisors and `minimum / -1` fail explicitly. The magnitude path preserves
+`-2^655` and `-2^327` without signed negation; results remain immutable and
+division is variable-time.
+
+The separate 209-record fixture set uses Python integer arithmetic and pinned
+C `ibz_div`, with sign-extended 657-bit input capacity. Common tests run it in
+four interleaved batches and assert exact quotient/remainder bytes, errors,
+and operand preservation. Eight retained JVM shapes compare both results,
+reconstruction and strict remainder bounds against `BigInteger`. The CI smoke
+matrix grows from 116 to 124 cases. No public ABI, dependency, wire format,
+toolchain or release-version change; this does not establish constant-time
+behavior, expert review, numeric performance budgets or a controlled baseline.
+
 ## Public API and randomness policy for the complete port
 
 Do not publish `sign`/`verify` methods that throw "not implemented", return fixed

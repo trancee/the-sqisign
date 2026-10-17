@@ -191,6 +191,39 @@ def signed_division_record(dividend, divisor):
     return ":".join((encode(dividend), encode(divisor), quotient, remainder))
 
 
+def signed_wide_division_cases():
+    """Signed 656-bit dividends and signed 328-bit divisors, including quotient overflow."""
+    wide_minimum = -(1 << 655)
+    wide_maximum = (1 << 655) - 1
+    narrow_minimum = -(1 << 327)
+    narrow_maximum = (1 << 327) - 1
+    dividends = (wide_minimum, wide_minimum + 1, -1, 0, 1, wide_maximum - 1,
+                 wide_maximum, narrow_minimum, narrow_maximum)
+    divisors = (0, 1, -1, 2, -2, narrow_minimum, narrow_maximum,
+                1 << 326, -(1 << 326))
+    cases = [(dividend, divisor) for dividend in dividends for divisor in divisors]
+    for index in range(128):
+        block = hashlib.shake_256(f"SQIsign Int656 division public vector {index}".encode()).digest(123)
+        cases.append((int.from_bytes(block[:82], "little", signed=True),
+                      int.from_bytes(block[82:], "little", signed=True)))
+    return cases
+
+
+def signed_wide_division_record(dividend, divisor):
+    wide_minimum = -(1 << 655)
+    wide_maximum = (1 << 655) - 1
+    encode_wide = lambda value: value.to_bytes(82, "little", signed=True).hex()
+    encode_narrow = lambda value: value.to_bytes(41, "little", signed=True).hex()
+    if divisor == 0:
+        quotient, remainder = "zero_divisor", "zero_divisor"
+    else:
+        magnitude = abs(dividend) // abs(divisor)
+        value = -magnitude if (dividend < 0) != (divisor < 0) else magnitude
+        quotient = "overflow" if not wide_minimum <= value <= wide_maximum else encode_wide(value)
+        remainder = encode_narrow(dividend - value * divisor)
+    return ":".join((encode_wide(dividend), encode_narrow(divisor), quotient, remainder))
+
+
 def generate():
     lines = [
         "// SPDX-License-Identifier: Apache-2.0",
@@ -284,6 +317,14 @@ def generate():
     ]
     for dividend, divisor in signed_division_cases():
         lines.append(f"    {literal(signed_division_record(dividend, divisor))},")
+    lines += [
+        ")", "",
+        "// Int656 / Int328: Python truncation-toward-zero oracle, checked against pinned C ibz_div.",
+        "// Record: dividend:divisor:quotient:remainder; signed LE hex, overflow or zero_divisor.",
+        "internal val signedWideDivisionVectors: List<String> = listOf(",
+    ]
+    for dividend, divisor in signed_wide_division_cases():
+        lines.append(f"    {literal(signed_wide_division_record(dividend, divisor))},")
     lines += [")", ""]
     return "\n".join(lines)
 

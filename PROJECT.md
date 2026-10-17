@@ -120,13 +120,20 @@ zero, signed bounds and full-width operands.
 nonzero remainder following the dividend's sign and absolute value below the
 divisor's magnitude. Zero divisors and `minimum / -1` fail explicitly.
 Another 570 Python/C records check both signed results/failure categories;
-eight valid JVM workloads preserve both outputs. Wide signed division and
-larger operand bounds remain separate.
+eight valid JVM workloads preserve both outputs. `Int656.divideAndRemainder`
+accepts an exact signed 656-bit dividend and signed 328-bit divisor, returning
+a full-width signed quotient and narrow remainder with the same truncation and
+sign rules. It rejects zero divisors and the sole positive quotient overflow
+(`minimum / -1`). Another 209 Python/C records cover the boundaries, both signs,
+and deterministic full-width inputs. Eight JVM workloads verify both results
+against `BigInteger`; division remains variable-time. The rationale,
+alternatives, risks and migration are in
+[`kotlin/adr/0001-int656-signed-division.md`](kotlin/adr/0001-int656-signed-division.md).
 
 Formatting: Spotless `8.10.4` / ktfmt `0.65`; apply via `./gradlew spotlessApply`. Static analysis: accepted detekt `2.0.0-alpha.6`, including type-aware JVM tasks, no finding baseline. ABI: explicitly accepted Kotlin experimental validator; regenerate reviewed changes with `./gradlew updateKotlinAbi`. Reassess both experimental tools on compatible stable releases.
 
 Generated fixture owner: `python3 tools/generate_test_vectors.py`; output `src/commonTest/kotlin/ch/trancee/sqisign/TestVectors.kt`; `checkTestVectors` checks exact content from Python hashlib and the parent public KATs. This generated test file is excluded from Spotless/detekt, not from execution. No generated API docs or publication pipeline is configured.
 
-Benchmark owner: `kotlin/src/jvmBenchmark/`, with workload correctness tests in `kotlin/src/jvmTest/`. `kotlin/README.md` defines timed boundaries, workloads, profiles, and comparison controls. CI retains raw smoke reports under `build/reports/benchmarks/smoke/`, logs, and commit/host/runtime metadata in uploaded artifacts; these are executability evidence only. Generated harnesses and benchmark sources are outside production coverage; production exclusions remain empty. JMH's deprecated Unsafe warnings on JDK `26` require revalidation on future JDK upgrades.
+Benchmark owner: `kotlin/src/jvmBenchmark/`, with workload correctness tests in `kotlin/src/jvmTest/`. `kotlin/README.md` defines timed boundaries, workloads, profiles, and comparison controls. CI validates 124 JVM smoke cases and retains raw reports under `build/reports/benchmarks/smoke/`, logs, and commit/host/runtime metadata in uploaded artifacts; these are executability evidence only. Generated harnesses and benchmark sources are outside production coverage; production exclusions remain empty. JMH's deprecated Unsafe warnings on JDK `26` require revalidation on future JDK upgrades.
 
 Limitations: passing Kotlin gates is not full constitutional compliance. Crypto expert review, constant-time guarantees, numeric performance budgets, and committed controlled-measurement baselines are not established. Retained JVM workloads do not establish performance or portability on other targets. JVM coverage does not imply coverage on JS/Native. C coverage remains measurement-only as documented in `DEVELOPERS.md`; this Kotlin-only change does not alter C gates.
