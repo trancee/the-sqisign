@@ -14,9 +14,12 @@ and the shared C-runner setup action. C formatting watches C/header files,
 `.clang-format`, `.pre-commit-config.yaml`, its script, and its workflow.
 Kotlin push/PR checks watch non-Markdown files under `kotlin/`, the shared `KAT/`
 fixtures, the unsigned-oracle inputs (`src/mp/ref/`, `src/common/generic/include/`,
-`src/precomp/ref/p324_3/include/`, and `include/sqisign_namespace.h`), and its workflow. Kotlin-only changes do not
-launch C checks; C-only changes do not launch Kotlin checks unless they change
-those shared fixtures or reference inputs. Root documentation/governance-only changes launch neither.
+the `p324_3`, `p500_27`, and `p664_17` precomputation headers and field sources,
+the shared `fp`/`fp2` headers and implementations, `scripts/add_parameter_set.py`,
+and `include/sqisign_namespace.h`), and its workflow. Kotlin-only changes do
+not launch C checks; C-only changes do not launch Kotlin checks unless they
+change those shared fixtures or reference inputs. Root documentation/
+governance-only changes launch neither.
 Manual dispatches and scheduled C checks remain unfiltered; GitHub path filters
 apply only to push/PR events. Required branch checks must account for skipped
 workflows: GitHub can leave a path-filtered required check pending.
@@ -68,7 +71,7 @@ Benchmark-only tooling: explicitly accepted Alpha `kotlinx-benchmark` plugin/run
 | --- | --- | --- | --- |
 | `:` / JVM | JDK `26` | `jvmTest jvmCoverageVerification` | Runtime; JaCoCo line/branch coverage of JVM-compiled `commonMain`, both thresholds `100%`, no production exclusions |
 | `:` / JVM benchmark | JDK `26`; controlled host for measurements | `jvmBenchmarkSmokeBenchmark`; opt-in `jvmBenchmarkBenchmark` | Linux CI validates 156 primitive/parameter cases and JSON samples; no score gate or baseline; no JS/Native benchmark proof |
-| `:` / JS | JDK `26`; plugin downloads Node | `jsNodeTest` | Node runtime; no browser or coverage proof |
+| `:` / JS | JDK `26`; plugin downloads Node | `jsNodeTest` | Node runtime; 30-second per-test timeout accommodates wide-field nonlinear vectors; no browser or coverage proof |
 | `:` / Linux x64 | x86-64 Linux; downloaded Kotlin/Native toolchain | `linuxX64Test` | Native runtime; no measured coverage |
 | `:` / macOS ARM64 | Apple Silicon macOS with Xcode tools | `macosArm64Test` | Native runtime; Linux cannot supply this proof; no measured coverage |
 | `:` / all target libraries | JDK `26`; downloaded Kotlin/Native toolchain | `checkKotlinAbi` | Compiled ABI against `kotlin/api/`; inference disabled; not final published-artifact validation |
@@ -149,6 +152,24 @@ chain. The implementation is variable-time and establishes neither secret-
 input suitability nor expert review or a controlled performance baseline.
 The algorithm, coefficient-width reasoning, alternatives and migration are in
 [`kotlin/adr/0003-int328-extended-gcd.md`](kotlin/adr/0003-int328-extended-gcd.md).
+The internal field layer implements base fields and quadratic extensions for
+all three parameter sets: `Fp324`/`Fp2P324`, `Fp500P27`/`Fp2P500`, and
+`Fp664P17`/`Fp2P664`. Encodings are strict canonical little-endian residues;
+operations include arithmetic, inversion, residue testing, verified canonical
+roots, sign, Boolean selection, and immutable conditional swap. Python oracle
+coverage comprises 113 p324 base operation pairs, 48 pairs for each wider base
+field, and 64 extension operation pairs per parameter set, plus nonlinear
+vectors. The pinned C checker independently cross-checks arithmetic, roots,
+and both selection/swap controls across all six types. The p324 field uses
+exact `UInt656` products and division; wider fields use shared byte-backed
+helpers. Operations and controls are variable-time and unsuitable for secret
+inputs. No performance budget, constant-time guarantee, expert cryptographic
+review, or macOS ARM64 runtime proof is established. Initial representation
+decisions are in
+[`kotlin/adr/0004-p324_3-base-field.md`](kotlin/adr/0004-p324_3-base-field.md)
+and [`kotlin/adr/0005-p324_3-extension-field.md`](kotlin/adr/0005-p324_3-extension-field.md);
+the completed scope and control contract are in
+[`kotlin/adr/0006-field-core-all-parameter-sets.md`](kotlin/adr/0006-field-core-all-parameter-sets.md).
 
 Formatting: Spotless `8.10.4` / ktfmt `0.65`; apply via `./gradlew spotlessApply`. Static analysis: accepted detekt `2.0.0-alpha.6`, including type-aware JVM tasks, no finding baseline. ABI: explicitly accepted Kotlin experimental validator; regenerate reviewed changes with `./gradlew updateKotlinAbi`. Reassess both experimental tools on compatible stable releases.
 

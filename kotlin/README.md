@@ -74,6 +74,28 @@ not a particular valid coefficient pair. The signed minimum's magnitude is
 retained in the unsigned GCD result. Execution is variable-time and is not
 intended for secret inputs. Conversions and larger operand bounds remain
 separate work.
+The internal field package implements canonical prime fields for all three
+parameter sets: `Fp324` (`p324_3`), `Fp500P27` (`p500_27`), and `Fp664P17`
+(`p664_17`). Each rejects noncanonical little-endian encodings and supports
+addition, subtraction, negation, multiplication, squaring, inversion, residue
+testing, canonical square roots, sign, selection, and immutable conditional
+swap. Their quadratic extensions `Fp2P324`, `Fp2P500`, and `Fp2P664` use strict
+real-then-imaginary encodings, the same arithmetic and control operations, and
+canonical ordering by imaginary component first, then real component.
+Selection takes a Boolean and chooses the second value when true; conditional
+swap returns the two inputs in their original or reversed order without
+mutation. These branch-based controls, like the arithmetic and root selection,
+are variable-time and are not suitable for secret inputs; no constant-time
+claim is made.
+
+Independent Python records and pinned C comparisons cover 113 `p324_3` base
+operations, 48 base operations for each wider prime field, and 64 extension
+operations for each parameter set. Nonlinear vectors cover inversion, residue
+status, canonical roots and extension non-residues. The C/Python checker also
+compares both Boolean control values for field sign, selection and swap across
+all six types. The portable implementation is internal and adds no runtime
+dependency; it is not evidence of expert cryptographic review or production
+readiness.
 
 The wire types expose byte encodings, not mathematical field/curve objects.
 They do not check curve validity, supersingularity, basis-hint validity, matrix

@@ -3,6 +3,10 @@
 // Including the reference translation unit exposes its static raw unsigned helpers
 // without adding a public C API. Unused functions are discarded at link time.
 #include "../../src/mp/ref/lvlx/mp.c"
+#undef dpint
+#include "../../src/gf/ref/p324_3/fp_p324_3.c"
+#include "../../src/gf/ref/lvlx/fp.c"
+#include "../../src/gf/ref/lvlx/fp2.c"
 
 enum
 {
@@ -35,6 +39,30 @@ encode(const digit_t *words, int bytes)
 {
     for (int index = 0; index < bytes; index++)
         printf("%02x", (unsigned)((words[index / 8] >> (8 * (index % 8))) & 0xff));
+}
+
+static void
+words_to_little_endian(const digit_t *words, unsigned char *bytes, int length)
+{
+    for (int index = 0; index < length; index++)
+        bytes[index] = (unsigned char)(words[index / 8] >> (8 * (index % 8)));
+}
+
+static void
+encode_bytes(const unsigned char *bytes, int length)
+{
+    for (int index = 0; index < length; index++)
+        printf("%02x", bytes[index]);
+}
+
+static void
+encode_fp2_fields(const fp2_t *value)
+{
+    unsigned char bytes[2 * ENCODED_BYTES];
+    fp2_encode(bytes, value);
+    encode_bytes(bytes, ENCODED_BYTES);
+    putchar(':');
+    encode_bytes(bytes + ENCODED_BYTES, ENCODED_BYTES);
 }
 
 static void
@@ -111,29 +139,40 @@ main(int argc, char **argv)
     int signed_division = argc == 2 && strcmp(argv[1], "--signed-division") == 0;
     int signed_wide_division = argc == 2 && strcmp(argv[1], "--signed-wide-division") == 0;
     int signed_wide_mode = argc == 2 && strcmp(argv[1], "--signed-wide") == 0;
+    int field_mode = argc == 2 && strcmp(argv[1], "--field") == 0;
+    int field_nonlinear_mode = argc == 2 && strcmp(argv[1], "--field-nonlinear") == 0;
+    int fp2_mode = argc == 2 && strcmp(argv[1], "--fp2") == 0;
+    int fp2_nonlinear_mode = argc == 2 && strcmp(argv[1], "--fp2-nonlinear") == 0;
     if (argc != 1 && !wide_division && !sqrt_floor_mode && !extended_gcd_mode && !gcd_mode && !inverse_mode &&
-        !signed_mode && !signed_division && !signed_wide_division && !signed_wide_mode) {
+        !signed_mode && !signed_division && !signed_wide_division && !signed_wide_mode && !field_mode &&
+        !field_nonlinear_mode && !fp2_mode && !fp2_nonlinear_mode) {
         fprintf(stderr,
                 "Expected no arguments, --wide-division, --sqrt-floor, --extended-gcd, --gcd, --inverse, "
-                "--signed, --signed-division, --signed-wide-division or --signed-wide\n");
+                "--signed, --signed-division, --signed-wide-division, --signed-wide, --field or "
+                "--field-nonlinear, --fp2 or --fp2-nonlinear\n");
         return 1;
     }
-    int left_bytes = wide_division || signed_wide_division || signed_wide_mode ? 2 * ENCODED_BYTES : ENCODED_BYTES;
+    int left_bytes = wide_division || signed_wide_division || signed_wide_mode || fp2_mode || fp2_nonlinear_mode
+                         ? 2 * ENCODED_BYTES
+                         : ENCODED_BYTES;
     int left_words = wide_division                              ? 2 * WORD_COUNT
                      : signed_wide_division || signed_wide_mode ? WIDE_SIGNED_WORD_COUNT
+                     : fp2_mode || fp2_nonlinear_mode           ? 2 * WORD_COUNT
                                                                 : WORD_COUNT;
-    int right_bytes = signed_wide_mode ? 2 * ENCODED_BYTES : ENCODED_BYTES;
-    int right_words = signed_wide_mode ? WIDE_SIGNED_WORD_COUNT : WORD_COUNT;
-    const char *input_format = signed_wide_mode ? "%164s %164s" : "%164s %82s";
+    int right_bytes = signed_wide_mode || fp2_mode ? 2 * ENCODED_BYTES : ENCODED_BYTES;
+    int right_words = signed_wide_mode ? WIDE_SIGNED_WORD_COUNT : fp2_mode ? 2 * WORD_COUNT : WORD_COUNT;
+    int single_operand_mode = sqrt_floor_mode || field_nonlinear_mode || fp2_nonlinear_mode;
+    const char *input_format = signed_wide_mode || fp2_mode ? "%164s %164s" : "%164s %82s";
     char left_hex[WIDE_HEX_CHARS + 1], right_hex[WIDE_HEX_CHARS + 1];
     int fields;
-    int expected_fields = sqrt_floor_mode ? 1 : 2;
-    while ((fields = sqrt_floor_mode ? scanf("%82s", left_hex) : scanf(input_format, left_hex, right_hex)) ==
-           expected_fields) {
+    int expected_fields = single_operand_mode ? 1 : 2;
+    const char *single_input_format = fp2_nonlinear_mode ? "%164s" : "%82s";
+    while ((fields = single_operand_mode ? scanf(single_input_format, left_hex)
+                                         : scanf(input_format, left_hex, right_hex)) == expected_fields) {
         digit_t left[2 * WORD_COUNT], right[2 * WORD_COUNT], sum[WORD_COUNT], difference[WORD_COUNT];
         digit_t product[2 * WORD_COUNT];
         if (!decode(left_hex, left, left_bytes, left_words) ||
-            (!sqrt_floor_mode && !decode(right_hex, right, right_bytes, right_words))) {
+            (!single_operand_mode && !decode(right_hex, right, right_bytes, right_words))) {
             fprintf(stderr, "Invalid public unsigned reference operands\n");
             return 1;
         }
@@ -144,6 +183,118 @@ main(int argc, char **argv)
             encode(left, ENCODED_BYTES);
             putchar(':');
             encode(root.limbs, ENCODED_BYTES);
+            putchar('\n');
+            continue;
+        }
+        if (field_nonlinear_mode) {
+            unsigned char value_bytes[ENCODED_BYTES], output_bytes[ENCODED_BYTES];
+            fp_t value, inverse, root;
+            words_to_little_endian(left, value_bytes, ENCODED_BYTES);
+            if (fp_decode(&value, value_bytes) != UINT32_MAX) {
+                fprintf(stderr, "Invalid canonical p324_3 field operand\n");
+                return 1;
+            }
+            encode(left, ENCODED_BYTES);
+            putchar(':');
+            if (fp_is_zero(&value)) {
+                putchar('-');
+            } else {
+                fp_copy(&inverse, &value);
+                fp_inv(&inverse);
+                fp_encode(output_bytes, &inverse);
+                encode_bytes(output_bytes, ENCODED_BYTES);
+            }
+            printf(":%u:", fp_is_square(&value) != 0);
+            fp_copy(&root, &value);
+            fp_sqrt(&root);
+            fp_encode(output_bytes, &root);
+            encode_bytes(output_bytes, ENCODED_BYTES);
+            putchar('\n');
+            continue;
+        }
+        if (fp2_nonlinear_mode) {
+            unsigned char value_bytes[2 * ENCODED_BYTES];
+            fp2_t value, inverse, root, negative_root;
+            words_to_little_endian(left, value_bytes, 2 * ENCODED_BYTES);
+            if (fp2_decode(&value, value_bytes) != UINT32_MAX) {
+                fprintf(stderr, "Invalid canonical p324_3 extension-field operand\n");
+                return 1;
+            }
+            encode_fp2_fields(&value);
+            putchar(':');
+            if (fp2_is_zero(&value)) {
+                printf("-:-");
+            } else {
+                fp2_copy(&inverse, &value);
+                fp2_inv(&inverse);
+                encode_fp2_fields(&inverse);
+            }
+            uint32_t is_square = fp2_is_square(&value) != 0;
+            printf(":%u:", is_square);
+            fp2_copy(&root, &value);
+            uint32_t has_root = fp2_sqrt_verify(&root);
+            if (has_root == 0) {
+                printf("-:-");
+            } else {
+                fp2_neg(&negative_root, &root);
+                fp2_select(&root, &negative_root, &root, fp2_less_than(&root, &negative_root));
+                encode_fp2_fields(&root);
+            }
+            putchar('\n');
+            continue;
+        }
+        if (fp2_mode) {
+            unsigned char left_bytes[2 * ENCODED_BYTES], right_bytes[2 * ENCODED_BYTES];
+            fp2_t a, b, result;
+            words_to_little_endian(left, left_bytes, 2 * ENCODED_BYTES);
+            words_to_little_endian(right, right_bytes, 2 * ENCODED_BYTES);
+            if (fp2_decode(&a, left_bytes) != UINT32_MAX || fp2_decode(&b, right_bytes) != UINT32_MAX) {
+                fprintf(stderr, "Invalid canonical p324_3 extension-field operands\n");
+                return 1;
+            }
+            encode_fp2_fields(&a);
+            putchar(':');
+            encode_fp2_fields(&b);
+            fp2_add(&result, &a, &b);
+            putchar(':');
+            encode_fp2_fields(&result);
+            fp2_sub(&result, &a, &b);
+            putchar(':');
+            encode_fp2_fields(&result);
+            fp2_mul(&result, &a, &b);
+            putchar(':');
+            encode_fp2_fields(&result);
+            fp2_sqr(&result, &a);
+            putchar(':');
+            encode_fp2_fields(&result);
+            putchar('\n');
+            continue;
+        }
+        if (field_mode) {
+            unsigned char left_bytes[ENCODED_BYTES], right_bytes[ENCODED_BYTES];
+            unsigned char output_bytes[ENCODED_BYTES];
+            fp_t a, b, result;
+            words_to_little_endian(left, left_bytes, ENCODED_BYTES);
+            words_to_little_endian(right, right_bytes, ENCODED_BYTES);
+            if (fp_decode(&a, left_bytes) != UINT32_MAX || fp_decode(&b, right_bytes) != UINT32_MAX) {
+                fprintf(stderr, "Invalid canonical p324_3 field operands\n");
+                return 1;
+            }
+            encode(left, ENCODED_BYTES);
+            putchar(':');
+            encode(right, ENCODED_BYTES);
+            fp_add(&result, &a, &b);
+            putchar(':');
+            fp_encode(output_bytes, &result);
+            encode_bytes(output_bytes, ENCODED_BYTES);
+            fp_sub(&result, &a, &b);
+            putchar(':');
+            fp_encode(output_bytes, &result);
+            encode_bytes(output_bytes, ENCODED_BYTES);
+            fp_mul(&result, &a, &b);
+            putchar(':');
+            fp_encode(output_bytes, &result);
+            encode_bytes(output_bytes, ENCODED_BYTES);
             putchar('\n');
             continue;
         }

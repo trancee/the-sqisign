@@ -741,3 +741,49 @@ No public ABI, dependency, wire format, toolchain or release-version change.
 The operation is variable-time and is not intended for secret inputs. It is
 not expert cryptographic review, constant-time evidence, a numeric performance
 budget or a controlled comparison baseline.
+
+## Arithmetic decision 2026-10-17: prime fields for all parameter sets
+
+The detailed rationale and migration record is
+[`adr/0006-field-core-all-parameter-sets.md`](adr/0006-field-core-all-parameter-sets.md).
+The internal `Fp324`, `Fp500P27`, and `Fp664P17` types represent canonical
+residues modulo the corresponding `p324_3`, `p500_27`, and `p664_17` primes.
+All reject byte encodings at or above the modulus and provide addition,
+subtraction, negation, multiplication, squaring, inversion, residue testing,
+and a verified canonical square root. The `p324_3` implementation reuses
+`UInt328`/`UInt656`; the wider fields use common byte-backed modular helpers.
+These are internal operations, not public wire APIs or optimized performance
+claims.
+
+Python modular-integer vectors cover 113 `p324_3` operation pairs and 48 pairs
+for each wider base field. Six `p324_3` and five per wider prime field nonlinear
+vectors exercise inversion, residues and roots. The checker compiles the
+reference field implementations and verifies the operations against those
+independent records.
+
+## Arithmetic decision 2026-10-17: quadratic fields and canonical controls
+
+`Fp2P324`, `Fp2P500`, and `Fp2P664` implement
+`Fp[i]/(i^2 + 1)` with strict real-then-imaginary encodings, arithmetic,
+inversion, residue testing, and verified canonical square roots. Roots are
+ordered by the encoded value, which compares the imaginary component first,
+then the real component. The initial `p324_3` implementation and its
+representational choices are recorded in
+[`adr/0004-p324_3-base-field.md`](adr/0004-p324_3-base-field.md) and
+[`adr/0005-p324_3-extension-field.md`](adr/0005-p324_3-extension-field.md);
+ADR 0006 records the completed cross-parameter scope and controls.
+
+The generator owns 64 Python-integer operation pairs and ten nonlinear records
+for each extension field, including a deterministic non-residue. The pinned C
+adapter cross-checks those outputs. Base and extension field controls define
+`isNegative(x)` as `x > -x` in canonical ordering, making zero nonnegative;
+`select(first, second, true)` returns the second value; and conditional swap
+returns an immutable pair in original or reversed order. Both Boolean values
+for these controls are differentially checked against pinned C operations and
+Python integer ordering for all six types.
+
+All field arithmetic, ordering, root selection, and Boolean controls are
+variable-time and unsuitable for secret inputs. These tests do not establish
+constant-time behavior, performance suitability, or independent expert
+cryptographic review. The Linux checks cover JVM, JS and Linux Native; the
+macOS ARM64 runtime test still requires its supported CI host.

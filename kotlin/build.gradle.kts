@@ -42,7 +42,13 @@ kotlin {
         compilations.getByName("test").associateWith(benchmarkCompilation)
     }
     js {
-        nodejs()
+        nodejs {
+            testTask {
+                useMocha {
+                    timeout = "30000"
+                }
+            }
+        }
         compilerOptions {
             target.set("es2015")
         }

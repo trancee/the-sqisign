@@ -2,5 +2,6 @@ build*/
 html/
 latex/
 .vscode
+*.pyc
 
 *.DS_Store

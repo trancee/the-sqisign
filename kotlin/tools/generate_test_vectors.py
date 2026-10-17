@@ -323,6 +323,236 @@ def signed_wide_record(left, right):
                      checked(left + right), checked(left - right)))
 
 
+def fp324_cases():
+    """Canonical p324_3 residues for independent modular operation vectors."""
+    prime = 3 * (1 << 324) - 1
+    boundaries = (0, 1, 2, 5, prime // 2, prime - 2, prime - 1)
+    cases = [(left, right) for left in boundaries for right in boundaries]
+    for index in range(64):
+        block = hashlib.shake_256(f"SQIsign p324_3 field vector {index}".encode()).digest(82)
+        cases.append((
+            int.from_bytes(block[:41], "little") % prime,
+            int.from_bytes(block[41:], "little") % prime,
+        ))
+    return cases
+
+
+def fp324_record(left, right):
+    prime = 3 * (1 << 324) - 1
+    encode = lambda value: value.to_bytes(41, "little").hex()
+    return ":".join((encode(left), encode(right), encode((left + right) % prime),
+                     encode((left - right) % prime), encode((left * right) % prime)))
+
+
+def fp324_nonlinear_cases():
+    """Boundary, square and deterministic operands for field inverse and square-root checks."""
+    prime = 3 * (1 << 324) - 1
+    large_root = (1 << 200) + 12345
+    large_square = large_root * large_root % prime
+    return [0, 1, 5, 25, prime - 1, large_square]
+
+
+def fp324_nonlinear_record(value):
+    prime = 3 * (1 << 324) - 1
+    encode = lambda integer: integer.to_bytes(41, "little").hex()
+    inverse = pow(value, -1, prime) if value else "-"
+    is_square = value == 0 or pow(value, (prime - 1) // 2, prime) == 1
+    root = "-"
+    if is_square:
+        candidate = pow(value, (prime + 1) // 4, prime)
+        root = min(candidate, (-candidate) % prime)
+    return ":".join((encode(value), inverse if inverse == "-" else encode(int(inverse)),
+                     str(int(is_square)), root if root == "-" else encode(root)))
+
+
+def fp2_324_cases():
+    """Canonical p324_3 extension-field operands for independent operation vectors."""
+    return fp2_prime_field_cases(3, 324, 41, "p324_3")
+
+
+def fp2_prime_field_cases(cofactor, torsion_exponent, width, label):
+    prime = cofactor * (1 << torsion_exponent) - 1
+    boundaries = (0, 1, 2, prime - 1)
+    cases = [(a, b, c, d) for a in boundaries for b in boundaries
+             for c, d in ((0, 1), (2, prime - 1))]
+    for index in range(32):
+        block = hashlib.shake_256(f"SQIsign {label} Fp2 vector {index}".encode()).digest(4 * width)
+        cases.append(tuple(
+            int.from_bytes(block[offset:offset + width], "little") % prime
+            for offset in range(0, 4 * width, width)
+        ))
+    return cases
+
+
+def fp2_324_record(a, b, c, d):
+    return fp2_prime_field_record(a, b, c, d, 3, 324, 41)
+
+
+def fp2_prime_field_record(a, b, c, d, cofactor, torsion_exponent, width):
+    prime = cofactor * (1 << torsion_exponent) - 1
+    encode = lambda value: value.to_bytes(width, "little").hex()
+    addition = ((a + c) % prime, (b + d) % prime)
+    subtraction = ((a - c) % prime, (b - d) % prime)
+    multiplication = ((a * c - b * d) % prime, (a * d + b * c) % prime)
+    square = ((a * a - b * b) % prime, 2 * a * b % prime)
+    return ":".join(encode(value) for value in
+                    (a, b, c, d, *addition, *subtraction, *multiplication, *square))
+
+
+def fp2_324_square_root(real, imaginary, prime):
+    return fp2_prime_field_square_root(real, imaginary, prime)
+
+
+def fp2_prime_field_square_root(real, imaginary, prime):
+    if real == 0 and imaginary == 0:
+        return 0, 0
+    norm = (real * real + imaginary * imaginary) % prime
+    delta = pow(norm, (prime + 1) // 4, prime)
+    inverse_two = pow(2, -1, prime)
+    for candidate_delta in (delta, (-delta) % prime):
+        real_square = (candidate_delta + real) * inverse_two % prime
+        root_real = pow(real_square, (prime + 1) // 4, prime)
+        if root_real * root_real % prime != real_square:
+            continue
+        if root_real == 0:
+            if imaginary != 0:
+                continue
+            root_imaginary_square = (-real) % prime
+            root_imaginary = pow(root_imaginary_square, (prime + 1) // 4, prime)
+            if root_imaginary * root_imaginary % prime != root_imaginary_square:
+                continue
+        else:
+            root_imaginary = imaginary * pow(2 * root_real, -1, prime) % prime
+        if ((root_real * root_real - root_imaginary * root_imaginary) % prime,
+            (2 * root_real * root_imaginary) % prime) == (real, imaginary):
+            opposite = (-root_real % prime, -root_imaginary % prime)
+            return min((root_real, root_imaginary), opposite, key=lambda pair: (pair[1], pair[0]))
+    return None
+
+
+def fp2_324_nonlinear_cases():
+    """Zero, square, non-square and full-width extension-field values."""
+    return fp2_prime_field_nonlinear_cases(3, 324, 41, "p324_3")
+
+
+def fp2_prime_field_nonlinear_cases(cofactor, torsion_exponent, width, label):
+    prime = cofactor * (1 << torsion_exponent) - 1
+    nonsquare = next(
+        (real, imaginary)
+        for real in range(1, 16)
+        for imaginary in range(1, 16)
+        if pow((real * real + imaginary * imaginary) % prime, (prime - 1) // 2, prime)
+        == prime - 1
+    )
+    root = ((1 << 200) + 12345, (1 << 190) + 54321)
+    square = ((root[0] ** 2 - root[1] ** 2) % prime,
+              (2 * root[0] * root[1]) % prime)
+    large_square = None
+    for index in range(16):
+        candidate = int.from_bytes(
+            hashlib.shake_256(f"{label} Fp2 branch vector {index}".encode()).digest(width),
+            "little",
+        ) % prime
+        residue = candidate * candidate % prime
+        if residue > prime // 2:
+            large_square = residue
+            break
+    if large_square is None:
+        raise RuntimeError("Unable to generate the p324_3 Fp2 second-root vector")
+    return [
+        (0, 0), (0, 1), (1, 0), (1, 1), (1, 2), (5, 0),
+        nonsquare, (large_square, 0), square, (prime - 1, prime - 1),
+    ]
+
+
+def fp2_324_nonlinear_record(real, imaginary):
+    return fp2_prime_field_nonlinear_record(real, imaginary, 3, 324, 41)
+
+
+def fp2_prime_field_nonlinear_record(real, imaginary, cofactor, torsion_exponent, width):
+    prime = cofactor * (1 << torsion_exponent) - 1
+    encode = lambda value: value.to_bytes(width, "little").hex()
+    if real == 0 and imaginary == 0:
+        inverse = ("-", "-")
+    else:
+        norm_inverse = pow((real * real + imaginary * imaginary) % prime, -1, prime)
+        inverse = (real * norm_inverse % prime, -imaginary * norm_inverse % prime)
+    root = fp2_prime_field_square_root(real, imaginary, prime)
+    is_square = root is not None
+    inverse_fields = inverse if inverse == ("-", "-") else tuple(encode(value) for value in inverse)
+    root_fields = ("-", "-") if root is None else tuple(encode(value) for value in root)
+    return ":".join((encode(real), encode(imaginary), *inverse_fields,
+                     str(int(is_square)), *root_fields))
+
+
+def fp2_prime_field_control_record(real, imaginary, other_real, other_imaginary,
+                                   control, cofactor, torsion_exponent, width):
+    prime = cofactor * (1 << torsion_exponent) - 1
+    negative = ((-real) % prime, (-imaginary) % prime)
+    selected = (other_real, other_imaginary) if control else (real, imaginary)
+    swapped = ((other_real, other_imaginary), (real, imaginary)) if control else (
+        (real, imaginary), (other_real, other_imaginary))
+    encode = lambda value: value.to_bytes(width, "little").hex()
+    is_negative = (imaginary, real) > (negative[1], negative[0])
+    return ":".join((str(int(is_negative)), encode(selected[0]), encode(selected[1]),
+                     *(encode(value) for pair in swapped for value in pair)))
+
+
+def prime_field_cases(cofactor, torsion_exponent, width, label):
+    prime = cofactor * (1 << torsion_exponent) - 1
+    boundaries = (0, 1, 2, prime - 1)
+    cases = [(left, right) for left in boundaries for right in boundaries]
+    for index in range(32):
+        block = hashlib.shake_256(f"{label} field vector {index}".encode()).digest(2 * width)
+        cases.append(tuple(
+            int.from_bytes(block[offset:offset + width], "little") % prime
+            for offset in (0, width)
+        ))
+    return cases
+
+
+def prime_field_record(left, right, cofactor, torsion_exponent, width):
+    prime = cofactor * (1 << torsion_exponent) - 1
+    encode = lambda value: value.to_bytes(width, "little").hex()
+    return ":".join(encode(value) for value in (
+        left, right, (left + right) % prime, (left - right) % prime,
+        (left * right) % prime, (left * left) % prime,
+    ))
+
+
+def prime_field_control_record(left, right, control, cofactor, torsion_exponent, width):
+    prime = cofactor * (1 << torsion_exponent) - 1
+    negative = (-left) % prime
+    selected = right if control else left
+    swapped_left, swapped_right = (right, left) if control else (left, right)
+    encode = lambda value: value.to_bytes(width, "little").hex()
+    return ":".join((str(int(left > negative)), encode(selected),
+                     encode(swapped_left), encode(swapped_right)))
+
+
+def prime_field_nonlinear_cases(cofactor, torsion_exponent, width, label):
+    prime = cofactor * (1 << torsion_exponent) - 1
+    nonsquare = next(value for value in range(2, 32)
+                     if pow(value, (prime - 1) // 2, prime) == prime - 1)
+    root = int.from_bytes(
+        hashlib.shake_256(f"{label} nonlinear square root".encode()).digest(width),
+        "little",
+    ) % prime
+    return [0, 1, nonsquare, prime - 1, root * root % prime]
+
+
+def prime_field_nonlinear_record(value, cofactor, torsion_exponent, width):
+    prime = cofactor * (1 << torsion_exponent) - 1
+    encode = lambda item: item.to_bytes(width, "little").hex()
+    inverse = "-" if value == 0 else encode(pow(value, -1, prime))
+    root = pow(value, (prime + 1) // 4, prime)
+    if root * root % prime != value:
+        root = "-"
+    else:
+        root = encode(min(root, (-root) % prime))
+    return ":".join((encode(value), inverse, str(int(root != "-")), root))
+
+
 def generate():
     lines = [
         "// SPDX-License-Identifier: Apache-2.0",
@@ -448,6 +678,106 @@ def generate():
     ]
     for left, right in signed_wide_cases():
         lines.append(f"    {literal(signed_wide_record(left, right))},")
+    lines += [
+        ")", "",
+        "// Fp324: Python modular-integer oracle, checked against the pinned p324_3 C field implementation.",
+        "// Record: left:right:add:subtract:multiply; canonical 41-byte little-endian residues.",
+        "internal val fp324Vectors: List<String> = listOf(",
+    ]
+    for left, right in fp324_cases():
+        lines.append(f"    {literal(fp324_record(left, right))},")
+    lines += [
+        ")", "",
+        "// Fp324 inverse, quadratic-residue and canonical square-root vectors from Python integers.",
+        "// Record: value:inverse:is-square:smaller-root; '-' marks zero inverse or non-residue root.",
+        "internal val fp324NonlinearVectors: List<String> = listOf(",
+    ]
+    for value in fp324_nonlinear_cases():
+        lines.append(f"    {literal(fp324_nonlinear_record(value))},")
+    lines += [
+        ")", "",
+        "// Fp2_324: Python finite-field oracle for i^2 = -1, cross-checked against pinned C.",
+        "// Record: a.re:a.im:b.re:b.im:add:sub:mul:square; each pair is two 41-byte residues.",
+        "internal val fp2_324Vectors: List<String> = listOf(",
+    ]
+    for a, b, c, d in fp2_324_cases():
+        lines.append(f"    {literal(fp2_324_record(a, b, c, d))},")
+    lines += [
+        ")", "",
+        "// Fp2_324 inverse, quadratic-residue and canonical-root records from Python integers.",
+        "// Record: re:im:inverse.re:inverse.im:is-square:root.re:root.im; '-' marks failure.",
+        "internal val fp2_324NonlinearVectors: List<String> = listOf(",
+    ]
+    for real, imaginary in fp2_324_nonlinear_cases():
+        lines.append(f"    {literal(fp2_324_nonlinear_record(real, imaginary))},")
+    lines += [
+        ")", "",
+        "// p500_27 base-field arithmetic vectors generated by Python modular integers.",
+        "// Record: a:b:add:sub:mul:square; each item is a 64-byte little-endian residue.",
+        "internal val fp500_27Vectors: List<String> = listOf(",
+    ]
+    for left, right in prime_field_cases(27, 500, 64, "p500_27"):
+        lines.append(f"    {literal(prime_field_record(left, right, 27, 500, 64))},")
+    lines += [
+        ")", "",
+        "// p500_27 inverse, quadratic-residue and canonical-root records from Python integers.",
+        "// Record: value:inverse:is-square:smaller-root; '-' marks zero inverse or non-residue root.",
+        "internal val fp500_27NonlinearVectors: List<String> = listOf(",
+    ]
+    for value in prime_field_nonlinear_cases(27, 500, 64, "p500_27"):
+        lines.append(f"    {literal(prime_field_nonlinear_record(value, 27, 500, 64))},")
+    lines += [
+        ")", "",
+        "// p664_17 base-field arithmetic vectors generated by Python modular integers.",
+        "// Record: a:b:add:sub:mul:square; each item is an 84-byte little-endian residue.",
+        "internal val fp664_17Vectors: List<String> = listOf(",
+    ]
+    for left, right in prime_field_cases(17, 664, 84, "p664_17"):
+        lines.append(f"    {literal(prime_field_record(left, right, 17, 664, 84))},")
+    lines += [
+        ")", "",
+        "// p664_17 inverse, quadratic-residue and canonical-root records from Python integers.",
+        "// Record: value:inverse:is-square:smaller-root; '-' marks zero inverse or non-residue root.",
+        "internal val fp664_17NonlinearVectors: List<String> = listOf(",
+    ]
+    for value in prime_field_nonlinear_cases(17, 664, 84, "p664_17"):
+        lines.append(f"    {literal(prime_field_nonlinear_record(value, 17, 664, 84))},")
+    lines += [
+        ")", "",
+        "// p500_27 extension-field vectors for i^2 = -1 from Python modular integers.",
+        "// Operations: add, subtract, multiply and square over strict real-then-imaginary values.",
+        "internal val fp2_500Vectors: List<String> = listOf(",
+    ]
+    for a, b, c, d in fp2_prime_field_cases(27, 500, 64, "p500_27"):
+        lines.append(f"    {literal(fp2_prime_field_record(a, b, c, d, 27, 500, 64))},")
+    lines += [
+        ")", "",
+        "// p500_27 extension-field inverse, residue and canonical-root vectors from Python.",
+        "// Record: re:im:inverse.re:inverse.im:is-square:root.re:root.im; '-' marks failure.",
+        "internal val fp2_500NonlinearVectors: List<String> = listOf(",
+    ]
+    for real, imaginary in fp2_prime_field_nonlinear_cases(27, 500, 64, "p500_27"):
+        lines.append(
+            f"    {literal(fp2_prime_field_nonlinear_record(real, imaginary, 27, 500, 64))},"
+        )
+    lines += [
+        ")", "",
+        "// p664_17 extension-field vectors for i^2 = -1 from Python modular integers.",
+        "// Operations: add, subtract, multiply and square over strict real-then-imaginary values.",
+        "internal val fp2_664Vectors: List<String> = listOf(",
+    ]
+    for a, b, c, d in fp2_prime_field_cases(17, 664, 84, "p664_17"):
+        lines.append(f"    {literal(fp2_prime_field_record(a, b, c, d, 17, 664, 84))},")
+    lines += [
+        ")", "",
+        "// p664_17 extension-field inverse, residue and canonical-root vectors from Python.",
+        "// Record: re:im:inverse.re:inverse.im:is-square:root.re:root.im; '-' marks failure.",
+        "internal val fp2_664NonlinearVectors: List<String> = listOf(",
+    ]
+    for real, imaginary in fp2_prime_field_nonlinear_cases(17, 664, 84, "p664_17"):
+        lines.append(
+            f"    {literal(fp2_prime_field_nonlinear_record(real, imaginary, 17, 664, 84))},"
+        )
     lines += [")", ""]
     return "\n".join(lines)
 
