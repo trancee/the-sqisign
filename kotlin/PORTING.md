@@ -199,7 +199,7 @@ performance budget, or a controlled benchmark baseline. Comparison is variable-t
 behavior are unchanged; no public API or release-version migration is needed.
 Development `check` now requires GCC/Clang for its external C oracle, not for the
 library or Kotlin runtime tests. The CI path filter includes its reference inputs.
-Milestone 1 remains incomplete: wide division/remainder, additional checked wider
+Milestone 1 remains incomplete: additional checked wider
 intermediates, signed integers, GCD/inversion and larger parameter sets still need
 their own bounds, differential tests and representative performance measurements
 before any public signature API is introduced.
@@ -248,8 +248,8 @@ constant-time proof, a performance budget, or a controlled benchmark baseline.
 **Migration.** No public ABI, wire parser, dependency, toolchain, or release-version
 change. The fixture generator owns the extended record format; existing consumers
 retain their field positions and multiplication consumes the appended product.
-The multiplication workload adds five cases to the JVM smoke matrix. Wide
-division, signed arithmetic and field reduction remain separate work.
+The multiplication workload adds five cases to the JVM smoke matrix. Signed
+arithmetic and field reduction remain separate work.
 
 ## Arithmetic decision 2026-10-16: bounded unsigned division
 
@@ -297,7 +297,64 @@ six retained benchmark shapes against `BigInteger`.
 or release-version change. A separate valid-divisor benchmark preserves the
 prior workloads; CI now requires all 53 smoke cases. Full measurements,
 numeric budgets, expert cryptographic review and leakage proof remain absent.
-`UInt656 / UInt328`, signed division and field reduction remain out of scope.
+Wide division is recorded separately below; signed division and field reduction
+remain out of scope.
+
+## Arithmetic decision 2026-10-16: wide unsigned division
+
+**Context.** Exact 656-bit products must retain both quotient and remainder when
+divided by a 328-bit value. Even a product divided by one can exceed 328 quotient
+bits; a narrow quotient or silent overflow flag would lose required information.
+Unlike narrow division, a shifted trial remainder can require a 329th bit.
+
+**Decision.** `UInt656.divideAndRemainder(UInt328)` returns a full immutable
+`UInt656` quotient and immutable `UInt328` remainder, satisfying
+`dividend = quotient * divisor + remainder` and `0 <= remainder < divisor`.
+Zero is rejected with the same `IllegalArgumentException` reason as narrow
+division before any result is produced; neither operand is changed.
+
+The byte-backed wide value uses restoring binary division over all 656 bits.
+Two 42-entry radix-256 `IntArray` buffers retain the trial remainder and difference,
+and an 82-byte array retains quotient bits. Before shifting, the remainder is
+below the divisor, so the shifted value plus one input bit is below
+`2 * divisor <= 2^329 - 2`; its extra scratch byte is at most one.
+Each shift accumulator is at most `511`; each low-byte subtraction including
+borrow is in `[-256, 255]`, and the high-byte difference is in `[-1, 1]`.
+All fit exactly in portable `Int`. The high-byte difference, rather than a
+truncated narrow borrow, determines whether subtraction succeeds. Afterwards
+the remainder is again below the divisor and its extra byte is zero.
+No quotient or remainder bits are dropped when constructing the owned results.
+Division is variable-time despite its fixed bit-loop count.
+
+**Alternatives.** Extending the narrow division prefix bound to 656 bits is
+incorrect: its 328-bit scratch storage can lose the trial remainder's high bit.
+Rewriting the existing narrow radix kernel or exposing its private limb storage
+would change an already retained workload unnecessarily. A separate byte kernel
+matches the existing wide representation, keeps bounds explicit, and leaves
+narrow arithmetic unchanged; its different width/representation is intentional,
+not a configurable integer framework. Faster normalized radix division remains
+a measurement-driven optimization, not a prerequisite for this contract.
+
+**Evidence and risks.** The generator adds 322 full-width records independently
+computed by Python integers. The pinned C `mp_divmod_schoolbook` checks all 314
+nonzero divisors with twelve-word dividend/quotient storage and six-word
+divisor/remainder storage; eight zero-divisor records explicitly mark invalid
+division without invoking C division. The adapter's `--wide-division` mode shares
+the existing codec and division path, while default mode keeps its original
+record format and 340 narrow fixtures.
+Common tests verify both results and strict remainder bounds, all 656 quotient
+bits, a trial remainder requiring bit 328, every power-of-two divisor, zero
+rejection and unchanged operands. Product/factor tests exercise integration with
+multiplication for all 332 nonzero narrow fixture factors. Seven JVM workloads
+are independently checked against `BigInteger`. A deliberate dropped-extra-bit
+mutation fails its focused regression assertion before restoring the correct code.
+
+**Migration and limits.** No public ABI, dependency, toolchain, wire format,
+previous vector schema or release-version change. A separate generated vector
+list and seven wide-division benchmark cases extend CI to 60 smoke cases.
+The benchmark includes divisor export and all scratch/result ownership costs.
+No controlled baseline, numeric budget, speedup, expert cryptographic review,
+constant-time guarantee, field reduction or signed arithmetic is established.
 
 ## Public API and randomness policy for the complete port
 

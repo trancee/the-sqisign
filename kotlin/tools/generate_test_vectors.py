@@ -55,6 +55,39 @@ def unsigned_record(left, right):
                      (left * right).to_bytes(82, "little").hex(), quotient, remainder))
 
 
+def wide_division_cases():
+    """Public full-width dividends and bounded divisors, independent of Kotlin arithmetic."""
+    narrow_maximum = (1 << 328) - 1
+    wide_maximum = (1 << 656) - 1
+    dividends = (0, 1, wide_maximum, narrow_maximum, narrow_maximum + 1,
+                 narrow_maximum ** 2, int.from_bytes(b"\x55" * 82, "little"),
+                 int.from_bytes(b"\xaa" * 82, "little"))
+    divisors = (0, 1, narrow_maximum, 1 << 327, (1 << 327) + 1,
+                3 * (1 << 324) - 1, int.from_bytes(b"\x55" * 41, "little"),
+                int.from_bytes(b"\xaa" * 41, "little"))
+    cases = [(dividend, divisor) for dividend in dividends for divisor in divisors]
+    for bit in range(1, 328, 15):
+        divisor = (1 << bit) + 1
+        cases.extend(((2 * (divisor - 1) + 1, divisor),
+                      (wide_maximum, divisor), ((divisor + 1) ** 2, divisor)))
+    for index in range(128):
+        block = hashlib.shake_256(f"SQIsign UInt656 public division vector {index}".encode()).digest(123)
+        cases.append((int.from_bytes(block[:82], "little"), int.from_bytes(block[82:], "little")))
+    for index in range(64):
+        block = hashlib.shake_256(f"SQIsign UInt656 public divisor widths {index}".encode()).digest(123)
+        divisor_mask = (1 << (1 + 5 * index)) - 1
+        cases.append((int.from_bytes(block[:82], "little"),
+                      (int.from_bytes(block[82:], "little") & divisor_mask) | 1))
+    return cases
+
+
+def wide_division_record(dividend, divisor):
+    quotient = (dividend // divisor).to_bytes(82, "little").hex() if divisor else "-"
+    remainder = (dividend % divisor).to_bytes(41, "little").hex() if divisor else "-"
+    return ":".join((dividend.to_bytes(82, "little").hex(),
+                     divisor.to_bytes(41, "little").hex(), quotient, remainder))
+
+
 def generate():
     lines = [
         "// SPDX-License-Identifier: Apache-2.0",
@@ -108,6 +141,14 @@ def generate():
     ]
     for left, right in unsigned_cases():
         lines.append(f"    {literal(unsigned_record(left, right))},")
+    lines += [
+        ")", "",
+        "// UInt656 / UInt328: Python integer oracle, cross-checked against pinned C division.",
+        "// Record: dividend:divisor:quotient:remainder; little-endian hex or '-' for zero divisor.",
+        "internal val wideDivisionVectors: List<String> = listOf(",
+    ]
+    for dividend, divisor in wide_division_cases():
+        lines.append(f"    {literal(wide_division_record(dividend, divisor))},")
     lines += [")", ""]
     return "\n".join(lines)
 

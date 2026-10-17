@@ -124,6 +124,10 @@ jobs:
           workloads["UInt328DivisionBenchmark.divideAndRemainder"] = {
               "operandShape": ("ZERO_DIVIDEND", "MAX_BY_ONE", "MAX_EQUAL", "SMALL_DIVISOR", "FULL_WIDTH", "LARGER_DIVISOR"),
           }
+          workloads["UInt656DivisionBenchmark.divideAndRemainder"] = {
+              "operandShape": ("ZERO_DIVIDEND", "MAX_BY_ONE", "MAX_BY_MAX", "SMALL_DIVISOR",
+                               "HIGH_BIT_DIVISOR", "LARGER_DIVISOR", "PRODUCT_BY_FACTOR"),
+          }
           expected = {
               (f"ch.trancee.sqisign.benchmarks.{name}", tuple(sorted(zip(parameters, values))))
               for name, parameters in workloads.items()

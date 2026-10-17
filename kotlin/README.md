@@ -28,11 +28,13 @@ multiplication into an internal immutable `UInt656` (82-byte little-endian resul
 `divideAndRemainder` returns both exact `UInt328` results and rejects a zero
 divisor with `IllegalArgumentException`. The remainder is below the divisor;
 division is variable-time.
+`UInt656.divideAndRemainder(UInt328)` likewise returns a full-width `UInt656`
+quotient and a `UInt328` remainder, without truncating large quotients.
 Instances own their storage and operations preserve both operands.
 The range is `[0, 2^328)`, **not** the field range `[0, p)`: importing `p` or larger
 does not reduce or validate a field element. This internal slice is not yet used
-by the public wire parser and does not supply wide division (`UInt656` by
-`UInt328`), signed integers, field reduction, or the larger parameter-set widths.
+by the public wire parser and does not supply signed integers, field reduction,
+or the larger parameter-set widths.
 
 The wire types expose byte encodings, not mathematical field/curve objects.
 They do not check curve validity, supersingularity, basis-hint validity, matrix
@@ -169,6 +171,16 @@ division with zero. Common tests additionally cover every power-of-two divisor,
 all small dividends `0..31` and divisors `1..31`, unchanged operands, and same-instance
 division; no implicit zero result or fallback is supplied for invalid division.
 
+An additional 322 deterministic `UInt656 / UInt328` records cover full-width
+dividends, exact product division, boundary divisors, and SHAKE-derived public
+inputs. The 314 nonzero divisors are independently checked with Python and the
+same pinned C helper in the adapter's `--wide-division` mode; eight invalid
+zero-divisor cases carry explicit markers. Common tests check the extra 329th
+trial-remainder bit, all 656 quotient bits, every power-of-two divisor, operand
+ownership, and recovering a factor from each nonzero-factor product. The
+byte-backed wide kernel keeps an extra scratch byte before subtraction, without
+changing the existing radix-`2^15` narrow division.
+
 ## JVM benchmarks
 
 The explicitly accepted Alpha [`kotlinx-benchmark 0.5.0`](https://github.com/Kotlin/kotlinx-benchmark/releases/tag/v0.5.0)
@@ -200,6 +212,7 @@ Input preparation and parameter-name resolution occur outside timing.
 | `UInt328Benchmark.add` / `subtract` | Five operand shapes below | Fixed-width arithmetic with the complete allocated value/flag result retained; no encoding or field reduction |
 | `UInt328Benchmark.multiply` | Five operand shapes below | Exact wide product, including 82-byte result encoding, allocation and ownership copies; no field reduction |
 | `UInt328DivisionBenchmark.divideAndRemainder` | Six nonzero-divisor shapes below | Both exact results, zero-divisor validation, scratch/result allocation; no encoding, setup or field reduction |
+| `UInt656DivisionBenchmark.divideAndRemainder` | Seven nonzero-divisor shapes below | Full wide quotient and narrow remainder, divisor export, validation, scratch/result allocation; no setup or field reduction |
 
 The unsigned shapes are `ZERO_EQUAL` (`0`, `0`), `MAX_EQUAL` (`2^328 - 1`,
 `2^328 - 1`), `CARRY_CHAIN` (`2^328 - 1`, `1`), `BORROW_CHAIN` (`0`, `1`),
@@ -215,6 +228,13 @@ Division uses separate, explicitly valid shapes: `ZERO_DIVIDEND` (`0`, `1`),
 quotients, exact/non-exact division, equality, and quotient-zero cases without
 changing any operand in the original five-shape workload.
 
+Wide division uses `ZERO_DIVIDEND` (`0`, `1`), `MAX_BY_ONE` (`2^656 - 1`, `1`),
+`MAX_BY_MAX` (`2^656 - 1`, `2^328 - 1`), `SMALL_DIVISOR` (`2^656 - 1`, `7`),
+`HIGH_BIT_DIVISOR` (`2^656 - 1`, `2^327 + 1`), `LARGER_DIVISOR`
+(`1`, `2^328 - 1`), and `PRODUCT_BY_FACTOR` (`(2^328 - 1)^2`, `2^328 - 1`).
+The product fixture is prepared outside timing; both division results are
+retained. Ordinary JVM tests check all seven shapes against `BigInteger`.
+
 Fixtures use synthetic public bytes, not secrets or real signatures. Ordinary
 JVM tests verify all workload cases against independent existing SHAKE vectors,
 explicit domain/transcript construction, and expected canonical wire bytes.
@@ -226,13 +246,13 @@ The public library API is unchanged; internal wide results are not exposed by it
 
 ```sh
 ./gradlew jvmTest                       # Check workload correctness before timing
-./gradlew jvmBenchmarkSmokeBenchmark    # Discovery/execution only: 53 cases
+./gradlew jvmBenchmarkSmokeBenchmark    # Discovery/execution only: 60 cases
 ./gradlew jvmBenchmarkBenchmarkJar      # Build the JMH harness before measurement
 ./gradlew jvmBenchmarkBenchmark         # Opt-in full profile on a controlled host
 ```
 
 The `smoke` profile uses one fork, one 50 ms warmup, and one 50 ms measurement
-per case. Linux CI requires the complete 53-case parameter matrix, the expected
+per case. Linux CI requires the complete 60-case parameter matrix, the expected
 mode/unit/profile, and finite positive samples. It uploads JSON reports,
 execution logs, and commit/host/JDK/Gradle metadata with the other Kotlin reports.
 The `main` measurement profile uses three forks, three 1 s warmups, and five 1 s

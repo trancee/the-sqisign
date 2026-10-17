@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: Apache-2.0
-"""Cross-check public UInt328 fixtures against pinned C raw arithmetic and Python integers."""
+"""Cross-check public unsigned fixtures against pinned C raw arithmetic and Python integers."""
 
 import hashlib
 from pathlib import Path
@@ -8,7 +8,9 @@ import subprocess
 import sys
 import tempfile
 
-from generate_test_vectors import ROOT, unsigned_cases, unsigned_record
+from generate_test_vectors import (
+    ROOT, unsigned_cases, unsigned_record, wide_division_cases, wide_division_record,
+)
 
 
 REFERENCE_COMMIT = "f417ebd4c2c336ad6a9feb6f9255f95fc03acc41"
@@ -42,6 +44,7 @@ def main():
         if digest != expected_digest:
             raise SystemExit(f"{path} differs from pinned C reference {REFERENCE_COMMIT}; review before rebasing")
     cases = unsigned_cases()
+    wide_cases = wide_division_cases()
     inputs = "\n".join(f"{left.to_bytes(41, 'little').hex()} {right.to_bytes(41, 'little').hex()}"
                        for left, right in cases) + "\n"
     with tempfile.TemporaryDirectory(prefix="sqisign-unsigned-") as directory:
@@ -56,11 +59,20 @@ def main():
         ]
         subprocess.run(command, check=True)
         result = subprocess.run([str(binary)], input=inputs, capture_output=True, text=True, check=True)
+        wide_inputs = "\n".join(
+            f"{dividend.to_bytes(82, 'little').hex()} {divisor.to_bytes(41, 'little').hex()}"
+            for dividend, divisor in wide_cases) + "\n"
+        wide_result = subprocess.run([str(binary), "--wide-division"], input=wide_inputs,
+                                     capture_output=True, text=True, check=True)
     actual = result.stdout.splitlines()
     expected = [unsigned_record(left, right) for left, right in cases]
     if actual != expected:
         raise SystemExit("C/Python unsigned arithmetic differential mismatch")
-    print(f"Verified {len(cases)} public UInt328 cases against C {REFERENCE_COMMIT} and Python integers")
+    wide_expected = [wide_division_record(dividend, divisor) for dividend, divisor in wide_cases]
+    if wide_result.stdout.splitlines() != wide_expected:
+        raise SystemExit("C/Python wide division differential mismatch")
+    print(f"Verified {len(cases)} UInt328 and {len(wide_cases)} wide division public cases "
+          f"against C {REFERENCE_COMMIT} and Python integers")
 
 
 if __name__ == "__main__":
