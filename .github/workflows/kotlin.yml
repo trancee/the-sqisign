@@ -128,6 +128,10 @@ jobs:
               "operandShape": ("ZERO_DIVIDEND", "MAX_BY_ONE", "MAX_BY_MAX", "SMALL_DIVISOR",
                                "HIGH_BIT_DIVISOR", "LARGER_DIVISOR", "PRODUCT_BY_FACTOR"),
           }
+          workloads["UInt328GcdBenchmark.gcd"] = {
+              "operandShape": ("ZERO_EQUAL", "ZERO_MAX", "MAX_ZERO", "MAX_EQUAL",
+                               "SHARED_FACTOR", "COPRIME", "FIBONACCI"),
+          }
           expected = {
               (f"ch.trancee.sqisign.benchmarks.{name}", tuple(sorted(zip(parameters, values))))
               for name, parameters in workloads.items()

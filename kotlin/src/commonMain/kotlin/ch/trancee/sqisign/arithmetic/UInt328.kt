@@ -90,6 +90,18 @@ internal class UInt328 private constructor(private val limbs: IntArray) {
         return Division(UInt328(quotient), UInt328(remainder))
     }
 
+    /** Variable-time greatest common divisor; gcd(0, x) = x and gcd(0, 0) = 0. */
+    internal fun gcd(other: UInt328): UInt328 {
+        var left = this
+        var right = other
+        while (right.limbs.any { it != 0 }) {
+            val remainder = left.divideAndRemainder(right).remainder
+            left = right
+            right = remainder
+        }
+        return left
+    }
+
     private fun subtractLimbs(left: IntArray, right: IntArray, output: IntArray): Int {
         var borrow = 0
         for (index in 0 until LAST_LIMB) {

@@ -5,6 +5,7 @@
 import argparse
 import hashlib
 import json
+import math
 from pathlib import Path
 
 
@@ -88,6 +89,34 @@ def wide_division_record(dividend, divisor):
                      divisor.to_bytes(41, "little").hex(), quotient, remainder))
 
 
+def gcd_cases():
+    """Unsigned fixtures plus shared factors and long Euclidean chains."""
+    cases = unsigned_cases()
+    for index in range(64):
+        block = hashlib.shake_256(f"SQIsign UInt328 public gcd vector {index}".encode()).digest(82)
+        shared = (1 << (1 + 5 * index)) - 1
+        limit = ((1 << 328) - 1) // shared
+        left = 1 + int.from_bytes(block[:41], "little") % limit
+        right = 1 + int.from_bytes(block[41:], "little") % limit
+        cases.append((shared * left, shared * right))
+    previous, current = 0, 1
+    index = 0
+    while previous + current < (1 << 328):
+        previous, current = current, previous + current
+        index += 1
+        if index % 32 == 0:
+            cases.append((current, previous))
+    cases.append((current, previous))
+    for bit in range(0, 326, 15):
+        cases.append((3 << bit, 5 << bit))
+    return cases
+
+
+def gcd_record(left, right):
+    encode = lambda value: value.to_bytes(41, "little").hex()
+    return ":".join((encode(left), encode(right), encode(math.gcd(left, right))))
+
+
 def generate():
     lines = [
         "// SPDX-License-Identifier: Apache-2.0",
@@ -149,6 +178,14 @@ def generate():
     ]
     for dividend, divisor in wide_division_cases():
         lines.append(f"    {literal(wide_division_record(dividend, divisor))},")
+    lines += [
+        ")", "",
+        "// UInt328 GCD: Python math.gcd oracle, cross-checked against pinned C ibz_gcd.",
+        "// Record: left:right:gcd; exact 41-byte little-endian hex.",
+        "internal val gcdVectors: List<String> = listOf(",
+    ]
+    for left, right in gcd_cases():
+        lines.append(f"    {literal(gcd_record(left, right))},")
     lines += [")", ""]
     return "\n".join(lines)
 

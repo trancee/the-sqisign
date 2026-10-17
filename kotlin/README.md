@@ -30,6 +30,8 @@ divisor with `IllegalArgumentException`. The remainder is below the divisor;
 division is variable-time.
 `UInt656.divideAndRemainder(UInt328)` likewise returns a full-width `UInt656`
 quotient and a `UInt328` remainder, without truncating large quotients.
+`UInt328.gcd` computes a variable-time greatest common divisor with
+`gcd(0, x) = x` and `gcd(0, 0) = 0`, preserving both operands.
 Instances own their storage and operations preserve both operands.
 The range is `[0, 2^328)`, **not** the field range `[0, p)`: importing `p` or larger
 does not reduce or validate a field element. This internal slice is not yet used
@@ -181,6 +183,16 @@ ownership, and recovering a factor from each nonzero-factor product. The
 byte-backed wide kernel keeps an extra scratch byte before subtraction, without
 changing the existing radix-`2^15` narrow division.
 
+Another 441 GCD records use Python `math.gcd` and the pinned C `ibz_gcd`:
+the 340 original unsigned pairs, 64 deterministic public shared-factor pairs,
+15 consecutive Fibonacci pairs, and 22 power-of-two shared-factor pairs.
+The C adapter's `--gcd` mode imports nonnegative values with a 329-bit signed
+bound so the entire 328-bit unsigned input remains positive. The production
+Kotlin implementation uses only its existing unsigned division/remainder.
+Common tests cover both operand orders, zero conventions, exhaustive small
+divisor-search expectations, shared factors and operand preservation.
+This does not add extended GCD, Bézout coefficients or modular inversion.
+
 ## JVM benchmarks
 
 The explicitly accepted Alpha [`kotlinx-benchmark 0.5.0`](https://github.com/Kotlin/kotlinx-benchmark/releases/tag/v0.5.0)
@@ -213,6 +225,7 @@ Input preparation and parameter-name resolution occur outside timing.
 | `UInt328Benchmark.multiply` | Five operand shapes below | Exact wide product, including 82-byte result encoding, allocation and ownership copies; no field reduction |
 | `UInt328DivisionBenchmark.divideAndRemainder` | Six nonzero-divisor shapes below | Both exact results, zero-divisor validation, scratch/result allocation; no encoding, setup or field reduction |
 | `UInt656DivisionBenchmark.divideAndRemainder` | Seven nonzero-divisor shapes below | Full wide quotient and narrow remainder, divisor export, validation, scratch/result allocation; no setup or field reduction |
+| `UInt328GcdBenchmark.gcd` | Seven GCD shapes below | Complete Euclidean remainder loop and its allocations; no fixture preparation or output encoding |
 
 The unsigned shapes are `ZERO_EQUAL` (`0`, `0`), `MAX_EQUAL` (`2^328 - 1`,
 `2^328 - 1`), `CARRY_CHAIN` (`2^328 - 1`, `1`), `BORROW_CHAIN` (`0`, `1`),
@@ -235,6 +248,15 @@ Wide division uses `ZERO_DIVIDEND` (`0`, `1`), `MAX_BY_ONE` (`2^656 - 1`, `1`),
 The product fixture is prepared outside timing; both division results are
 retained. Ordinary JVM tests check all seven shapes against `BigInteger`.
 
+GCD uses `ZERO_EQUAL` (`0`, `0`), `ZERO_MAX` (`0`, maximum), `MAX_ZERO`
+(maximum, `0`), `MAX_EQUAL` (maximum, maximum), `SHARED_FACTOR`
+(`3 * 2^320`, `5 * 2^320`), `COPRIME` (maximum, maximum minus one), and
+`FIBONACCI` (the largest consecutive Fibonacci pair fitting in 328 bits,
+larger first). Here maximum is `2^328 - 1`. Fibonacci construction and all
+decoding happen outside timing; ordinary JVM tests compare GCD results with
+`BigInteger`. These scenarios are public synthetic workloads, not a signing-input
+distribution or a constant-time claim.
+
 Fixtures use synthetic public bytes, not secrets or real signatures. Ordinary
 JVM tests verify all workload cases against independent existing SHAKE vectors,
 explicit domain/transcript construction, and expected canonical wire bytes.
@@ -246,13 +268,13 @@ The public library API is unchanged; internal wide results are not exposed by it
 
 ```sh
 ./gradlew jvmTest                       # Check workload correctness before timing
-./gradlew jvmBenchmarkSmokeBenchmark    # Discovery/execution only: 60 cases
+./gradlew jvmBenchmarkSmokeBenchmark    # Discovery/execution only: 67 cases
 ./gradlew jvmBenchmarkBenchmarkJar      # Build the JMH harness before measurement
 ./gradlew jvmBenchmarkBenchmark         # Opt-in full profile on a controlled host
 ```
 
 The `smoke` profile uses one fork, one 50 ms warmup, and one 50 ms measurement
-per case. Linux CI requires the complete 60-case parameter matrix, the expected
+per case. Linux CI requires the complete 67-case parameter matrix, the expected
 mode/unit/profile, and finite positive samples. It uploads JSON reports,
 execution logs, and commit/host/JDK/Gradle metadata with the other Kotlin reports.
 The `main` measurement profile uses three forks, three 1 s warmups, and five 1 s

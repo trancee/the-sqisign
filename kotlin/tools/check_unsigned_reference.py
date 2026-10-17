@@ -10,6 +10,7 @@ import tempfile
 
 from generate_test_vectors import (
     ROOT, unsigned_cases, unsigned_record, wide_division_cases, wide_division_record,
+    gcd_cases, gcd_record,
 )
 
 
@@ -45,6 +46,7 @@ def main():
             raise SystemExit(f"{path} differs from pinned C reference {REFERENCE_COMMIT}; review before rebasing")
     cases = unsigned_cases()
     wide_cases = wide_division_cases()
+    common_divisor_cases = gcd_cases()
     inputs = "\n".join(f"{left.to_bytes(41, 'little').hex()} {right.to_bytes(41, 'little').hex()}"
                        for left, right in cases) + "\n"
     with tempfile.TemporaryDirectory(prefix="sqisign-unsigned-") as directory:
@@ -64,6 +66,11 @@ def main():
             for dividend, divisor in wide_cases) + "\n"
         wide_result = subprocess.run([str(binary), "--wide-division"], input=wide_inputs,
                                      capture_output=True, text=True, check=True)
+        gcd_inputs = "\n".join(
+            f"{left.to_bytes(41, 'little').hex()} {right.to_bytes(41, 'little').hex()}"
+            for left, right in common_divisor_cases) + "\n"
+        gcd_result = subprocess.run([str(binary), "--gcd"], input=gcd_inputs,
+                                    capture_output=True, text=True, check=True)
     actual = result.stdout.splitlines()
     expected = [unsigned_record(left, right) for left, right in cases]
     if actual != expected:
@@ -71,7 +78,11 @@ def main():
     wide_expected = [wide_division_record(dividend, divisor) for dividend, divisor in wide_cases]
     if wide_result.stdout.splitlines() != wide_expected:
         raise SystemExit("C/Python wide division differential mismatch")
-    print(f"Verified {len(cases)} UInt328 and {len(wide_cases)} wide division public cases "
+    gcd_expected = [gcd_record(left, right) for left, right in common_divisor_cases]
+    if gcd_result.stdout.splitlines() != gcd_expected:
+        raise SystemExit("C/Python GCD differential mismatch")
+    print(f"Verified {len(cases)} UInt328, {len(wide_cases)} wide division and "
+          f"{len(common_divisor_cases)} GCD public cases "
           f"against C {REFERENCE_COMMIT} and Python integers")
 
 

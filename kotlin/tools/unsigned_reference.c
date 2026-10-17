@@ -40,8 +40,9 @@ int
 main(int argc, char **argv)
 {
     int wide_division = argc == 2 && strcmp(argv[1], "--wide-division") == 0;
-    if (argc != 1 && !wide_division) {
-        fprintf(stderr, "Expected no arguments or --wide-division\n");
+    int gcd_mode = argc == 2 && strcmp(argv[1], "--gcd") == 0;
+    if (argc != 1 && !wide_division && !gcd_mode) {
+        fprintf(stderr, "Expected no arguments, --wide-division or --gcd\n");
         return 1;
     }
     int left_bytes = wide_division ? 2 * ENCODED_BYTES : ENCODED_BYTES;
@@ -58,6 +59,19 @@ main(int argc, char **argv)
         encode(left, left_bytes);
         putchar(':');
         encode(right, ENCODED_BYTES);
+        if (gcd_mode) {
+            // A 329-bit signed bound leaves the sign bit clear for every 328-bit input.
+            ibz_t a = { .bitlen = 8 * ENCODED_BYTES + 1 };
+            ibz_t b = { .bitlen = 8 * ENCODED_BYTES + 1 };
+            ibz_t gcd = { 0 };
+            memcpy(a.limbs, left, WORD_COUNT * sizeof(digit_t));
+            memcpy(b.limbs, right, WORD_COUNT * sizeof(digit_t));
+            ibz_gcd(&gcd, &a, &b);
+            putchar(':');
+            encode(gcd.limbs, ENCODED_BYTES);
+            putchar('\n');
+            continue;
+        }
         if (!wide_division) {
             digit_t wide_carry = mp_add_raw(sum, WORD_COUNT, left, WORD_COUNT, right, WORD_COUNT);
             if (wide_carry != 0) {

@@ -200,7 +200,7 @@ behavior are unchanged; no public API or release-version migration is needed.
 Development `check` now requires GCC/Clang for its external C oracle, not for the
 library or Kotlin runtime tests. The CI path filter includes its reference inputs.
 Milestone 1 remains incomplete: additional checked wider
-intermediates, signed integers, GCD/inversion and larger parameter sets still need
+intermediates, signed integers, extended GCD/inversion and larger parameter sets still need
 their own bounds, differential tests and representative performance measurements
 before any public signature API is introduced.
 
@@ -351,10 +351,52 @@ mutation fails its focused regression assertion before restoring the correct cod
 
 **Migration and limits.** No public ABI, dependency, toolchain, wire format,
 previous vector schema or release-version change. A separate generated vector
-list and seven wide-division benchmark cases extend CI to 60 smoke cases.
+list and seven wide-division benchmark cases extend the JVM smoke matrix.
 The benchmark includes divisor export and all scratch/result ownership costs.
 No controlled baseline, numeric budget, speedup, expert cryptographic review,
 constant-time guarantee, field reduction or signed arithmetic is established.
+
+## Arithmetic decision 2026-10-17: unsigned greatest common divisor
+
+**Context.** Milestone 1 needs a greatest common divisor before extended GCD,
+inversion or signed integer work. Exact unsigned quotient/remainder already
+provides the Euclidean reduction step with independently checked bounds.
+
+**Decision.** Internal `UInt328.gcd(UInt328)` computes the nonnegative GCD,
+with `gcd(0, x) = gcd(x, 0) = x` and `gcd(0, 0) = 0`. It repeatedly replaces
+the pair `(left, right)` with `(right, left % right)` while `right` is nonzero.
+The existing remainder contract ensures strict decrease of each positive right
+operand; all values remain within 328 bits, no new accumulator bound is needed,
+and no zero divisor is passed to division. Both operands remain unchanged.
+Returning an existing immutable value in a zero-operand case is intentional;
+storage is not exposed. Iteration count, division branches and zero detection
+are variable-time, unsuitable for a constant-time claim.
+
+**Alternatives.** Binary GCD would need shift/trailing-zero primitives not
+otherwise needed by this slice. Lehmer's algorithm, used by the C reference,
+reduces division cost but introduces coefficient bounds and correction paths.
+Neither is justified without controlled evidence that the simpler reuse of
+the existing remainder operation is insufficient. Extended GCD and inversion
+have additional coefficient/error contracts and remain separate work.
+
+**Evidence and risks.** The generator owns 441 independent Python `math.gcd`
+records: all 340 unsigned pairs, 64 shared-factor pairs, 15 consecutive Fibonacci
+pairs and 22 scaled coprime pairs. The external C adapter invokes pinned
+`ibz_gcd` with a 329-bit signed bound and zero-initialized storage, preserving
+unsigned magnitude and a clear sign bit. This exercises the C implementation's
+own zero convention and Lehmer/Euclidean paths, not a copied Kotlin algorithm.
+All original narrow/wide vector formats remain unchanged.
+Common tests compare both operand orders, exhaustive small divisor search,
+every power-of-two/odd-maximum pair, every fitting pair `3 * 2^k, 5 * 2^k`,
+same-instance and zero identities, and unchanged operands. Seven retained JVM
+benchmark shapes include the largest fitting consecutive Fibonacci pair and
+are checked against `BigInteger`.
+
+**Migration and limits.** No public ABI, dependency, toolchain, wire format or
+release-version change. The separate GCD vector list and `--gcd` C adapter mode
+share the existing checksum-pinned verification gate. CI requires 67 JVM smoke
+cases, without a score gate. This is not expert review, a controlled performance
+baseline, numeric budget, signed GCD, extended GCD or modular inversion.
 
 ## Public API and randomness policy for the complete port
 
