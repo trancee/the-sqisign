@@ -67,7 +67,7 @@ Benchmark-only tooling: explicitly accepted Alpha `kotlinx-benchmark` plugin/run
 | Module / target | Host / prerequisites | Task from `kotlin/` | Proof / limitations |
 | --- | --- | --- | --- |
 | `:` / JVM | JDK `26` | `jvmTest jvmCoverageVerification` | Runtime; JaCoCo line/branch coverage of JVM-compiled `commonMain`, both thresholds `100%`, no production exclusions |
-| `:` / JVM benchmark | JDK `26`; controlled host for measurements | `jvmBenchmarkSmokeBenchmark`; opt-in `jvmBenchmarkBenchmark` | Linux CI validates 142 primitive/parameter cases and JSON samples; no score gate or baseline; no JS/Native benchmark proof |
+| `:` / JVM benchmark | JDK `26`; controlled host for measurements | `jvmBenchmarkSmokeBenchmark`; opt-in `jvmBenchmarkBenchmark` | Linux CI validates 149 primitive/parameter cases and JSON samples; no score gate or baseline; no JS/Native benchmark proof |
 | `:` / JS | JDK `26`; plugin downloads Node | `jsNodeTest` | Node runtime; no browser or coverage proof |
 | `:` / Linux x64 | x86-64 Linux; downloaded Kotlin/Native toolchain | `linuxX64Test` | Native runtime; no measured coverage |
 | `:` / macOS ARM64 | Apple Silicon macOS with Xcode tools | `macosArm64Test` | Native runtime; Linux cannot supply this proof; no measured coverage |
@@ -99,6 +99,11 @@ nonzero divisors are cross-checked against C and eight are explicitly invalid.
 `gcd(0, x) = x` and `gcd(0, 0) = 0`; operands remain immutable and execution is
 variable-time. A separate 441-record fixture list uses Python `math.gcd` and the
 pinned C `ibz_gcd`, including shared factors and consecutive Fibonacci pairs.
+`UInt328.sqrtFloor` returns the exact floor square root by integer Newton
+iteration. A separate 524-record fixture list uses Python `math.isqrt` and the
+pinned C `ibz_sqrt_floor`; common tests also cover exact squares, adjacent values
+across the root width, and maximum input. The operation is variable-time and
+does not perform field reduction.
 `UInt328.modInverse` returns a canonical inverse for moduli of at least two,
 rejecting smaller moduli and non-coprime inputs with explicit reasons.
 Reduced Euclidean coefficients and exact wide products avoid signed arithmetic;
@@ -137,6 +142,6 @@ Formatting: Spotless `8.10.4` / ktfmt `0.65`; apply via `./gradlew spotlessApply
 
 Generated fixture owner: `python3 tools/generate_test_vectors.py`; output `src/commonTest/kotlin/ch/trancee/sqisign/TestVectors.kt`; `checkTestVectors` checks exact content from Python hashlib and the parent public KATs. This generated test file is excluded from Spotless/detekt, not from execution. No generated API docs or publication pipeline is configured.
 
-Benchmark owner: `kotlin/src/jvmBenchmark/`, with workload correctness tests in `kotlin/src/jvmTest/`. `kotlin/README.md` defines timed boundaries, workloads, profiles, and comparison controls. CI validates 142 JVM smoke cases and retains raw reports under `build/reports/benchmarks/smoke/`, logs, and commit/host/runtime metadata in uploaded artifacts; these are executability evidence only. Generated harnesses and benchmark sources are outside production coverage; production exclusions remain empty. JMH's deprecated Unsafe warnings on JDK `26` require revalidation on future JDK upgrades.
+Benchmark owner: `kotlin/src/jvmBenchmark/`, with workload correctness tests in `kotlin/src/jvmTest/`. `kotlin/README.md` defines timed boundaries, workloads, profiles, and comparison controls. CI validates 149 JVM smoke cases and retains raw reports under `build/reports/benchmarks/smoke/`, logs, and commit/host/runtime metadata in uploaded artifacts; these are executability evidence only. Generated harnesses and benchmark sources are outside production coverage; production exclusions remain empty. JMH's deprecated Unsafe warnings on JDK `26` require revalidation on future JDK upgrades.
 
 Limitations: passing Kotlin gates is not full constitutional compliance. Crypto expert review, constant-time guarantees, numeric performance budgets, and committed controlled-measurement baselines are not established. Retained JVM workloads do not establish performance or portability on other targets. JVM coverage does not imply coverage on JS/Native. C coverage remains measurement-only as documented in `DEVELOPERS.md`; this Kotlin-only change does not alter C gates.

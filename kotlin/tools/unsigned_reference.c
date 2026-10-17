@@ -82,16 +82,17 @@ int
 main(int argc, char **argv)
 {
     int wide_division = argc == 2 && strcmp(argv[1], "--wide-division") == 0;
+    int sqrt_floor_mode = argc == 2 && strcmp(argv[1], "--sqrt-floor") == 0;
     int gcd_mode = argc == 2 && strcmp(argv[1], "--gcd") == 0;
     int inverse_mode = argc == 2 && strcmp(argv[1], "--inverse") == 0;
     int signed_mode = argc == 2 && strcmp(argv[1], "--signed") == 0;
     int signed_division = argc == 2 && strcmp(argv[1], "--signed-division") == 0;
     int signed_wide_division = argc == 2 && strcmp(argv[1], "--signed-wide-division") == 0;
     int signed_wide_mode = argc == 2 && strcmp(argv[1], "--signed-wide") == 0;
-    if (argc != 1 && !wide_division && !gcd_mode && !inverse_mode && !signed_mode && !signed_division &&
-        !signed_wide_division && !signed_wide_mode) {
+    if (argc != 1 && !wide_division && !sqrt_floor_mode && !gcd_mode && !inverse_mode && !signed_mode &&
+        !signed_division && !signed_wide_division && !signed_wide_mode) {
         fprintf(stderr,
-                "Expected no arguments, --wide-division, --gcd, --inverse, --signed, "
+                "Expected no arguments, --wide-division, --sqrt-floor, --gcd, --inverse, --signed, "
                 "--signed-division, --signed-wide-division or --signed-wide\n");
         return 1;
     }
@@ -104,12 +105,25 @@ main(int argc, char **argv)
     const char *input_format = signed_wide_mode ? "%164s %164s" : "%164s %82s";
     char left_hex[WIDE_HEX_CHARS + 1], right_hex[WIDE_HEX_CHARS + 1];
     int fields;
-    while ((fields = scanf(input_format, left_hex, right_hex)) == 2) {
+    int expected_fields = sqrt_floor_mode ? 1 : 2;
+    while ((fields = sqrt_floor_mode ? scanf("%82s", left_hex) : scanf(input_format, left_hex, right_hex)) ==
+           expected_fields) {
         digit_t left[2 * WORD_COUNT], right[2 * WORD_COUNT], sum[WORD_COUNT], difference[WORD_COUNT];
         digit_t product[2 * WORD_COUNT];
-        if (!decode(left_hex, left, left_bytes, left_words) || !decode(right_hex, right, right_bytes, right_words)) {
+        if (!decode(left_hex, left, left_bytes, left_words) ||
+            (!sqrt_floor_mode && !decode(right_hex, right, right_bytes, right_words))) {
             fprintf(stderr, "Invalid public unsigned reference operands\n");
             return 1;
+        }
+        if (sqrt_floor_mode) {
+            ibz_t value = { .bitlen = 8 * ENCODED_BYTES + 1 }, root = { 0 };
+            memcpy(value.limbs, left, WORD_COUNT * sizeof(digit_t));
+            ibz_sqrt_floor(&root, &value);
+            encode(left, ENCODED_BYTES);
+            putchar(':');
+            encode(root.limbs, ENCODED_BYTES);
+            putchar('\n');
+            continue;
         }
         encode(left, left_bytes);
         putchar(':');

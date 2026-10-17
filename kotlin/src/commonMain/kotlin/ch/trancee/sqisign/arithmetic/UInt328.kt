@@ -133,6 +133,9 @@ internal class UInt328 private constructor(private val limbs: IntArray) {
         return previousCoefficient
     }
 
+    /** Returns floor(sqrt(this)); iteration count and division are variable-time. */
+    internal fun sqrtFloor(): UInt328 = SquareRoot.floor(this)
+
     private fun subtractLimbs(left: IntArray, right: IntArray, output: IntArray): Int {
         var borrow = 0
         for (index in 0 until LAST_LIMB) {
@@ -168,6 +171,52 @@ internal class UInt328 private constructor(private val limbs: IntArray) {
     /** Exact unsigned quotient and remainder, each independently owned. */
     internal class Division
     internal constructor(internal val quotient: UInt328, internal val remainder: UInt328)
+
+    private object SquareRoot {
+        fun floor(value: UInt328): UInt328 {
+            val bitLength = bitLength(value)
+            if (bitLength == 0) return value
+
+            val estimateBit = (bitLength + 1) / 2
+            val estimateLimbs = IntArray(LIMB_COUNT)
+            estimateLimbs[estimateBit / LIMB_BITS] = 1 shl (estimateBit % LIMB_BITS)
+            var estimate = UInt328(estimateLimbs)
+            while (true) {
+                val quotient = value.divideAndRemainder(estimate).quotient
+                val sum = estimate.add(quotient)
+                val next = halfWithCarry(sum.value, sum.carry)
+                if (next >= estimate) return estimate
+                estimate = next
+            }
+        }
+
+        private fun bitLength(value: UInt328): Int {
+            for (index in LAST_LIMB downTo 0) {
+                var limb = value.limbs[index]
+                if (limb != 0) {
+                    var bitLength = index * LIMB_BITS
+                    while (limb != 0) {
+                        bitLength++
+                        limb = limb ushr 1
+                    }
+                    return bitLength
+                }
+            }
+            return 0
+        }
+
+        private fun halfWithCarry(value: UInt328, carry: Int): UInt328 {
+            val output = IntArray(LIMB_COUNT)
+            var lowerCarry = 0
+            for (index in LAST_LIMB downTo 0) {
+                val limb = value.limbs[index]
+                output[index] = (limb ushr 1) or (lowerCarry shl (LIMB_BITS - 1))
+                lowerCarry = limb and 1
+            }
+            output[LAST_LIMB] = output[LAST_LIMB] or (carry shl (TOP_BITS - 1))
+            return UInt328(output)
+        }
+    }
 
     internal companion object {
         internal const val ENCODED_BYTES: Int = 41

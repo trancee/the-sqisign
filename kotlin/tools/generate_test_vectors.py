@@ -89,6 +89,31 @@ def wide_division_record(dividend, divisor):
                      divisor.to_bytes(41, "little").hex(), quotient, remainder))
 
 
+def sqrt_floor_cases():
+    """Public full-width inputs and near-squares, independent of Kotlin arithmetic."""
+    maximum = (1 << 328) - 1
+    cases = [0, 1, 2, 3, 4, maximum - 2, maximum - 1, maximum,
+             int.from_bytes(b"\x55" * 41, "little")]
+    for bit in range(1, 328, 5):
+        power = 1 << bit
+        cases.extend((power - 1, power, power + 1))
+    for index in range(64):
+        block = hashlib.shake_256(f"SQIsign UInt328 sqrt root vector {index}".encode()).digest(21)
+        root = int.from_bytes(block, "little") & ((1 << 164) - 1)
+        root = max(root, 1)
+        square = root * root
+        cases.extend((square - 1, square, square + 1))
+    for index in range(128):
+        block = hashlib.shake_256(f"SQIsign UInt328 sqrt floor public vector {index}".encode()).digest(41)
+        cases.append(int.from_bytes(block, "little"))
+    return list(dict.fromkeys(cases))
+
+
+def sqrt_floor_record(value):
+    encode = lambda integer: integer.to_bytes(41, "little").hex()
+    return ":".join((encode(value), encode(math.isqrt(value))))
+
+
 def gcd_cases():
     """Unsigned fixtures plus shared factors and long Euclidean chains."""
     cases = unsigned_cases()
@@ -299,6 +324,14 @@ def generate():
     ]
     for left, right in unsigned_cases():
         lines.append(f"    {literal(unsigned_record(left, right))},")
+    lines += [
+        ")", "",
+        "// UInt328 floor square root: Python math.isqrt oracle, checked against pinned C ibz_sqrt_floor.",
+        "// Record: input:floor-root; exact 41-byte unsigned little-endian hex.",
+        "internal val sqrtFloorVectors: List<String> = listOf(",
+    ]
+    for value in sqrt_floor_cases():
+        lines.append(f"    {literal(sqrt_floor_record(value))},")
     lines += [
         ")", "",
         "// UInt656 / UInt328: Python integer oracle, cross-checked against pinned C division.",

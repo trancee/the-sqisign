@@ -132,6 +132,10 @@ jobs:
               "operandShape": ("ZERO_EQUAL", "ZERO_MAX", "MAX_ZERO", "MAX_EQUAL",
                                "SHARED_FACTOR", "COPRIME", "FIBONACCI"),
           }
+          workloads["UInt328SqrtBenchmark.sqrtFloor"] = {
+              "operandShape": ("ZERO", "ONE", "MAXIMUM", "PERFECT_SQUARE",
+                               "BELOW_SQUARE", "ABOVE_SQUARE", "FULL_WIDTH"),
+          }
           workloads["UInt328ModInverseBenchmark.modInverse"] = {
               "operandShape": ("ONE", "MAX_MINUS_ONE", "EVEN_MODULUS", "COMPOSITE", "FULL_WIDTH"),
           }

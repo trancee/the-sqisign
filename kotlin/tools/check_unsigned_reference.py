@@ -10,6 +10,7 @@ import tempfile
 
 from generate_test_vectors import (
     ROOT, unsigned_cases, unsigned_record, wide_division_cases, wide_division_record,
+    sqrt_floor_cases, sqrt_floor_record,
     gcd_cases, gcd_record,
     inverse_cases, inverse_record,
     signed_cases, signed_record,
@@ -51,6 +52,7 @@ def main():
             raise SystemExit(f"{path} differs from pinned C reference {REFERENCE_COMMIT}; review before rebasing")
     cases = unsigned_cases()
     wide_cases = wide_division_cases()
+    square_root_cases = sqrt_floor_cases()
     common_divisor_cases = gcd_cases()
     modular_inverse_cases = inverse_cases()
     signed_integer_cases = signed_cases()
@@ -76,6 +78,11 @@ def main():
             for dividend, divisor in wide_cases) + "\n"
         wide_result = subprocess.run([str(binary), "--wide-division"], input=wide_inputs,
                                      capture_output=True, text=True, check=True)
+        square_root_inputs = "\n".join(
+            value.to_bytes(41, "little").hex() for value in square_root_cases) + "\n"
+        square_root_result = subprocess.run(
+            [str(binary), "--sqrt-floor"], input=square_root_inputs,
+            capture_output=True, text=True, check=True)
         gcd_inputs = "\n".join(
             f"{left.to_bytes(41, 'little').hex()} {right.to_bytes(41, 'little').hex()}"
             for left, right in common_divisor_cases) + "\n"
@@ -118,6 +125,9 @@ def main():
     wide_expected = [wide_division_record(dividend, divisor) for dividend, divisor in wide_cases]
     if wide_result.stdout.splitlines() != wide_expected:
         raise SystemExit("C/Python wide division differential mismatch")
+    square_root_expected = [sqrt_floor_record(value) for value in square_root_cases]
+    if square_root_result.stdout.splitlines() != square_root_expected:
+        raise SystemExit("C/Python floor square-root differential mismatch")
     gcd_expected = [gcd_record(left, right) for left, right in common_divisor_cases]
     if gcd_result.stdout.splitlines() != gcd_expected:
         raise SystemExit("C/Python GCD differential mismatch")
@@ -142,6 +152,7 @@ def main():
     if signed_wide_integer_result.stdout.splitlines() != signed_wide_integer_expected:
         raise SystemExit("C/Python signed wide arithmetic differential mismatch")
     print(f"Verified {len(cases)} UInt328, {len(wide_cases)} wide division, "
+          f"{len(square_root_cases)} floor square root, "
           f"{len(common_divisor_cases)} GCD, {len(modular_inverse_cases)} modular inverse, "
           f"{len(signed_integer_cases)} Int328, {len(signed_quotient_cases)} signed division and "
           f"{len(signed_wide_quotient_cases)} signed wide division and "

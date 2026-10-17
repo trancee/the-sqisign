@@ -35,6 +35,8 @@ quotient and a `UInt328` remainder, without truncating large quotients.
 `UInt328.modInverse` returns the canonical inverse below the modulus, rejecting
 moduli below two and non-coprime inputs with distinct `IllegalArgumentException`
 reasons. It is variable-time, including its coefficient products and reductions.
+`UInt328.sqrtFloor` returns the exact integer floor of the nonnegative square
+root using variable-time integer Newton iteration.
 Instances own their storage and operations preserve both operands.
 The range is `[0, 2^328)`, **not** the field range `[0, p)`: importing `p` or larger
 does not reduce or validate a field element. This internal slice is not yet used
@@ -211,6 +213,13 @@ ownership, and recovering a factor from each nonzero-factor product. The
 byte-backed wide kernel keeps an extra scratch byte before subtraction, without
 changing the existing radix-`2^15` narrow division.
 
+Another 524 square-root records use Python `math.isqrt` and the pinned C
+`ibz_sqrt_floor` implementation. They cover small values, spaced powers of two,
+near-squares around 64 deterministic 164-bit roots, and 128 SHAKE-derived
+full-width inputs. Common tests also cover exact squares and adjacent values
+across all root bit positions and the maximum input. No floating-point math or
+field reduction is used.
+
 Another 441 GCD records use Python `math.gcd` and the pinned C `ibz_gcd`:
 the 340 original unsigned pairs, 64 deterministic public shared-factor pairs,
 15 consecutive Fibonacci pairs, and 22 power-of-two shared-factor pairs.
@@ -313,6 +322,7 @@ Input preparation and parameter-name resolution occur outside timing.
 | `UInt328DivisionBenchmark.divideAndRemainder` | Six nonzero-divisor shapes below | Both exact results, zero-divisor validation, scratch/result allocation; no encoding, setup or field reduction |
 | `UInt656DivisionBenchmark.divideAndRemainder` | Seven nonzero-divisor shapes below | Full wide quotient and narrow remainder, divisor export, validation, scratch/result allocation; no setup or field reduction |
 | `UInt328GcdBenchmark.gcd` | Seven GCD shapes below | Complete Euclidean remainder loop and its allocations; no fixture preparation or output encoding |
+| `UInt328SqrtBenchmark.sqrtFloor` | Seven square-root shapes below | Complete integer Newton iteration and all quotient/root allocations; no fixture preparation or output encoding |
 | `UInt328ModInverseBenchmark.modInverse` | Five invertible shapes below | Complete residue-coefficient Euclidean loop, exact wide products/reductions and allocations; no fixture preparation or output encoding |
 | `Int328Benchmark.decode`, `encode`, `compare`, `add`, `subtract` | Six valid signed shapes below | Owned codec results or complete signed operation, including wrapper/sign construction and overflow checks; no fixture preparation |
 | `Int328MultiplyBenchmark.multiply` | Six full-product signed shapes below | Exact unsigned magnitude multiplication, signed encoding and immutable wide-result ownership; no fixture preparation or result export |
@@ -349,6 +359,11 @@ larger first). Here maximum is `2^328 - 1`. Fibonacci construction and all
 decoding happen outside timing; ordinary JVM tests compare GCD results with
 `BigInteger`. These scenarios are public synthetic workloads, not a signing-input
 distribution or a constant-time claim.
+
+Square root uses `ZERO`, `ONE`, `MAXIMUM`, `PERFECT_SQUARE`, `BELOW_SQUARE`,
+`ABOVE_SQUARE`, and `FULL_WIDTH` (41 bytes of `0x55`). The square and adjacent
+inputs are built from the largest 164-bit root; setup is outside timing.
+Ordinary JVM tests compare every result with `BigInteger.sqrt()`.
 
 Modular inversion uses `ONE` (`1`, maximum), `MAX_MINUS_ONE` (maximum minus
 one, maximum), `EVEN_MODULUS` (maximum, `2^327`), `COMPOSITE` (`5`, `12`), and
@@ -399,13 +414,13 @@ The public library API is unchanged; internal wide results are not exposed by it
 
 ```sh
 ./gradlew jvmTest                       # Check workload correctness before timing
-./gradlew jvmBenchmarkSmokeBenchmark    # Discovery/execution only: 142 cases
+./gradlew jvmBenchmarkSmokeBenchmark    # Discovery/execution only: 149 cases
 ./gradlew jvmBenchmarkBenchmarkJar      # Build the JMH harness before measurement
 ./gradlew jvmBenchmarkBenchmark         # Opt-in full profile on a controlled host
 ```
 
 The `smoke` profile uses one fork, one 50 ms warmup, and one 50 ms measurement
-per case. Linux CI requires the complete 142-case parameter matrix, the expected
+per case. Linux CI requires the complete 149-case parameter matrix, the expected
 mode/unit/profile, and finite positive samples. It uploads JSON reports,
 execution logs, and commit/host/JDK/Gradle metadata with the other Kotlin reports.
 The `main` measurement profile uses three forks, three 1 s warmups, and five 1 s

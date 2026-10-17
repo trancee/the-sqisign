@@ -641,6 +641,27 @@ grows from 124 to 142 cases. No public ABI, dependency, wire format, toolchain
 or release-version changes; this is not constant-time evidence, expert review,
 a numeric performance budget or a controlled comparison baseline.
 
+## Arithmetic decision 2026-10-17: unsigned floor square root
+
+`UInt328.sqrtFloor` returns the exact nonnegative integer floor square root
+without field reduction or floating-point operations. It starts above the root
+at `2^ceil(bitLength/2)` and applies integer Newton updates
+`floor((estimate + value / estimate) / 2)` until the estimate no longer
+decreases. Zero returns zero directly. The estimate and quotient remain bounded
+by `2^164`; their sum fits 328 bits, and a possible addition carry is preserved
+by the exact 329-bit halving step. Division and iteration count are variable-time.
+
+A separate 524-record fixture set uses Python `math.isqrt` and pinned C
+`ibz_sqrt_floor`: small values, spaced power-of-two boundaries, near-squares
+around 64 deterministic 164-bit roots, and 128 SHAKE-derived full-width values.
+Common tests additionally check all even power-of-two squares and neighbors
+across the root width, the largest fitting root, and JVM benchmark shapes against
+`BigInteger.sqrt()`. The C adapter imports the input under a 329-bit positive
+bound; the root fits the exact 41-byte output. No public ABI, dependency, wire
+format, toolchain or release-version change. This is not modular/field square
+root, a constant-time claim, expert review, numeric performance budget, or a
+controlled comparison baseline. The smoke matrix grows from 142 to 149 cases.
+
 ## Public API and randomness policy for the complete port
 
 Do not publish `sign`/`verify` methods that throw "not implemented", return fixed
