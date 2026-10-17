@@ -35,9 +35,28 @@ internal class Int328 private constructor(private val bits: UInt328) {
         return result
     }
 
+    /** Returns the exact signed 656-bit product, without narrowing or overflow. */
+    internal fun multiply(other: Int328): Int656 {
+        val encoded = magnitude().multiply(other.magnitude()).toLittleEndian()
+        if (negative != other.negative) {
+            var carry = 1
+            for (index in encoded.indices) {
+                val negated = (encoded[index].toInt().inv() and BYTE_MASK) + carry
+                encoded[index] = negated.toByte()
+                carry = negated ushr Byte.SIZE_BITS
+            }
+        }
+        return Int656.fromLittleEndian(encoded)
+    }
+
+    private fun magnitude(): UInt328 =
+        // Modular negation yields the exact unsigned magnitude, including 2^327 for minimum.
+        if (negative) ZERO.subtract(bits).value else bits
+
     internal companion object {
         internal const val ENCODED_BYTES: Int = UInt328.ENCODED_BYTES
 
+        private val ZERO = UInt328.fromLittleEndian(ByteArray(ENCODED_BYTES))
         private val SIGN_BIT =
             UInt328.fromLittleEndian(
                 ByteArray(ENCODED_BYTES).also { it[it.lastIndex] = Byte.MIN_VALUE },
@@ -47,7 +66,10 @@ internal class Int328 private constructor(private val bits: UInt328) {
             require(encoded.size == ENCODED_BYTES) {
                 "Signed 328-bit values require exactly 41 bytes"
             }
+
             return Int328(UInt328.fromLittleEndian(encoded))
         }
     }
 }
+
+private const val BYTE_MASK = 0xff

@@ -162,7 +162,8 @@ def signed_record(left, right):
     encode = lambda value: value.to_bytes(41, "little", signed=True).hex()
     checked = lambda value: encode(value) if minimum <= value <= maximum else "overflow"
     return ":".join((encode(left), encode(right), str((left > right) - (left < right)),
-                     checked(left + right), checked(left - right)))
+                     checked(left + right), checked(left - right),
+                     (left * right).to_bytes(82, "little", signed=True).hex()))
 
 
 def generate():
@@ -245,7 +246,7 @@ def generate():
     lines += [
         ")", "",
         "// Int328: Python signed integer oracle, cross-checked against pinned C ibz operations.",
-        "// Record: left:right:comparison:sum:difference; two's-complement LE hex or overflow.",
+        "// Record: left:right:comparison:sum:difference:product; two's-complement LE hex or overflow.",
         "internal val signedVectors: List<String> = listOf(",
     ]
     for left, right in signed_cases():

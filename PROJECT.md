@@ -67,7 +67,7 @@ Benchmark-only tooling: explicitly accepted Alpha `kotlinx-benchmark` plugin/run
 | Module / target | Host / prerequisites | Task from `kotlin/` | Proof / limitations |
 | --- | --- | --- | --- |
 | `:` / JVM | JDK `26` | `jvmTest jvmCoverageVerification` | Runtime; JaCoCo line/branch coverage of JVM-compiled `commonMain`, both thresholds `100%`, no production exclusions |
-| `:` / JVM benchmark | JDK `26`; controlled host for measurements | `jvmBenchmarkSmokeBenchmark`; opt-in `jvmBenchmarkBenchmark` | Linux CI validates 102 primitive/parameter cases and JSON samples; no score gate or baseline; no JS/Native benchmark proof |
+| `:` / JVM benchmark | JDK `26`; controlled host for measurements | `jvmBenchmarkSmokeBenchmark`; opt-in `jvmBenchmarkBenchmark` | Linux CI validates 108 primitive/parameter cases and JSON samples; no score gate or baseline; no JS/Native benchmark proof |
 | `:` / JS | JDK `26`; plugin downloads Node | `jsNodeTest` | Node runtime; no browser or coverage proof |
 | `:` / Linux x64 | x86-64 Linux; downloaded Kotlin/Native toolchain | `linuxX64Test` | Native runtime; no measured coverage |
 | `:` / macOS ARM64 | Apple Silicon macOS with Xcode tools | `macosArm64Test` | Native runtime; Linux cannot supply this proof; no measured coverage |
@@ -109,9 +109,14 @@ with exact 41-byte two's-complement little-endian codecs and signed comparison.
 Addition/subtraction return exact results or throw `ArithmeticException` on
 overflow; no wrapped result is returned. Storage reuses immutable `UInt328`
 bits, not a signed reinterpretation of field values. Another 314 Python/C
-records independently check ordering, sum/difference and overflow markers.
+records independently check ordering, sum/difference, overflow markers and exact
+82-byte signed products via pinned C `ibz_mul`.
 Six valid operand shapes retain signed codecs/comparison/addition/subtraction
-benchmarks. Signed multiplication, division and wider bounds remain separate.
+benchmarks. `Int328.multiply` returns an immutable `Int656` with an owned
+82-byte two's-complement encoding; unsigned magnitudes retain minimum-value
+products without narrowing. Six additional signed multiplication shapes cover
+zero, signed bounds and full-width operands. Signed division and larger
+operand bounds remain separate.
 
 Formatting: Spotless `8.10.4` / ktfmt `0.65`; apply via `./gradlew spotlessApply`. Static analysis: accepted detekt `2.0.0-alpha.6`, including type-aware JVM tasks, no finding baseline. ABI: explicitly accepted Kotlin experimental validator; regenerate reviewed changes with `./gradlew updateKotlinAbi`. Reassess both experimental tools on compatible stable releases.
 

@@ -10,6 +10,38 @@ import kotlin.test.assertFailsWith
 
 class Int328VectorTest {
     @Test
+    fun fullProductsMatchIndependentSignedVectors() {
+        for ((index, record) in signedVectors.withIndex()) {
+            val fields = record.split(':')
+            val leftBytes = fields[0].hexToByteArray()
+            val rightBytes = fields[1].hexToByteArray()
+            val left = Int328.fromLittleEndian(leftBytes)
+            val right = Int328.fromLittleEndian(rightBytes)
+            val expected = fields[5].hexToByteArray()
+
+            val product = left.multiply(right)
+
+            assertContentEquals(expected, product.toLittleEndian(), "Product case $index")
+            assertContentEquals(leftBytes, left.toLittleEndian(), "Left case $index")
+            assertContentEquals(rightBytes, right.toLittleEndian(), "Right case $index")
+        }
+    }
+
+    @Test
+    fun reversedFullProductsMatchIndependentSignedVectors() {
+        for ((index, record) in signedVectors.withIndex()) {
+            val fields = record.split(':')
+            val left = Int328.fromLittleEndian(fields[0].hexToByteArray())
+            val right = Int328.fromLittleEndian(fields[1].hexToByteArray())
+            val expected = fields[5].hexToByteArray()
+
+            val product = right.multiply(left)
+
+            assertContentEquals(expected, product.toLittleEndian(), "Reversed product case $index")
+        }
+    }
+
+    @Test
     fun comparisonsMatchIndependentSignedVectors() {
         for ((index, record) in signedVectors.withIndex()) {
             val fields = record.split(':')

@@ -91,6 +91,9 @@ main(int argc, char **argv)
             putchar(':');
             ibz_sub(&result, &a, &b);
             encode_signed_result(&result);
+            putchar(':');
+            ibz_mul(&result, &a, &b);
+            encode(result.limbs, 2 * ENCODED_BYTES);
             putchar('\n');
             continue;
         }
