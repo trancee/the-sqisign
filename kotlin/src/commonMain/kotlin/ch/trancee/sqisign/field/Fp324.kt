@@ -45,7 +45,11 @@ internal class Fp324 private constructor(private val value: UInt328) {
 
     /** Returns the canonical product modulo `p324_3`. */
     internal fun multiply(other: Fp324): Fp324 =
-        Fp324(value.multiply(other.value).divideAndRemainder(MODULUS).remainder)
+        Fp324(
+            UInt328.fromLittleEndian(
+                FIELD.multiply(value.toLittleEndian(), other.value.toLittleEndian()),
+            ),
+        )
 
     /** Returns the canonical square modulo `p324_3`. */
     internal fun square(): Fp324 = multiply(this)
@@ -76,25 +80,22 @@ internal class Fp324 private constructor(private val value: UInt328) {
         }
     }
 
-    private fun exponentiate(exponent: UInt328): Fp324 {
-        val encodedExponent = exponent.toLittleEndian()
-        var result = one()
-        for (bit in UInt328.ENCODED_BYTES * Byte.SIZE_BITS - 1 downTo 0) {
-            result = result.square()
-            if (
-                ((encodedExponent[bit / Byte.SIZE_BITS].toInt() ushr (bit % Byte.SIZE_BITS)) and
-                    1) != 0
-            ) {
-                result = result.multiply(this)
-            }
-        }
-        return result
-    }
+    private fun exponentiate(exponent: UInt328): Fp324 =
+        Fp324(
+            UInt328.fromLittleEndian(
+                FIELD.exponentiate(value.toLittleEndian(), exponent.toLittleEndian()),
+            ),
+        )
 
     internal companion object {
+        /** Fixed exponent used by the reference-sign extension-field square root. */
+        internal fun powPMinusThreeOverFour(value: Fp324): Fp324 =
+            value.exponentiate(REFERENCE_ROOT_EXPONENT)
+
         internal const val ENCODED_BYTES: Int = UInt328.ENCODED_BYTES
 
         private val MODULUS = UInt328.fromLittleEndian(ParameterSet.NIST_I.primeBytes())
+        private val FIELD = FieldModulus(ParameterSet.NIST_I.primeBytes())
         private val ZERO_VALUE = UInt328.fromLittleEndian(ByteArray(UInt328.ENCODED_BYTES))
         private val ONE_VALUE =
             UInt328.fromLittleEndian(ByteArray(UInt328.ENCODED_BYTES).also { it[0] = 1 })
@@ -105,6 +106,7 @@ internal class Fp324 private constructor(private val value: UInt328) {
         private val INVERSE_EXPONENT = MODULUS.subtract(TWO_VALUE).value
         private val SQUARE_ROOT_EXPONENT =
             MODULUS.add(ONE_VALUE).value.divideAndRemainder(FOUR_VALUE).quotient
+        private val REFERENCE_ROOT_EXPONENT = SQUARE_ROOT_EXPONENT.subtract(ONE_VALUE).value
 
         /**
          * Imports exactly 41 little-endian bytes, rejecting representatives greater than or equal

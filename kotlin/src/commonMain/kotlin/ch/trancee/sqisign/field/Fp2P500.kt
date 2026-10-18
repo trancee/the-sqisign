@@ -5,41 +5,54 @@ package ch.trancee.sqisign.field
 import ch.trancee.sqisign.ParameterSet
 
 /** Variable-time element of `Fp500P27[i]/(i^2 + 1)` with real-then-imaginary encoding. */
-internal class Fp2P500 private constructor(private val value: QuadraticFieldBytes) {
-    internal fun toLittleEndian(): ByteArray = value.toLittleEndian()
+internal class Fp2P500 private constructor(private val value: QuadraticFieldBytes) :
+    QuadraticFieldElement<Fp2P500> {
+    override fun toLittleEndian(): ByteArray = value.toLittleEndian()
 
-    internal fun add(other: Fp2P500): Fp2P500 = Fp2P500(value.add(other.value))
+    override fun add(other: Fp2P500): Fp2P500 = Fp2P500(value.add(other.value))
 
-    internal fun subtract(other: Fp2P500): Fp2P500 = Fp2P500(value.subtract(other.value))
+    override fun subtract(other: Fp2P500): Fp2P500 = Fp2P500(value.subtract(other.value))
 
-    internal fun negate(): Fp2P500 = Fp2P500(value.negate())
+    override fun negate(): Fp2P500 = Fp2P500(value.negate())
 
-    internal fun compareTo(other: Fp2P500): Int = value.compareTo(other.value)
+    override fun compareTo(other: Fp2P500): Int = value.compareTo(other.value)
 
-    internal fun multiply(other: Fp2P500): Fp2P500 = Fp2P500(value.multiply(other.value))
+    override fun multiply(other: Fp2P500): Fp2P500 = Fp2P500(value.multiply(other.value))
 
-    internal fun square(): Fp2P500 = Fp2P500(value.square())
+    override fun square(): Fp2P500 = Fp2P500(value.square())
 
-    internal fun inverse(): Fp2P500 = Fp2P500(value.inverse())
+    override fun inverse(): Fp2P500 = Fp2P500(value.inverse())
 
-    internal fun isSquare(): Boolean = value.isSquare()
+    override fun isSquare(): Boolean = value.isSquare()
 
-    internal fun squareRoot(): Fp2P500? {
+    override fun squareRoot(): Fp2P500? {
         val root = value.squareRoot()
         return if (root == null) null else Fp2P500(root)
     }
 
-    internal fun isEqualTo(other: Fp2P500): Boolean = value.isEqualTo(other.value)
+    override fun isEqualTo(other: Fp2P500): Boolean = value.isEqualTo(other.value)
 
-    internal companion object {
-        private val MODULUS = ParameterSet.NIST_III.primeBytes()
+    internal companion object : QuadraticField<Fp2P500> {
+        override val parameters: ParameterSet = ParameterSet.NIST_III
+        private val MODULUS = FieldModulus(ParameterSet.NIST_III.primeBytes())
 
-        internal fun fromLittleEndian(encoded: ByteArray): Fp2P500 =
+        override fun fromLittleEndian(encoded: ByteArray): Fp2P500 =
             Fp2P500(QuadraticFieldBytes.fromLittleEndian(encoded, MODULUS))
 
-        internal fun zero(): Fp2P500 = Fp2P500(QuadraticFieldBytes.zero(MODULUS))
+        override fun zero(): Fp2P500 = Fp2P500(QuadraticFieldBytes.zero(MODULUS))
 
-        internal fun one(): Fp2P500 = Fp2P500(QuadraticFieldBytes.one(MODULUS))
+        override fun one(): Fp2P500 = Fp2P500(QuadraticFieldBytes.one(MODULUS))
+
+        override fun conjugate(value: Fp2P500): Fp2P500 =
+            Fp2P500(QuadraticFieldBytes.conjugate(value.value))
+
+        override fun isSquareInBaseField(value: Fp2P500): Boolean =
+            QuadraticFieldBytes.isSquareInBaseField(value.value)
+
+        override fun squareRootWithReferenceSign(value: Fp2P500): Fp2P500? {
+            val root = QuadraticFieldBytes.squareRootWithReferenceSign(value.value)
+            return if (root == null) null else Fp2P500(root)
+        }
 
         internal fun conditionalSwap(
             first: Fp2P500,

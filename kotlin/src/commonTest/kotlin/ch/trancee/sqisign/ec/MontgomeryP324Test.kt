@@ -2,7 +2,6 @@
 
 package ch.trancee.sqisign.ec
 
-import ch.trancee.sqisign.arithmetic.UInt328
 import ch.trancee.sqisign.field.Fp2P324
 import ch.trancee.sqisign.field.Fp324
 import kotlin.test.Test
@@ -15,7 +14,7 @@ import kotlin.test.assertTrue
 class MontgomeryP324Test {
     @Test
     fun curveCoefficientIsIndependentOfProjectiveScale() {
-        val curve = MontgomeryCurveP324.fromCoefficients(field(15), field(3))
+        val curve = MontgomeryCurve.fromCoefficients(Fp2P324, field(15), field(3))
 
         val coefficient = curve.montgomeryCoefficient()
 
@@ -35,7 +34,7 @@ class MontgomeryP324Test {
         for ((numerator, denominator) in cases) {
             val failure =
                 assertFailsWith<IllegalArgumentException> {
-                    MontgomeryCurveP324.fromCoefficients(numerator, denominator)
+                    MontgomeryCurve.fromCoefficients(Fp2P324, numerator, denominator)
                 }
 
             assertEquals(
@@ -48,15 +47,15 @@ class MontgomeryP324Test {
 
     @Test
     fun pointsCompareProjectivelyIncludingScaledInfinity() {
-        val point = MontgomeryPointP324.fromCoordinates(field(15), field(3))
-        val infinity = MontgomeryPointP324.fromCoordinates(field(7), field(0))
+        val point = MontgomeryPoint.fromCoordinates(Fp2P324, field(15), field(3))
+        val infinity = MontgomeryPoint.fromCoordinates(Fp2P324, field(7), field(0))
         val cases =
             listOf(
-                Triple(point, MontgomeryPointP324.fromCoordinates(field(5), field(1)), true),
-                Triple(point, MontgomeryPointP324.fromCoordinates(field(6), field(1)), false),
+                Triple(point, MontgomeryPoint.fromCoordinates(Fp2P324, field(5), field(1)), true),
+                Triple(point, MontgomeryPoint.fromCoordinates(Fp2P324, field(6), field(1)), false),
                 Triple(point, infinity, false),
                 Triple(infinity, point, false),
-                Triple(infinity, MontgomeryPointP324.infinity(), true),
+                Triple(infinity, MontgomeryPoint.infinity(Fp2P324), true),
             )
 
         for ((left, right, expected) in cases) {
@@ -68,7 +67,7 @@ class MontgomeryP324Test {
 
     @Test
     fun finitePointsNormalizeToAnAffineCoordinate() {
-        val point = MontgomeryPointP324.fromCoordinates(field(15), field(3))
+        val point = MontgomeryPoint.fromCoordinates(Fp2P324, field(15), field(3))
 
         val actual = point.affineX()
 
@@ -77,7 +76,7 @@ class MontgomeryP324Test {
 
     @Test
     fun infinityHasNoAffineCoordinate() {
-        val infinity = MontgomeryPointP324.fromCoordinates(field(7), field(0))
+        val infinity = MontgomeryPoint.fromCoordinates(Fp2P324, field(7), field(0))
 
         val actual = infinity.affineX()
 
@@ -88,9 +87,9 @@ class MontgomeryP324Test {
     fun infinityIsDeterminedOnlyByTheDenominator() {
         val points =
             listOf(
-                MontgomeryPointP324.fromCoordinates(field(0), field(1)) to false,
-                MontgomeryPointP324.fromCoordinates(field(1), field(1)) to false,
-                MontgomeryPointP324.fromCoordinates(field(7), field(0)) to true,
+                MontgomeryPoint.fromCoordinates(Fp2P324, field(0), field(1)) to false,
+                MontgomeryPoint.fromCoordinates(Fp2P324, field(1), field(1)) to false,
+                MontgomeryPoint.fromCoordinates(Fp2P324, field(7), field(0)) to true,
             )
 
         for ((point, expected) in points) {
@@ -104,7 +103,7 @@ class MontgomeryP324Test {
     fun pointsRejectTheUndefinedZeroZeroPair() {
         val failure =
             assertFailsWith<IllegalArgumentException> {
-                MontgomeryPointP324.fromCoordinates(field(0), field(0))
+                MontgomeryPoint.fromCoordinates(Fp2P324, field(0), field(0))
             }
 
         assertEquals("Projective point coordinates must not both be zero", failure.message)
@@ -112,14 +111,14 @@ class MontgomeryP324Test {
 
     @Test
     fun doublingHandlesInfinityAndEveryTwoTorsionPointOnTheBaseCurve() {
-        val curve = MontgomeryCurveP324.fromCoefficients(field(0), field(1))
+        val curve = MontgomeryCurve.fromCoefficients(Fp2P324, field(0), field(1))
         val imaginaryUnit = Fp2P324.fromComponents(Fp324.zero(), Fp324.one())
         val points =
             listOf(
-                MontgomeryPointP324.infinity(),
-                MontgomeryPointP324.fromCoordinates(field(0), field(1)),
-                MontgomeryPointP324.fromCoordinates(imaginaryUnit, field(1)),
-                MontgomeryPointP324.fromCoordinates(imaginaryUnit.negate(), field(1)),
+                MontgomeryPoint.infinity(Fp2P324),
+                MontgomeryPoint.fromCoordinates(Fp2P324, field(0), field(1)),
+                MontgomeryPoint.fromCoordinates(Fp2P324, imaginaryUnit, field(1)),
+                MontgomeryPoint.fromCoordinates(Fp2P324, imaginaryUnit.negate(), field(1)),
             )
 
         for (point in points) {
@@ -131,17 +130,17 @@ class MontgomeryP324Test {
 
     @Test
     fun differentialAdditionRejectsInfinityAndZeroAsDifferences() {
-        val point = MontgomeryPointP324.fromCoordinates(field(1), field(1))
+        val point = MontgomeryPoint.fromCoordinates(Fp2P324, field(1), field(1))
         val differences =
             listOf(
-                MontgomeryPointP324.infinity(),
-                MontgomeryPointP324.fromCoordinates(field(0), field(1)),
+                MontgomeryPoint.infinity(Fp2P324),
+                MontgomeryPoint.fromCoordinates(Fp2P324, field(0), field(1)),
             )
 
         for (difference in differences) {
             val failure =
                 assertFailsWith<IllegalArgumentException> {
-                    MontgomeryPointP324.differentialAdd(point, point, difference)
+                    MontgomeryPoint.differentialAdd(point, point, difference)
                 }
 
             assertEquals(
@@ -154,23 +153,23 @@ class MontgomeryP324Test {
     @Test
     fun differentialAdditionPreservesInfinityIdentityAndCanReturnInfinity() {
         // On A=0, x=1 has order four and its double is (0:1).
-        val point = MontgomeryPointP324.fromCoordinates(field(1), field(1))
-        val twoTorsion = MontgomeryPointP324.fromCoordinates(field(0), field(1))
-        val oppositePair = MontgomeryPointP324.fromCoordinates(field(2), field(1))
-        val oppositeDifference = MontgomeryPointP324.fromCoordinates(field(9), field(40))
+        val point = MontgomeryPoint.fromCoordinates(Fp2P324, field(1), field(1))
+        val twoTorsion = MontgomeryPoint.fromCoordinates(Fp2P324, field(0), field(1))
+        val oppositePair = MontgomeryPoint.fromCoordinates(Fp2P324, field(2), field(1))
+        val oppositeDifference = MontgomeryPoint.fromCoordinates(Fp2P324, field(9), field(40))
 
         val cases =
             listOf(
-                Triple(MontgomeryPointP324.infinity(), point, point) to point,
+                Triple(MontgomeryPoint.infinity(Fp2P324), point, point) to point,
                 Triple(twoTorsion, point, point) to point,
                 Triple(oppositePair, oppositePair, oppositeDifference) to
-                    MontgomeryPointP324.infinity(),
+                    MontgomeryPoint.infinity(Fp2P324),
             )
 
         for ((inputs, expected) in cases) {
             val (left, right, difference) = inputs
 
-            val actual = MontgomeryPointP324.differentialAdd(left, right, difference)
+            val actual = MontgomeryPoint.differentialAdd(left, right, difference)
 
             assertTrue(actual.isEqualTo(expected))
         }
@@ -178,8 +177,8 @@ class MontgomeryP324Test {
 
     @Test
     fun ladderPreservesInfinityForAllScalarParities() {
-        val curve = MontgomeryCurveP324.fromCoefficients(field(0), field(1))
-        val infinity = MontgomeryPointP324.infinity()
+        val curve = MontgomeryCurve.fromCoefficients(Fp2P324, field(0), field(1))
+        val infinity = MontgomeryPoint.infinity(Fp2P324)
 
         for (scalar in listOf(0, 1, 2, 3, 8, 255)) {
             val product = curve.multiply(infinity, scalar(scalar))
@@ -190,8 +189,8 @@ class MontgomeryP324Test {
 
     @Test
     fun ladderHandlesTheExceptionalZeroXTwoTorsionPoint() {
-        val curve = MontgomeryCurveP324.fromCoefficients(field(0), field(1))
-        val point = MontgomeryPointP324.fromCoordinates(field(0), field(3))
+        val curve = MontgomeryCurve.fromCoefficients(Fp2P324, field(0), field(1))
+        val point = MontgomeryPoint.fromCoordinates(Fp2P324, field(0), field(3))
 
         for (scalar in listOf(0, 1, 2, 3, 8, 255)) {
             val product = curve.multiply(point, scalar(scalar))
@@ -205,11 +204,11 @@ class MontgomeryP324Test {
 
     @Test
     fun ladderHandlesOtherTwoTorsionPoints() {
-        val curve = MontgomeryCurveP324.fromCoefficients(field(0), field(1))
+        val curve = MontgomeryCurve.fromCoefficients(Fp2P324, field(0), field(1))
         val imaginaryUnit = Fp2P324.fromComponents(Fp324.zero(), Fp324.one())
         val points =
             listOf(imaginaryUnit, imaginaryUnit.negate()).map {
-                MontgomeryPointP324.fromCoordinates(it, field(1))
+                MontgomeryPoint.fromCoordinates(Fp2P324, it, field(1))
             }
 
         for (point in points) {
@@ -226,9 +225,9 @@ class MontgomeryP324Test {
 
     @Test
     fun ladderHandlesZeroAndOrderFourPoints() {
-        val curve = MontgomeryCurveP324.fromCoefficients(field(0), field(1))
-        val point = MontgomeryPointP324.fromCoordinates(field(1), field(1))
-        val twoTorsion = MontgomeryPointP324.fromCoordinates(field(0), field(3))
+        val curve = MontgomeryCurve.fromCoefficients(Fp2P324, field(0), field(1))
+        val point = MontgomeryPoint.fromCoordinates(Fp2P324, field(1), field(1))
+        val twoTorsion = MontgomeryPoint.fromCoordinates(Fp2P324, field(0), field(3))
 
         for (scalar in listOf(0, 1, 2, 3, 8, 255)) {
             val multiplier = scalar(scalar)
@@ -249,5 +248,4 @@ class MontgomeryP324Test {
 
 private fun field(real: Int): Fp2P324 = Fp2P324.fromComponents(Fp324.fromInt(real), Fp324.zero())
 
-private fun scalar(value: Int): UInt328 =
-    UInt328.fromLittleEndian(ByteArray(41).also { it[0] = value.toByte() })
+private fun scalar(value: Int): ByteArray = ByteArray(41).also { it[0] = value.toByte() }

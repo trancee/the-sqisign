@@ -751,7 +751,9 @@ residues modulo the corresponding `p324_3`, `p500_27`, and `p664_17` primes.
 All reject byte encodings at or above the modulus and provide addition,
 subtraction, negation, multiplication, squaring, inversion, residue testing,
 and a verified canonical square root. The `p324_3` implementation reuses
-`UInt328`/`UInt656`; the wider fields use common byte-backed modular helpers.
+`UInt328`/`UInt656` for encoding and ordering. All three fields multiply and
+exponentiate through the shared 16-bit-digit Montgomery `FieldModulus`
+([`ADR 0016`](adr/0016-montgomery-field-multiplication.md)).
 These are internal operations, not public wire APIs or optimized performance
 claims.
 
@@ -813,9 +815,265 @@ smoke matrix from 156 to 164 cases. Public ABI, wire formats and production
 dependencies are unchanged; all operations remain variable-time and unsuitable
 for secret inputs.
 
-Milestone 3 is not complete. The next slice starts with three-point/biscalar
+Milestone 3 is not complete. The subsequent slice below adds three-point/biscalar
 ladders and deterministic point differences, before bases/hints, pairings and
 change-of-basis, canonical curve normalization and 2-isogeny chains. Promote
 the layer to `p500_27` and `p664_17` before declaring the milestone complete.
 Expert review, constant-time evidence, numeric performance budgets and a
 controlled committed benchmark baseline remain absent.
+
+## Curve decision 2026-10-17: `p324_3` ladders and deterministic differences
+
+[`ADR 0008`](adr/0008-p324_3-ladders-and-deterministic-differences.md)
+records algorithms 4.88-4.89 and 4.92, including their exceptional-input
+domains. The three-point ladder returns `P+[m]Q`; the biscalar ladder returns
+`[m]P+[n]Q`, retaining all unsigned 328-bit coefficients. Zero coefficients
+reduce to the single-scalar ladder, while distinct two-torsion bases use the
+verified parity rule. Coordinate construction still does not validate a
+higher-order basis or a consistent differential triple.
+
+Deterministic differences use the production basis helper's normalization
+and minus-root choice. The separate `Fp2P324.squareRootWithReferenceSign()`
+implements the exact algorithm 4.35 sign and returns null for nonresidues;
+existing canonical field-root contracts are unchanged. Equal x-coordinates
+and nonsquare discriminants fail explicitly. Common tests check independent
+projective scales, exchanged inputs, distinct infinity inputs and zero
+discriminants.
+
+The existing fixture owner now emits 16 affine curve records and 30 raw-sign
+root records. The pinned C gate uses the production `basis.c` helper,
+positive-coefficient biladder and single-scalar zero-coefficient reductions;
+it separately checks two-torsion parity for all six basis orderings. Eight
+additional retained JVM cases grow the exact smoke matrix from 164 to 172.
+Public ABI, wire formats, dependencies and toolchain are unchanged.
+
+The next curve work includes shared differences and deterministic bases/hints,
+then pairings/change-of-basis, canonical curve normalization and 2-isogeny
+chains. The shared typed promotion is recorded below. All new operations
+are variable-time and unsuitable for secret inputs; expert review,
+constant-time evidence and controlled performance budgets/baselines remain
+unestablished.
+
+## Curve decision 2026-10-17: shared typed arithmetic for all parameters
+
+[`ADR 0009`](adr/0009-shared-typed-montgomery-arithmetic.md) records the
+approved replacement of the concrete curve/point path with typed
+`MontgomeryCurve<Element>` and `MontgomeryPoint<Element>`. The existing
+`Fp2P324`, `Fp2P500` and `Fp2P664` types and their companions implement
+the shared field contracts without changing representation or canonical
+root behavior. Wider reference-sign roots verify algorithm 4.35 candidates.
+
+All previous arithmetic and exceptional-domain semantics remain. Scalars
+are exact-width unsigned little-endian byte arrays of 41/64/84 bytes:
+all 328/512/672 bits are retained, without torsion reduction. Invalid widths
+fail explicitly before evaluation; input buffers are neither retained nor
+mutated. Existing internal consumers migrate rather than retaining a
+concrete alias or a parallel implementation.
+
+The owning generator now emits 48 independent affine curve records and
+90 exact-sign root records. The pinned C gate checks every parameter set,
+including 72 two-torsion basis/parity cases and width-specific malformed
+inputs. Common tests exercise wider arithmetic and scalar bounds.
+`MontgomeryBenchmark` replaces the concrete retained harness and adds a
+parameter-set dimension. Its 48 curve/root cases grow the exact JVM smoke
+matrix from 172 to 204; timing includes typed workload dispatch and already
+encoded scalars, not the old scalar export.
+No public ABI, wire format, runtime dependency, toolchain or release-version
+changes. This remains variable-time experimental arithmetic, without
+expert review or controlled performance evidence.
+
+Milestone 3 remains incomplete: bases/hints, pairings,
+change-of-basis, canonical curve normalization and isogeny chains need their
+own implementation and all-parameter evidence.
+
+## Curve decision 2026-10-18: shared differences
+
+[`ADR 0010`](adr/0010-shared-differences-and-complete-basis-changes.md)
+records algorithm 4.93 at the existing internal curve seam. Consistent
+common translates determine the desired difference by common-root
+elimination. The operation preserves projective scales and supports valid
+infinity results, but rejects rank-deficient `(0:0)` output explicitly.
+It does not establish membership, consistency or a complete basis-change
+domain. The existing deterministic difference reuses the same equation (8)
+coefficients without changing its exact root choice.
+
+Twenty-four independent full-affine Python records are cross-checked against
+the pinned C `shared_difference_point`, including infinity and degeneracy.
+Six retained JVM cases extend the smoke matrix from 204 to 210. The checker
+pins `biextension.c`, and CI watches it. Public ABI, wire formats, dependencies
+and toolchain remain unchanged; all operations are variable-time.
+
+The user approved a complete affine cross-difference helper specifically for
+the subsequent basis-change layer, rather than copying the C path's undefined
+coincident-basis/exponent-one intermediates. Ordinary ladders remain x-only.
+That helper and the remaining bases/pairings/normalization/chains still need
+implementation; no production-readiness claim follows from this slice.
+
+## Curve decision 2026-10-18: checked bases and the special E0 basis
+
+[`ADR 0011`](adr/0011-checked-torsion-bases-and-hints.md) records the
+`TorsionBasis` validation boundary: finite membership, exact generator order,
+distinct two-torsion reductions and a consistent differential triple.
+Only a full basis supplies the maximality premise needed by later pairing
+identities.
+
+The special `canonicalE0(curve, exponent)` factory requires `A=0`.
+`tools/generate_basis_vectors.py` independently reconstructs Appendix B.1's
+generators using real-first y-root ordering and actual odd point order,
+without blindly multiplying cofactor 27. It owns shipped canonical
+coordinate encodings and twelve common oracle records. The C gate pins all
+three reference E0 constant files and the original precomputation algorithm.
+Generators are reduced before their reference-sign difference is computed.
+Generated production coordinates remain covered, with no production exclusions.
+Six retained JVM cases include complete E0 construction/validation at order
+two and full order, extending the smoke matrix from 210 to 216.
+
+The field factories provide a distinct base-field residue operation, rejecting
+nonzero imaginary components; 72 Euler-criterion/C records cover the adapter.
+The hint codec preserves every byte syntactically and implements the normative
+zero fallback for all generated indices at least 128, including square `A`.
+It does not inherit the C generator's rare QR fallback value one. No canonical
+field-root behavior changes.
+
+General-curve `TorsionBasis.canonical` and `fromHint` implement algorithms
+4.94-4.95 with immediate checked-basis validation. Thirty affine generation
+records and 27 direct reconstructions agree with C at all parameters, including
+both coefficient-residue branches, target exponents one/eight, nonminimal
+indices and signed-byte boundaries. The optional reconstruction exponent names
+the target order, not a discarded-bit count. Owned canonical-width search bytes
+avoid `Int` overflow; strict field decoding rejects reaching `p` before wrap.
+Zero hints regenerate from one, and hint one is mathematically invalid on
+nonzero coefficients. No claimed residue bit replaces basis validation.
+
+The E0 path preserves its fixed generators and ordinary difference contract.
+For a requested reconstruction target it also aligns the full difference;
+six independent affine records verify the reduction identity. C's E0 shortcut
+ignores this target and is not a conformance oracle for that adjustment.
+The generator also owns benchmark-only canonical inputs. Thirty-six retained
+generation, reconstruction-target and direct-hint cases cover both residue
+branches and two/full order at every parameter; the exact smoke matrix is
+now 252 cases. C cofactor sources are pinned and watched by CI.
+
+Pairings/basis changes, normalization and isogeny chains remain incomplete. Public ABI, wire formats,
+dependencies and toolchain are unchanged; operations remain variable-time,
+without expert review or controlled performance evidence.
+
+## Curve decision 2026-10-18: bounded torsion scalars and matrices
+
+[`ADR 0012`](adr/0012-torsion-scalars-and-basis-matrices.md) records the
+internal `TorsionScalar` ring modulo `2^e`, distinct from unreduced ordinary
+ladder scalars. Exact-width decoding rejects unused bits; arithmetic
+explicitly reduces at the declared bit boundary. Bounded byte carries and
+Newton odd inversion retain every bit up to exponent 664. Mixed exponents,
+even inverses and ladder exports above a parameter's torsion fail explicitly.
+
+`TorsionMatrix` retains the specification's row-major/column-action convention,
+computes determinants and inverses, and implements algorithm 3.10's single
+global sign, including zero and self-negative entries. The independent Python
+owner supplies 462 scalar and 276 matrix records, all cross-checked against
+pinned C by `checkTorsionRingReference`. The C adapter explicitly reduces
+the reference normalization's negated-zero aliases before comparing ring
+residues; Kotlin outputs are canonical. Common malformed and boundary tests
+retain strict ownership and failure reasons.
+
+Thirty-six retained cases add six operations at two/full torsion for each
+parameter, with independent JVM workload checks; the smoke matrix is now 288.
+Only generated fixture formatting/static-analysis exclusions are added.
+Production coverage exclusions, ordinary ladder behavior, public ABI, wire
+formats, toolchain and dependencies are unchanged. Operations remain
+variable-time without expert review or controlled performance evidence.
+Pairings, complete basis actions/changes, canonical normalization and isogeny
+chains remain to be implemented.
+
+## Curve decision 2026-10-18: prepared power-of-two logarithms
+
+[`ADR 0013`](adr/0013-prepared-power-of-two-discrete-logs.md) records
+algorithm 4.37's balanced decomposition at the positive-exponent basis seam.
+`PowerOfTwoDiscreteLog.prepare` validates the exact generator order and
+precomputes inverse powers using conjugation on this norm-one subgroup.
+`solve` checks membership at its leaves and returns a strict `TorsionScalar`,
+with no narrowing of high bits or mutable state shared between solutions.
+
+The independent Python owner `tools/generate_pairing_vectors.py` generates
+57 field-power records and benchmark-only public roots. `checkCurveReference`
+checks both outputs and every logarithm against pinned C; the external
+adapter validates malformed input, exact generator order and membership before
+calling C's assertion-based routine. Twenty-four retained JVM cases include
+zero/full-width coefficients and two/full torsion across all parameters,
+with separate prepared and fresh-preparation timed boundaries. The complete
+smoke matrix is now 312 cases.
+
+Public ABI, wire formats, field representations, dependencies and toolchain
+are unchanged. All arithmetic remains variable-time and lacks expert review
+or controlled performance evidence. Tate pairings, complete basis actions/
+changes, canonical curve normalization and isogeny chains remain incomplete.
+
+## Curve decision 2026-10-18: witnessed Tate pairings
+
+[`ADR 0014`](adr/0014-maximal-domain-tate-pairings.md) records algorithm
+4.104's checked maximal-curve domain and complete exceptional behavior.
+`TorsionBasis` retains its normalized coefficient; `TatePairing.prepare`
+requires a matching full basis. Evaluation validates membership, divisibility
+order and a consistent differential triple before exceptional identities.
+It reuses the witness's already-proved facts without trusting unknown points.
+
+Finite inputs are normalized before exact cubical arithmetic, with no
+second-x inversion at exponent one. Infinity/self and zero-two-torsion
+identities are restricted to the witnessed domain. First `T0=(0,0)` gives
+the second x-coordinate's quadratic character. Second `T0` gives one below
+full exponent, or the first x-coordinate's character at full exponent.
+This does not erase the nontrivial `e=f-1` torsion restriction.
+
+The independent affine shifted-Miller oracle owns 180 all-parameter records,
+including both nonzero coefficient branches and exceptional cases. Fifty-seven
+generic-domain outputs also agree with C exactly. The external adapter groups
+pairing/logarithm modes in one owned header to preserve single-translation-unit
+access to pinned file-local helpers without exceeding source budgets.
+Twelve retained JVM cases cover reused and fresh pairing preparation,
+growing the exact smoke matrix from 312 to 324.
+
+Public ABI, wire formats, runtime dependencies, toolchain and the Node test
+timeout are unchanged. Arithmetic remains variable-time, without expert
+review or controlled performance evidence. Complete basis actions/changes,
+canonical normalization and isogeny chains remain incomplete.
+
+## Curve decision 2026-10-18: complete basis actions and changes
+
+[`ADR 0015`](adr/0015-complete-basis-actions-and-changes.md) records
+invertible column action and the approved affine cross-difference helper
+around cubical pairings. `TorsionBasis.applyMatrix` retains the supplied
+differential orientation, including the difference of its output columns.
+`BasisChange` uses a curve-bound full reference and a checked target,
+recovers all four coefficients using one prepared logarithm, and normalizes
+only one global matrix sign. Ordinary ladders are unchanged.
+
+The independent owner `tools/generate_basis_change_vectors.py` generates
+affine expected points, normalized known matrices and one-operation common
+runtime declarations. The external curve gate checks their content, all 369
+action coordinates and 51 generic C basis changes. Algorithm 3.9's
+`setChangeOfBasisMatrix` additionally returns the composed normalized matrix
+and both target-compatible hints. Twelve independent affine/integer cases
+and four boundary tests pass on JVM; three generic composed C checks use
+the C canonical references, changes and inverse-basis actions with Python
+integer bookkeeping. All 246 transformation
+cases and ten boundary tests pass on JVM, with static/compiled ABI checks.
+Twenty-four new retained action, prepared/fresh change and correspondence
+cases extend the required smoke inventory to 348; fresh smoke is pending.
+Full-width `p664_17` cases agree on
+JVM, but single-operation cold Node tests exceeded the former 30-second
+limit. Both subsequently pass under the approved budget. The user approved
+continuing correctness-first with measured gate
+budgets, initially 300 seconds per Node test; no cases are skipped.
+The full cold `p664_17` correspondence later exceeded that bound
+(`314.877s` before timeout), and the limit temporarily rose to 600 seconds.
+The user then rejected recurring long gates. Montgomery field multiplication
+([`ADR 0016`](adr/0016-montgomery-field-multiplication.md)) removed the root
+cause, and Node returns to the original 30-second limit with every check
+retained.
+This layer remains under verification; no all-parameter platform completion
+is claimed.
+
+Canonical curve normalization and isogeny chains remain unimplemented.
+No public ABI, wire format, dependency, toolchain,
+production coverage exclusion, constant-time guarantee or controlled
+performance baseline changes.

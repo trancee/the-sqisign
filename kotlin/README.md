@@ -97,19 +97,99 @@ all six types. The portable implementation is internal and adds no runtime
 dependency; it is not evidence of expert cryptographic review or production
 readiness.
 
-The initial internal curve slice provides `MontgomeryCurveP324` and
-`MontgomeryPointP324` over `Fp2P324`. Curves reject `C=0` and
+The internal curve slice provides typed `MontgomeryCurve<Element>` and
+`MontgomeryPoint<Element>` over all three existing extension-field types.
+Curves reject `C=0` and
 `A^2=4C^2`; points reject `(0:0)`, compare projectively, and return null from
 `affineX()` for infinity. The curve returns its normalized coefficient `A/C`,
-doubles points and multiplies by any unsigned 328-bit scalar (zero included).
+doubles points and multiplies by any unsigned parameter-width scalar
+(zero included). Scalars are exact-width little-endian byte arrays:
+41/64/84 bytes, retaining all 328/512/672 bits without reduction or mutation.
+Other widths fail explicitly before evaluation.
 Differential addition requires a consistent difference on the same curve/twist
 and rejects infinity or `(0:1)` as that difference. Constructors do not prove
 membership, supersingularity or torsion order. All operations are immutable,
 variable-time and unsuitable for secret inputs.
-Fourteen independent affine Python records and the pinned C reference cover
-these operations; [`ADR 0007`](adr/0007-p324_3-montgomery-arithmetic.md)
-records the boundary and remaining scope. Bases/hints, pairings, isogenies,
-three-point/biscalar ladders and wider-parameter curves are not implemented.
+Three-point multiplication returns `P+[m]Q` for finite nonzero operands and
+a consistent difference. Biscalar multiplication returns `[m]P+[n]Q`;
+zero coefficients reduce to the single ladder, and distinct nonzero
+two-torsion bases use scalar parity. Biscalar inputs must be finite;
+outside the two-torsion case, positive coefficients also require a finite,
+nonzero sum and nonzero input x-coordinates. Unsupported arithmetic domains
+throw `IllegalArgumentException` with explicit reasons.
+`deterministicDifference()` selects one of `x(P-Q)` and `x(P+Q)` independently
+of projective scaling or input order. It rejects equal x-coordinates and
+nonsquare discriminants. Its separate `squareRootWithReferenceSign()` field
+operation verifies the algorithm 4.35 root without changing canonical roots.
+`sharedDifference()` recovers the actual difference from consistent common
+translates using algorithm 4.93, without a root. Rank-deficient elimination
+is rejected as `(0:0)`, not silently treated as infinity.
+Forty-eight independent affine Python records, 90 exact-sign root records and
+24 shared-difference records with the pinned C reference cover these operations
+across all three parameter sets;
+[`ADR 0007`](adr/0007-p324_3-montgomery-arithmetic.md) and
+[`ADR 0008`](adr/0008-p324_3-ladders-and-deterministic-differences.md)
+record the initial contracts;
+[`ADR 0009`](adr/0009-shared-typed-montgomery-arithmetic.md) records the
+typed cutover and wider-field promotion.
+[`ADR 0010`](adr/0010-shared-differences-and-complete-basis-changes.md)
+records shared differences and the approved complete basis-change strategy.
+`TorsionBasis.checked()` additionally verifies finite curve membership, exact
+generator order, independence and differential consistency. The special
+`canonicalE0()` factory reconstructs the canonical basis on `A=0` at every
+parameter and exponent, recomputing the reference difference after reduction.
+Its offline Python generator uses actual odd point orders and real-first
+y-root ordering, independently cross-checked against the C constants and
+twelve reduced bases. See
+[`ADR 0011`](adr/0011-checked-torsion-bases-and-hints.md).
+The typed field adapters distinguish base-field residuosity from extension
+residuosity, with 72 Python/C records and explicit non-base-input rejection.
+`TorsionBasis.canonical` generates checked bases/hints on maximal curves;
+`fromHint` reconstructs and validates them immediately. The 30 general-basis
+and 27 direct-hint affine records match C, including nonminimal hints and
+unsigned byte boundaries. `BasisHint` preserves all 256 syntactic byte values;
+generated indices at least 128 encode as zero, which regenerates from one.
+The reconstruction parameter names the target exponent, not discarded bits.
+E0 reconstruction targets additionally align its difference; six independent
+records cover cases where C's unadjusted E0 shortcut is incompatible.
+Internal `TorsionScalar` and `TorsionMatrix` supply canonical bounded-ring
+arithmetic, odd inversion and algorithm 3.10's one global matrix sign.
+They do not reinterpret field elements or reduce ordinary ladder inputs.
+The 462 independent scalar and 276 matrix records agree with pinned C;
+the adapter explicitly reduces C's negated-zero matrix aliases. See
+[`ADR 0012`](adr/0012-torsion-scalars-and-basis-matrices.md).
+Internal `PowerOfTwoDiscreteLog` implements balanced algorithm 4.37 with a
+verified primitive generator, reused inverse powers and explicit nonmember
+rejection. Fifty-seven independent Python/C logarithms cover small,
+odd-split and full parameter exponents, including every high scalar bit.
+See [`ADR 0013`](adr/0013-prepared-power-of-two-discrete-logs.md).
+Internal `TatePairing` implements algorithm 4.104 on a curve-bound full-basis
+maximality witness. It checks raw membership, first-operand order and triple
+consistency before complete infinity/self/zero-two-torsion identities.
+Cubical scales are preserved; replacing a sum with a difference inverts the
+result. The 180 independent shifted-Miller records cover every parameter;
+57 generic-domain outputs also agree exactly with pinned C.
+The `f-1` torsion restriction remains nontrivial. See
+[`ADR 0014`](adr/0014-maximal-domain-tate-pairings.md).
+Initial internal `TorsionBasis.applyMatrix` and `BasisChange` preserve
+differential column orientation and use complete affine cross-differences
+around the existing cubical pairings. Independent affine fixtures and
+one-operation runtime declarations are owned by
+`tools/generate_basis_change_vectors.py`.
+Full-width `p664_17` examples once exceeded Node's 30-second test limit.
+The limit was temporarily raised to 600 seconds. Montgomery field
+multiplication ([`ADR 0016`](adr/0016-montgomery-field-multiplication.md))
+replaced the bitwise byte kernels. Every case now runs under the restored
+30-second limit, with no cases dropped.
+`setChangeOfBasisMatrix` now implements algorithm 3.9, returning the
+normalized correspondence and both target-compatible hints. Twelve
+independent affine/integer cases cover order two, mixed coefficient branches,
+response widths and full order; three generic compositions also use the
+pinned C canonical/change/action seams. Its internal maximality precondition
+is inherited from canonical basis generation on both curves.
+See [`ADR 0015`](adr/0015-complete-basis-actions-and-changes.md).
+Canonical curve choices and isogeny chains are not implemented; milestone 3
+remains incomplete.
 
 The wire types expose byte encodings, not mathematical field/curve objects.
 They do not check curve validity, supersingularity, basis-hint validity, matrix
@@ -156,6 +236,7 @@ Install JDK `26` and select it with `JAVA_HOME`. From this directory:
 ./gradlew check             # Tests, formatting, static analysis, ABI, fixtures, coverage
 ./gradlew checkUnsignedReference  # Python/C cross-check of public integer vectors
 ./gradlew checkCurveReference     # Independent affine Python / pinned C curve checks
+./gradlew checkTorsionRingReference  # Independent Python / pinned C torsion-ring checks
 ./gradlew clean check --no-build-cache --rerun-tasks  # CI-equivalent, on each native host
 ```
 
@@ -165,9 +246,22 @@ and its own Native tests; an explicit result check rejects a missing Native run.
 It also scans Kotlin history and current files with redacted Gitleaks output.
 
 Spotless `8.10.4` with ktfmt `0.65` in Kotlin conventions style owns formatting.
-Generated `TestVectors.kt` and `ec/CurveVectors.kt` are excluded from formatting
-and static analysis; their owning Python generators are checked byte-for-byte
-by `checkTestVectors` and `checkCurveReference`, respectively.
+Generated `TestVectors.kt`, `ec/CurveVectors.kt`, `ec/TorsionVectors.kt` and
+`ec/E0BasisCoordinates.kt` are excluded from formatting and static analysis;
+their owning Python generators are checked byte-for-byte by `checkTestVectors`
+and `checkCurveReference`. The production coordinate function remains included
+in coverage.
+Generated `ec/TorsionRingVectors.kt` has the same formatting/static-analysis
+exclusions; `checkTorsionRingReference` checks its owning generator and C oracle.
+Generated common `ec/PairingVectors.kt` and benchmark-only `DiscreteLogInputs.kt`
+and `TatePairingInputs.kt`
+are likewise excluded from formatting/static analysis, not execution.
+`checkCurveReference` checks all three outputs and their pinned C logarithm/
+generic Tate oracles; exceptional Tate cases use independent shifted Miller.
+The basis-change owner likewise checks its generated common records,
+one-operation runtime declarations and benchmark-only `BasisTransformInputs.kt`.
+Those generated files have formatting/static-analysis exclusions, not
+production coverage exclusions.
 detekt `2.0.0-alpha.6` runs default rules plus public API documentation checks,
 including JVM type-aware analysis (`detektMainJvm`, `detektTestJvm`), without a
 finding baseline or source suppressions.
@@ -201,7 +295,8 @@ Native tests must run on their corresponding hosts; a skipped foreign-host test
 is not evidence of compatibility. Gradle downloads Kotlin/Native and Node.js when
 needed. The wrapper verifies the Gradle distribution against its pinned SHA-256.
 The Kotlin library and its runtime tests do not require C interop or C libraries.
-The development-only `checkUnsignedReference` and `checkCurveReference` tasks,
+The development-only `checkUnsignedReference`, `checkCurveReference` and
+`checkTorsionRingReference` tasks,
 included in `check`, require
 a host `cc` compiler (GCC or Clang) and the parent C reference sources/headers.
 Both hosted CI images provide it; no C code enters the library artifact.
@@ -218,10 +313,23 @@ with Python 3's standard library only:
 ```sh
 python3 tools/generate_test_vectors.py --check
 python3 tools/generate_curve_vectors.py --check
+python3 tools/generate_basis_vectors.py --check
+python3 tools/generate_torsion_ring_vectors.py --check
+python3 tools/generate_pairing_vectors.py --check
+python3 tools/generate_basis_change_vectors.py --check
 # To intentionally regenerate:
 python3 tools/generate_test_vectors.py
 python3 tools/generate_curve_vectors.py
+python3 tools/generate_basis_vectors.py
+python3 tools/generate_torsion_ring_vectors.py
+python3 tools/generate_pairing_vectors.py
+python3 tools/generate_basis_change_vectors.py
 ```
+
+The basis generator also owns shipped `ec/E0BasisCoordinates.kt` and
+benchmark-only `benchmarks/CanonicalBasisInputs.kt`; its check verifies all
+three outputs. Benchmark inputs are public maximal curves and known hints,
+not precomputed output bases.
 
 SHAKE/transcript fixtures use CPython's `hashlib` implementation as an independent
 oracle. Public wire fixtures come from the parent `KAT/*.rsp` files; secret keys
@@ -388,9 +496,29 @@ Input preparation and parameter-name resolution occur outside timing.
 | `Int328ExtendedGcdBenchmark.extendedGcd` | Seven valid signed extended-GCD shapes below | Complete variable-time Euclidean loop, exact wide coefficient updates and immutable result; no fixture preparation |
 | `Int656Benchmark.compare`, `add`, `subtract` | Six valid signed-wide shapes below | Signed comparison or full-width checked arithmetic, including overflow checks and owned results; no fixture preparation |
 | `Int656DivisionBenchmark.divideAndRemainder` | Eight valid signed-wide division shapes below | Full-width magnitude division, sign restoration, overflow check and both immutable results; no fixture preparation or result export |
-| `MontgomeryP324Benchmark.coefficient` | `SHORT`, `FULL_WIDTH` | `A/C`, including inversion and canonical field result allocation |
-| `MontgomeryP324Benchmark.doublePoint` / `differentialAdd` | `SHORT`, `FULL_WIDTH` | Complete x-only operation and projective result allocation, without affine normalization |
-| `MontgomeryP324Benchmark.multiply` | `SHORT`, `FULL_WIDTH` | Scalar export, full ladder and all intermediate/result allocations; no setup or affine normalization |
+| `MontgomeryBenchmark.coefficient` | All parameter sets; `SHORT`, `FULL_WIDTH` | `A/C`, including inversion and canonical field result allocation |
+| `MontgomeryBenchmark.doublePoint` / `differentialAdd` | All parameter sets; `SHORT`, `FULL_WIDTH` | Complete x-only operation and projective result allocation, without affine normalization |
+| `MontgomeryBenchmark.multiply` | All parameter sets; `SHORT`, `FULL_WIDTH` | Encoded-scalar ladder and all intermediate/result allocations; no setup or affine normalization |
+| `MontgomeryBenchmark.threePointMultiply` / `biscalarMultiply` | All parameter sets; `SHORT`, `FULL_WIDTH` | Complete ladders, scalar recoding where applicable and immutable projective results; no affine normalization |
+| `MontgomeryBenchmark.deterministicDifference` | All parameter sets; `SHORT`, `FULL_WIDTH` | Biquadratics, projective normalization, exact-sign root and projective result |
+| `MontgomeryBenchmark.sharedDifference` | All parameter sets; `SHORT`, `FULL_WIDTH` | Both biquadratics, common-root elimination and projective result; prepared translates, no affine normalization |
+| `MontgomeryBenchmark.referenceSquareRoot` | All parameter sets; `SHORT`, `FULL_WIDTH` | Algorithm 4.35 root and verification on the prepared public value `-5+12i`; no canonical sign selection |
+| `TorsionBasisBenchmark.canonicalE0` | All parameter sets; `TWO_TORSION`, `FULL_TORSION` | Coordinate decoding, order reduction, reference difference, membership, exact-order, independence and consistency validation; only curve/exponent setup excluded |
+| `CanonicalBasisBenchmark.canonical` | All parameters; `SQUARE`, `NONSQUARE`; `TWO_TORSION`, `FULL_TORSION` | Complete canonical search, clearing, deterministic difference, hint encoding and checked basis; curve/exponent setup excluded |
+| `CanonicalBasisBenchmark.canonicalForReconstruction` | Same twelve shapes | Complete generation plus target-eight orientation for full torsion; order-two cases have no smaller positive target |
+| `CanonicalBasisBenchmark.fromHint` | Same twelve shapes | Direct hint interpretation, clearing, deterministic difference and all mathematical validation; curve/hint decoding outside timing |
+| `TorsionRingBenchmark.add`, `.subtract`, `.multiply` | All parameters; `TWO_TORSION`, `FULL_TORSION` | Canonical ring results for `2^e-1` and `3 mod 2^e`; coefficient decoding outside timing |
+| `TorsionRingBenchmark.inverse` | Same six shapes | Complete odd inversion of `2^e-1`, including Newton iterations and canonical result |
+| `TorsionRingBenchmark.normalizeMatrix` | Same six shapes | Global sign selection on `(-3,4;2,-3) mod 2^e`, including negated output construction |
+| `TorsionRingBenchmark.invertMatrix` | Same six shapes | Determinant check, odd inverse, and all four canonical adjugate entries on the same prepared matrix |
+| `DiscreteLogBenchmark.solve` | All parameters; `TWO_TORSION`, `FULL_TORSION`; `ZERO`, `MAXIMUM` | Balanced logarithm, membership checks and complete scalar; primitive-generator verification and reusable power setup excluded |
+| `DiscreteLogBenchmark.prepareAndSolve` | Same twelve shapes | Fresh generator-order verification and inverse-power table plus the complete logarithm; field/input decoding excluded |
+| `TatePairingBenchmark.evaluate` | All parameters; `TWO_TORSION`, `FULL_TORSION` | Checked operands, cubical evaluation, final reduction and owned field encoding; input decoding, full-basis validation and pairing preparation excluded |
+| `TatePairingBenchmark.prepareAndEvaluate` | Same six shapes | Fresh witness binding and normalized cubical coefficient preparation plus evaluation; input decoding and full-basis validation excluded |
+| `BasisTransformBenchmark.applyMatrix` | All parameters; `TWO_TORSION`, `FULL_TORSION` | Binary swap or full dense column action, including validation and all three owned projective outputs; input decoding/validation excluded |
+| `BasisTransformBenchmark.between` | Same six shapes | Complete affine cross-differences, checked Tate coordinates, logarithms and normalized matrix; reference lifts/root and checked input bases prepared outside timing |
+| `BasisTransformBenchmark.prepareAndBetween` | Same six shapes | Fresh reference lifts/full pairing root plus complete change; input decoding and basis validation excluded |
+| `BasisCorrespondenceBenchmark.setChangeOfBasisMatrix` | Same six shapes | Both canonical searches, first change, inverse action, second change and both hints; supplied-curve/basis decoding and validation excluded |
 
 The unsigned shapes are `ZERO_EQUAL` (`0`, `0`), `MAX_EQUAL` (`2^328 - 1`,
 `2^328 - 1`), `CARRY_CHAIN` (`2^328 - 1`, `1`), `BORROW_CHAIN` (`0`, `1`),
@@ -476,9 +604,19 @@ their representability are checked against `BigInteger` by their workload test.
 
 Curve workloads use `A=0`, `P=(2:1)` and `[2]P=(9:40)`, with the known
 difference `P-[2]P=-P`. `SHORT` uses scalar `17`; `FULL_WIDTH` uses
-`2^328-1`. The other three methods intentionally retain identical inputs
-across these two shapes. JVM workload tests compare all results with the
-independent affine Python/C records, outside the timed boundary.
+`2^328-1`, `2^512-1` or `2^672-1` for the selected parameter set.
+The biscalar workload uses that coefficient for both points.
+Coefficient normalization, doubling, addition, deterministic difference and
+the reference-root workload intentionally retain identical inputs across
+the two shapes. JVM workload tests compare the curve results with independent
+affine Python/C records and the root with the exact-sign Python/C record,
+outside the timed boundary.
+Parameter selection and typed workload construction occur during setup.
+Timed operations include the workload method dispatch, but no parameter
+switch or scalar export; scalars are already encoded. The former
+`MontgomeryP324Benchmark` names are replaced by `MontgomeryBenchmark` with
+an explicit `parameterSet` dimension. Timing boundaries therefore differ
+from the previous retained workloads; smoke scores are not regression evidence.
 
 Fixtures use synthetic public bytes, not secrets or real signatures. Ordinary
 JVM tests verify all workload cases against independent existing SHAKE vectors,
@@ -491,13 +629,13 @@ The public library API is unchanged; internal wide results are not exposed by it
 
 ```sh
 ./gradlew jvmTest                       # Check workload correctness before timing
-./gradlew jvmBenchmarkSmokeBenchmark    # Discovery/execution only: 164 cases
+./gradlew jvmBenchmarkSmokeBenchmark    # Discovery/execution only: 348 cases
 ./gradlew jvmBenchmarkBenchmarkJar      # Build the JMH harness before measurement
 ./gradlew jvmBenchmarkBenchmark         # Opt-in full profile on a controlled host
 ```
 
 The `smoke` profile uses one fork, one 50 ms warmup, and one 50 ms measurement
-per case. Linux CI requires the complete 164-case parameter matrix, the expected
+per case. Linux CI requires the complete 348-case parameter matrix, the expected
 mode/unit/profile, and finite positive samples. It uploads JSON reports,
 execution logs, and commit/host/JDK/Gradle metadata with the other Kotlin reports.
 The `main` measurement profile uses three forks, three 1 s warmups, and five 1 s

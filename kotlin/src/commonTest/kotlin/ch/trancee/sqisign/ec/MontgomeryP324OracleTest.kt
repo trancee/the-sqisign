@@ -2,7 +2,6 @@
 
 package ch.trancee.sqisign.ec
 
-import ch.trancee.sqisign.arithmetic.UInt328
 import ch.trancee.sqisign.field.Fp2P324
 import kotlin.test.Test
 import kotlin.test.assertContentEquals
@@ -31,7 +30,7 @@ class MontgomeryP324OracleTest {
             val right = point(fields, 4)
             val difference = point(fields, 6)
 
-            val actual = MontgomeryPointP324.differentialAdd(left, right, difference)
+            val actual = MontgomeryPoint.differentialAdd(left, right, difference)
 
             assertAffine(fields[10], actual, "addition case $index")
         }
@@ -82,7 +81,7 @@ class MontgomeryP324OracleTest {
         val fields = curveP324Vectors[index].split(':')
         val curve = curve(fields)
         val point = point(fields, 2)
-        val scalar = UInt328.fromLittleEndian(fields[8].hexToByteArray())
+        val scalar = fields[8].hexToByteArray()
         val originalX = point.x.toLittleEndian()
         val originalZ = point.z.toLittleEndian()
 
@@ -93,20 +92,20 @@ class MontgomeryP324OracleTest {
         assertContentEquals(originalZ, point.z.toLittleEndian(), "input z case $index")
         assertContentEquals(
             fields[8].hexToByteArray(),
-            scalar.toLittleEndian(),
+            scalar,
             "scalar case $index",
         )
     }
 
-    private fun curve(fields: List<String>): MontgomeryCurveP324 =
-        MontgomeryCurveP324.fromCoefficients(field(fields[0]), field(fields[1]))
+    private fun curve(fields: List<String>): MontgomeryCurve<Fp2P324> =
+        MontgomeryCurve.fromCoefficients(Fp2P324, field(fields[0]), field(fields[1]))
 
-    private fun point(fields: List<String>, offset: Int): MontgomeryPointP324 =
-        MontgomeryPointP324.fromCoordinates(field(fields[offset]), field(fields[offset + 1]))
+    private fun point(fields: List<String>, offset: Int): MontgomeryPoint<Fp2P324> =
+        MontgomeryPoint.fromCoordinates(Fp2P324, field(fields[offset]), field(fields[offset + 1]))
 
     private fun field(encoded: String): Fp2P324 = Fp2P324.fromLittleEndian(encoded.hexToByteArray())
 
-    private fun assertAffine(expected: String, actual: MontgomeryPointP324, context: String) {
+    private fun assertAffine(expected: String, actual: MontgomeryPoint<Fp2P324>, context: String) {
         if (expected == "-") {
             assertTrue(actual.isInfinity(), context)
         } else {

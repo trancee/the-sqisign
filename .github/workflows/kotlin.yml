@@ -7,10 +7,19 @@ on:
       - '!kotlin/**/*.md'
       - 'KAT/**'
       - 'src/mp/ref/**'
+      - 'src/quaternion/ref/lvlx/dim2.c'
+      - 'src/quaternion/ref/include/quaternion.h'
+      - 'src/quaternion/ref/lvlx/internal_quaternion_headers/internal.h'
       - 'src/common/generic/include/**'
       - 'src/precomp/ref/p324_3/include/**'
       - 'src/precomp/ref/p500_27/include/**'
       - 'src/precomp/ref/p664_17/include/**'
+      - 'src/precomp/ref/p324_3/e0_basis.c'
+      - 'src/precomp/ref/p500_27/e0_basis.c'
+      - 'src/precomp/ref/p664_17/e0_basis.c'
+      - 'src/precomp/ref/p324_3/ec_params.c'
+      - 'src/precomp/ref/p500_27/ec_params.c'
+      - 'src/precomp/ref/p664_17/ec_params.c'
       - 'src/gf/ref/p324_3/**'
       - 'src/gf/ref/p500_27/**'
       - 'src/gf/ref/p664_17/**'
@@ -19,9 +28,13 @@ on:
       - 'src/gf/ref/lvlx/fp.c'
       - 'src/gf/ref/lvlx/fp2.c'
       - 'src/ec/ref/lvlx/ec.c'
+      - 'src/ec/ref/lvlx/basis.c'
+      - 'src/ec/ref/lvlx/biextension.c'
       - 'src/ec/ref/include/ec.h'
+      - 'src/ec/ref/include/biextension.h'
       - 'include/ct_testing.h'
       - 'scripts/add_parameter_set.py'
+      - 'scripts/precomp/torsion_basis.py'
       - 'include/sqisign_namespace.h'
       - '.github/workflows/kotlin.yml'
   pull_request:
@@ -30,10 +43,19 @@ on:
       - '!kotlin/**/*.md'
       - 'KAT/**'
       - 'src/mp/ref/**'
+      - 'src/quaternion/ref/lvlx/dim2.c'
+      - 'src/quaternion/ref/include/quaternion.h'
+      - 'src/quaternion/ref/lvlx/internal_quaternion_headers/internal.h'
       - 'src/common/generic/include/**'
       - 'src/precomp/ref/p324_3/include/**'
       - 'src/precomp/ref/p500_27/include/**'
       - 'src/precomp/ref/p664_17/include/**'
+      - 'src/precomp/ref/p324_3/e0_basis.c'
+      - 'src/precomp/ref/p500_27/e0_basis.c'
+      - 'src/precomp/ref/p664_17/e0_basis.c'
+      - 'src/precomp/ref/p324_3/ec_params.c'
+      - 'src/precomp/ref/p500_27/ec_params.c'
+      - 'src/precomp/ref/p664_17/ec_params.c'
       - 'src/gf/ref/p324_3/**'
       - 'src/gf/ref/p500_27/**'
       - 'src/gf/ref/p664_17/**'
@@ -42,9 +64,13 @@ on:
       - 'src/gf/ref/lvlx/fp.c'
       - 'src/gf/ref/lvlx/fp2.c'
       - 'src/ec/ref/lvlx/ec.c'
+      - 'src/ec/ref/lvlx/basis.c'
+      - 'src/ec/ref/lvlx/biextension.c'
       - 'src/ec/ref/include/ec.h'
+      - 'src/ec/ref/include/biextension.h'
       - 'include/ct_testing.h'
       - 'scripts/add_parameter_set.py'
+      - 'scripts/precomp/torsion_basis.py'
       - 'include/sqisign_namespace.h'
       - '.github/workflows/kotlin.yml'
   workflow_dispatch:
@@ -187,10 +213,48 @@ jobs:
                                "MAX_BY_NEGATIVE_ONE", "NEGATIVE_BY_POSITIVE", "POSITIVE_BY_NEGATIVE",
                                "FULL_WIDTH", "LARGER_DIVISOR"),
           }
-          for operation in ("coefficient", "doublePoint", "differentialAdd", "multiply"):
-              workloads[f"MontgomeryP324Benchmark.{operation}"] = {
+          for operation in ("coefficient", "doublePoint", "differentialAdd", "multiply",
+                            "threePointMultiply", "biscalarMultiply", "deterministicDifference",
+                            "referenceSquareRoot", "sharedDifference"):
+              workloads[f"MontgomeryBenchmark.{operation}"] = {
+                  "parameterSet": ("NIST_I", "NIST_III", "NIST_V"),
                   "scalarShape": ("SHORT", "FULL_WIDTH"),
               }
+          workloads["TorsionBasisBenchmark.canonicalE0"] = {
+              "parameterSet": ("NIST_I", "NIST_III", "NIST_V"),
+              "torsionShape": ("TWO_TORSION", "FULL_TORSION"),
+          }
+          for operation in ("canonical", "canonicalForReconstruction", "fromHint"):
+              workloads[f"CanonicalBasisBenchmark.{operation}"] = {
+                  "parameterSet": ("NIST_I", "NIST_III", "NIST_V"),
+                  "coefficientShape": ("SQUARE", "NONSQUARE"),
+                  "torsionShape": ("TWO_TORSION", "FULL_TORSION"),
+              }
+          for operation in ("add", "subtract", "multiply", "inverse", "normalizeMatrix", "invertMatrix"):
+              workloads[f"TorsionRingBenchmark.{operation}"] = {
+                  "parameterSet": ("NIST_I", "NIST_III", "NIST_V"),
+                  "torsionShape": ("TWO_TORSION", "FULL_TORSION"),
+              }
+          for operation in ("solve", "prepareAndSolve"):
+              workloads[f"DiscreteLogBenchmark.{operation}"] = {
+                  "parameterSet": ("NIST_I", "NIST_III", "NIST_V"),
+                  "torsionShape": ("TWO_TORSION", "FULL_TORSION"),
+                  "valueShape": ("ZERO", "MAXIMUM"),
+              }
+          for operation in ("evaluate", "prepareAndEvaluate"):
+              workloads[f"TatePairingBenchmark.{operation}"] = {
+                  "parameterSet": ("NIST_I", "NIST_III", "NIST_V"),
+                  "torsionShape": ("TWO_TORSION", "FULL_TORSION"),
+              }
+          for operation in ("applyMatrix", "between", "prepareAndBetween"):
+              workloads[f"BasisTransformBenchmark.{operation}"] = {
+                  "parameterSet": ("NIST_I", "NIST_III", "NIST_V"),
+                  "torsionShape": ("TWO_TORSION", "FULL_TORSION"),
+              }
+          workloads["BasisCorrespondenceBenchmark.setChangeOfBasisMatrix"] = {
+              "parameterSet": ("NIST_I", "NIST_III", "NIST_V"),
+              "torsionShape": ("TWO_TORSION", "FULL_TORSION"),
+          }
           for operation in ("compare", "add", "subtract"):
               workloads[f"Int656Benchmark.{operation}"] = {
                   "operandShape": ("ZERO_EQUAL", "MIN_BY_ZERO", "MAX_BY_ZERO",

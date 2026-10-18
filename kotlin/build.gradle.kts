@@ -3,6 +3,7 @@
 import kotlinx.benchmark.gradle.JvmBenchmarkTarget
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 import org.jetbrains.kotlin.gradle.dsl.abi.ExperimentalAbiValidation
+import org.jetbrains.kotlin.gradle.plugin.mpp.TestExecutable
 import org.jetbrains.kotlin.gradle.targets.js.nodejs.NodeJsEnvSpec
 import org.jetbrains.kotlin.gradle.targets.js.nodejs.NodeJsPlugin
 
@@ -53,8 +54,12 @@ kotlin {
             target.set("es2015")
         }
     }
-    macosArm64()
-    linuxX64()
+    listOf(macosArm64(), linuxX64()).forEach { target ->
+        target.binaries.withType<TestExecutable>().configureEach {
+            optimized = true
+            debuggable = false
+        }
+    }
 
     sourceSets {
         commonTest.dependencies {
@@ -100,6 +105,18 @@ spotless {
         targetExclude(
             "src/commonTest/kotlin/ch/trancee/sqisign/TestVectors.kt",
             "src/commonTest/kotlin/ch/trancee/sqisign/ec/CurveVectors.kt",
+            "src/commonTest/kotlin/ch/trancee/sqisign/ec/TorsionVectors.kt",
+            "src/commonTest/kotlin/ch/trancee/sqisign/ec/TorsionRingVectors.kt",
+            "src/commonTest/kotlin/ch/trancee/sqisign/ec/PairingVectors.kt",
+            "src/commonTest/kotlin/ch/trancee/sqisign/ec/BasisChangeVectors.kt",
+            "src/commonTest/kotlin/ch/trancee/sqisign/ec/BasisActionOracleTest.kt",
+            "src/commonTest/kotlin/ch/trancee/sqisign/ec/BasisChangeOracleTest.kt",
+            "src/commonTest/kotlin/ch/trancee/sqisign/ec/BasisCorrespondenceOracleTest.kt",
+            "src/commonMain/kotlin/ch/trancee/sqisign/ec/E0BasisCoordinates.kt",
+            "src/jvmBenchmark/kotlin/ch/trancee/sqisign/benchmarks/CanonicalBasisInputs.kt",
+            "src/jvmBenchmark/kotlin/ch/trancee/sqisign/benchmarks/DiscreteLogInputs.kt",
+            "src/jvmBenchmark/kotlin/ch/trancee/sqisign/benchmarks/TatePairingInputs.kt",
+            "src/jvmBenchmark/kotlin/ch/trancee/sqisign/benchmarks/BasisTransformInputs.kt",
         )
         ktfmt("0.65").kotlinlangStyle()
     }
@@ -125,6 +142,18 @@ detekt {
 tasks.withType<dev.detekt.gradle.Detekt>().configureEach {
     exclude("**/TestVectors.kt")
     exclude("**/CurveVectors.kt")
+    exclude("**/TorsionVectors.kt")
+    exclude("**/TorsionRingVectors.kt")
+    exclude("**/PairingVectors.kt")
+    exclude("**/BasisChangeVectors.kt")
+    exclude("**/BasisActionOracleTest.kt")
+    exclude("**/BasisChangeOracleTest.kt")
+    exclude("**/BasisCorrespondenceOracleTest.kt")
+    exclude("**/E0BasisCoordinates.kt")
+    exclude("**/CanonicalBasisInputs.kt")
+    exclude("**/DiscreteLogInputs.kt")
+    exclude("**/TatePairingInputs.kt")
+    exclude("**/BasisTransformInputs.kt")
 }
 
 jacoco {
@@ -182,8 +211,16 @@ val checkCurveReference =
     tasks.register<Exec>("checkCurveReference") {
         group = "verification"
         description =
-            "Cross-checks independent affine curve vectors against the pinned C reference."
+            "Cross-checks affine curve and reference-sign root vectors against the pinned C reference."
         commandLine("python3", "-B", "tools/check_curve_reference.py")
+    }
+
+val checkTorsionRingReference =
+    tasks.register<Exec>("checkTorsionRingReference") {
+        group = "verification"
+        description =
+            "Cross-checks torsion scalars and matrices against pinned C and Python integer oracles."
+        commandLine("python3", "-B", "tools/check_torsion_ring_reference.py")
     }
 
 tasks.named("check") {
@@ -192,6 +229,7 @@ tasks.named("check") {
         checkTestVectors,
         checkUnsignedReference,
         checkCurveReference,
+        checkTorsionRingReference,
         "detektMainJvm",
         "detektBenchmarkJvm",
         "detektTestJvm",

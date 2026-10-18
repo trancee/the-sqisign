@@ -21,7 +21,9 @@ canonical little-endian width, rejects representatives at or above its prime,
 and implements addition, subtraction, negation, multiplication, squaring,
 inversion, residue testing, and verified canonical square roots. Keep `Fp324`
 on the existing `UInt328`/`UInt656` arithmetic; use common byte-backed modular
-helpers for the wider fields.
+helpers for the wider fields. (Multiplication and exponentiation for all three
+fields are superseded by
+[`ADR 0016`](0016-montgomery-field-multiplication.md).)
 
 Provide `Fp2P324`, `Fp2P500`, and `Fp2P664` over `Fp[i]/(i^2 + 1)`, encoded as
 the real component followed by the imaginary component, each canonical and

@@ -23,7 +23,7 @@ internal fun subtractFieldBytes(left: ByteArray, right: ByteArray): ByteArray {
     return difference
 }
 
-internal fun addFieldModulo(left: ByteArray, right: ByteArray, modulus: ByteArray): ByteArray {
+internal fun addFieldModulo(left: ByteArray, right: ByteArray, modulus: FieldModulus): ByteArray {
     val sum = ByteArray(left.size)
     var carry = 0
     for (index in left.indices) {
@@ -31,48 +31,35 @@ internal fun addFieldModulo(left: ByteArray, right: ByteArray, modulus: ByteArra
         sum[index] = value.toByte()
         carry = value ushr Byte.SIZE_BITS
     }
-    return if (compareFieldBytes(sum, modulus) >= 0) subtractFieldBytes(sum, modulus) else sum
+    return if (compareFieldBytes(sum, modulus.bytes) >= 0) subtractFieldBytes(sum, modulus.bytes)
+    else sum
 }
 
-internal fun subtractFieldModulo(left: ByteArray, right: ByteArray, modulus: ByteArray): ByteArray =
+internal fun subtractFieldModulo(
+    left: ByteArray,
+    right: ByteArray,
+    modulus: FieldModulus,
+): ByteArray =
     if (compareFieldBytes(left, right) >= 0) {
         subtractFieldBytes(left, right)
     } else {
-        subtractFieldBytes(modulus, subtractFieldBytes(right, left))
+        subtractFieldBytes(modulus.bytes, subtractFieldBytes(right, left))
     }
 
-internal fun negateFieldModulo(value: ByteArray, modulus: ByteArray): ByteArray =
-    if (isZeroFieldBytes(value)) value.copyOf() else subtractFieldBytes(modulus, value)
+internal fun negateFieldModulo(value: ByteArray, modulus: FieldModulus): ByteArray =
+    if (isZeroFieldBytes(value)) value.copyOf() else subtractFieldBytes(modulus.bytes, value)
 
-internal fun multiplyFieldModulo(left: ByteArray, right: ByteArray, modulus: ByteArray): ByteArray {
-    var result = ByteArray(left.size)
-    var addend = left.copyOf()
-    for (byte in right) {
-        val bits = byte.toInt() and 0xff
-        for (bit in 0 until Byte.SIZE_BITS) {
-            if (((bits ushr bit) and 1) != 0) {
-                result = addFieldModulo(result, addend, modulus)
-            }
-            addend = addFieldModulo(addend, addend, modulus)
-        }
-    }
-    return result
-}
+internal fun multiplyFieldModulo(
+    left: ByteArray,
+    right: ByteArray,
+    modulus: FieldModulus,
+): ByteArray = modulus.multiply(left, right)
 
 internal fun exponentiateField(
     value: ByteArray,
     exponent: ByteArray,
-    modulus: ByteArray,
-): ByteArray {
-    var result = ByteArray(value.size).also { it[0] = 1 }
-    for (bit in exponent.size * Byte.SIZE_BITS - 1 downTo 0) {
-        result = multiplyFieldModulo(result, result, modulus)
-        if (((exponent[bit / Byte.SIZE_BITS].toInt() ushr (bit % Byte.SIZE_BITS)) and 1) != 0) {
-            result = multiplyFieldModulo(result, value, modulus)
-        }
-    }
-    return result
-}
+    modulus: FieldModulus,
+): ByteArray = modulus.exponentiate(value, exponent)
 
 internal fun fieldInverseExponent(modulus: ByteArray): ByteArray {
     val two = ByteArray(modulus.size).also { it[0] = 2 }

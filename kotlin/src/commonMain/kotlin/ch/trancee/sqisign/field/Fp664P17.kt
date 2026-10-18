@@ -25,7 +25,7 @@ internal class Fp664P17 private constructor(private val value: ByteArray) {
 
     internal fun inverse(): Fp664P17 {
         require(!isZeroFieldBytes(value)) { "The p664_17 field zero has no multiplicative inverse" }
-        return Fp664P17(exponentiateField(value, INVERSE_EXPONENT, MODULUS))
+        return Fp664P17(exponentiateField(value, MODULUS.inverseExponent, MODULUS))
     }
 
     internal fun isSquare(): Boolean = squareRoot() != null
@@ -33,7 +33,7 @@ internal class Fp664P17 private constructor(private val value: ByteArray) {
     internal fun squareRoot(): Fp664P17? {
         val candidate =
             if (isZeroFieldBytes(value)) zero()
-            else Fp664P17(exponentiateField(value, SQUARE_ROOT_EXPONENT, MODULUS))
+            else Fp664P17(exponentiateField(value, MODULUS.squareRootExponent, MODULUS))
         val isRoot = candidate.square().compareTo(this) == 0
         val negative = candidate.negate()
         val root = if (candidate.compareTo(negative) <= 0) candidate else negative
@@ -41,15 +41,13 @@ internal class Fp664P17 private constructor(private val value: ByteArray) {
     }
 
     internal companion object {
-        private val MODULUS = ParameterSet.NIST_V.primeBytes()
-        private val INVERSE_EXPONENT = fieldInverseExponent(MODULUS)
-        private val SQUARE_ROOT_EXPONENT = fieldSquareRootExponent(MODULUS)
+        private val MODULUS = FieldModulus(ParameterSet.NIST_V.primeBytes())
 
         internal fun fromLittleEndian(encoded: ByteArray): Fp664P17 {
             require(encoded.size == ENCODED_BYTES) {
                 "p664_17 field values require exactly $ENCODED_BYTES bytes"
             }
-            require(compareFieldBytes(encoded, MODULUS) < 0) {
+            require(compareFieldBytes(encoded, MODULUS.bytes) < 0) {
                 "The p664_17 field encoding is not canonical"
             }
             return Fp664P17(encoded.copyOf())

@@ -7,7 +7,7 @@ internal class QuadraticFieldBytes
 private constructor(
     private val real: ByteArray,
     private val imaginary: ByteArray,
-    private val modulus: ByteArray,
+    private val modulus: FieldModulus,
 ) {
     internal fun toLittleEndian(): ByteArray = real.copyOf() + imaginary.copyOf()
 
@@ -83,7 +83,36 @@ private constructor(
     }
 
     internal companion object {
-        internal fun fromLittleEndian(encoded: ByteArray, modulus: ByteArray): QuadraticFieldBytes {
+        internal fun isSquareInBaseField(value: QuadraticFieldBytes): Boolean {
+            require(isZeroFieldBytes(value.imaginary)) {
+                "Base-field residue test requires zero imaginary component"
+            }
+            val root =
+                exponentiateField(value.real, value.modulus.squareRootExponent, value.modulus)
+            return compareFieldBytes(
+                multiplyFieldModulo(root, root, value.modulus),
+                value.real,
+            ) == 0
+        }
+
+        internal fun conjugate(value: QuadraticFieldBytes): QuadraticFieldBytes =
+            QuadraticFieldBytes(
+                value.real,
+                negateFieldModulo(value.imaginary, value.modulus),
+                value.modulus,
+            )
+
+        internal fun squareRootWithReferenceSign(value: QuadraticFieldBytes): QuadraticFieldBytes? {
+            val (real, imaginary) =
+                quadraticReferenceRootComponents(value.real, value.imaginary, value.modulus)
+            val candidate = QuadraticFieldBytes(real, imaginary, value.modulus)
+            return if (candidate.square().isEqualTo(value)) candidate else null
+        }
+
+        internal fun fromLittleEndian(
+            encoded: ByteArray,
+            modulus: FieldModulus,
+        ): QuadraticFieldBytes {
             val width = modulus.size
             require(encoded.size == 2 * width) {
                 "Extension-field values require exactly ${2 * width} bytes"
@@ -91,27 +120,28 @@ private constructor(
             val real = encoded.copyOfRange(0, width)
             val imaginary = encoded.copyOfRange(width, 2 * width)
             require(
-                compareFieldBytes(real, modulus) < 0 && compareFieldBytes(imaginary, modulus) < 0,
+                compareFieldBytes(real, modulus.bytes) < 0 &&
+                    compareFieldBytes(imaginary, modulus.bytes) < 0,
             ) {
                 "The extension-field encoding is not canonical"
             }
-            return QuadraticFieldBytes(real, imaginary, modulus.copyOf())
+            return QuadraticFieldBytes(real, imaginary, modulus)
         }
 
-        internal fun zero(modulus: ByteArray): QuadraticFieldBytes =
-            QuadraticFieldBytes(ByteArray(modulus.size), ByteArray(modulus.size), modulus.copyOf())
+        internal fun zero(modulus: FieldModulus): QuadraticFieldBytes =
+            QuadraticFieldBytes(ByteArray(modulus.size), ByteArray(modulus.size), modulus)
 
-        internal fun one(modulus: ByteArray): QuadraticFieldBytes =
+        internal fun one(modulus: FieldModulus): QuadraticFieldBytes =
             QuadraticFieldBytes(
                 ByteArray(modulus.size).also { it[0] = 1 },
                 ByteArray(modulus.size),
-                modulus.copyOf(),
+                modulus,
             )
     }
 }
 
 private object QuadraticFieldBytesRoots {
-    fun inverse(encoded: ByteArray, modulus: ByteArray): ByteArray {
+    fun inverse(encoded: ByteArray, modulus: FieldModulus): ByteArray {
         val (real, imaginary) = components(encoded, modulus.size)
         require(!isZeroFieldBytes(real) || !isZeroFieldBytes(imaginary)) {
             "The extension-field zero has no multiplicative inverse"
@@ -123,10 +153,10 @@ private object QuadraticFieldBytesRoots {
         )
     }
 
-    fun isSquare(encoded: ByteArray, modulus: ByteArray): Boolean =
+    fun isSquare(encoded: ByteArray, modulus: FieldModulus): Boolean =
         isZero(encoded, modulus.size) || squareRoot(encoded, modulus) != null
 
-    fun squareRoot(encoded: ByteArray, modulus: ByteArray): ByteArray? {
+    fun squareRoot(encoded: ByteArray, modulus: FieldModulus): ByteArray? {
         val (real, imaginary) = components(encoded, modulus.size)
         val normRoot = squareRootField(norm(real, imaginary, modulus), modulus)
         if (normRoot == null) return null
@@ -150,7 +180,7 @@ private object QuadraticFieldBytesRoots {
         imaginary: ByteArray,
         delta: ByteArray,
         inverseTwo: ByteArray,
-        modulus: ByteArray,
+        modulus: FieldModulus,
     ): ByteArray? {
         val realSquare =
             multiplyFieldModulo(addFieldModulo(delta, real, modulus), inverseTwo, modulus)
@@ -168,7 +198,7 @@ private object QuadraticFieldBytesRoots {
         return encode(rootReal, rootImaginary)
     }
 
-    private fun canonicalRoot(encoded: ByteArray, width: Int, modulus: ByteArray): ByteArray {
+    private fun canonicalRoot(encoded: ByteArray, width: Int, modulus: FieldModulus): ByteArray {
         val (real, imaginary) = components(encoded, width)
         val negativeReal = negateFieldModulo(real, modulus)
         val negativeImaginary = negateFieldModulo(imaginary, modulus)
@@ -178,15 +208,15 @@ private object QuadraticFieldBytesRoots {
         return if (order <= 0) encoded else encode(negativeReal, negativeImaginary)
     }
 
-    private fun norm(real: ByteArray, imaginary: ByteArray, modulus: ByteArray): ByteArray =
+    private fun norm(real: ByteArray, imaginary: ByteArray, modulus: FieldModulus): ByteArray =
         addFieldModulo(
             multiplyFieldModulo(real, real, modulus),
             multiplyFieldModulo(imaginary, imaginary, modulus),
             modulus,
         )
 
-    private fun squareRootField(value: ByteArray, modulus: ByteArray): ByteArray? {
-        val root = exponentiateField(value, fieldSquareRootExponent(modulus), modulus)
+    private fun squareRootField(value: ByteArray, modulus: FieldModulus): ByteArray? {
+        val root = exponentiateField(value, modulus.squareRootExponent, modulus)
         return if (compareFieldBytes(multiplyFieldModulo(root, root, modulus), value) == 0) {
             root
         } else {
@@ -194,8 +224,8 @@ private object QuadraticFieldBytesRoots {
         }
     }
 
-    private fun inverseField(value: ByteArray, modulus: ByteArray): ByteArray =
-        exponentiateField(value, fieldInverseExponent(modulus), modulus)
+    private fun inverseField(value: ByteArray, modulus: FieldModulus): ByteArray =
+        exponentiateField(value, modulus.inverseExponent, modulus)
 
     private fun isZero(encoded: ByteArray, width: Int): Boolean {
         val (real, imaginary) = components(encoded, width)

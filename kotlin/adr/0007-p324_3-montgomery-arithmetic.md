@@ -80,7 +80,11 @@ external executable. CI watches its new reference inputs. Eight additional
 JVM smoke cases retain coefficient normalization, doubling, addition and
 short/full-width multiplication, growing the matrix from 156 to 164.
 
-This is only the `p324_3` arithmetic slice. Three-point/biscalar ladders,
-deterministic differences, bases/hints, pairings/change-of-basis, normalized
-curve choices, isogeny chains and wider parameter sets remain unimplemented.
-There are no placeholder implementations for those contracts.
+This records only the initial `p324_3` arithmetic slice. The subsequent
+[ADR 0008](0008-p324_3-ladders-and-deterministic-differences.md) adds
+three-point/biscalar ladders and deterministic differences.
+[ADR 0009](0009-shared-typed-montgomery-arithmetic.md) replaces the concrete
+types with shared typed arithmetic over all three fields. Bases/hints,
+pairings/change-of-basis, normalized curve choices, isogeny chains and wider
+parameter-set evidence for those operations remain incomplete. There are no placeholder
+implementations for those contracts.
