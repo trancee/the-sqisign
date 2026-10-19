@@ -1073,7 +1073,34 @@ retained.
 This layer remains under verification; no all-parameter platform completion
 is claimed.
 
-Canonical curve normalization and isogeny chains remain unimplemented.
+Canonical curve normalization and isogeny chains were completed
+subsequently (below).
 No public ABI, wire format, dependency, toolchain,
 production coverage exclusion, constant-time guarantee or controlled
 performance baseline changes.
+
+## Curve decision 2026-10-19: normalization and two-isogeny chains
+
+[`ADR 0017`](adr/0017-normalization-and-two-isogeny-chains.md) completes
+milestone 3. Internal `MontgomeryCurve.normalize` implements algorithm 4.96,
+`FourIsogeny` algorithms 4.97-4.98, and `MontgomeryCurve.twoIsogenyChain`
+algorithm 4.99 with the empty point list that every specification and C caller
+uses. The chain returns only the normalized codomain; point images would lie
+on the unnormalized model and are not exposed. Every four-isogeny kernel must
+have exact order four and must not lie above `(0:1)`; lengths must be
+positive, even and at most `f`. Algorithm 3.5 is the existing `A/C`
+coefficient.
+
+`tools/isogeny_oracle.py` is an independent affine oracle (explicit
+isomorphism enumeration, full Vélu, `sqrt(e)`-checkpoint chains), and
+`tools/generate_isogeny_vectors.py` owns `ec/IsogenyVectors.kt` and
+benchmark-only `IsogenyInputs.kt`. Per parameter set, 12 normalizations,
+42 four-isogeny images and 15 chains (lengths `2`, `8`, `lambda`, and on `E0`
+also the response length and `f-2`) pass on every runtime and against pinned C
+`isog.c`/`normalize.c`, with rejections and malformed C inputs. Nine retained
+`IsogenyBenchmark` cases extend the smoke inventory to 357.
+
+Milestone 3 is complete for `p324_3`, `p500_27` and `p664_17`. Everything
+remains variable-time and without expert review; the 521-line
+`tools/check_unsigned_reference.py` still exceeds the preferred file size.
+No public ABI, wire format, dependency or toolchain changes.

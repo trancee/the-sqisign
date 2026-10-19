@@ -14,6 +14,7 @@ from generate_curve_vectors import ONE, ORACLES, ROOT, ZERO
 from generate_basis_vectors import e0_records, general_basis_records, reconstruction_records
 from check_pairing_reference import check_discrete_logs, check_tate_pairings
 from check_basis_transform_reference import check_basis_actions, check_basis_changes, check_correspondences
+from check_isogeny_reference import check_isogenies
 
 
 CURVE_REFERENCE_FILES = {
@@ -37,6 +38,9 @@ CURVE_REFERENCE_FILES = {
     "src/precomp/ref/p664_17/include/e0_basis.h": "cc68b12e6c4e2cfc4e8b7e02cbedfb4950d7f5c27bc9afca720f8ea30c882b94",
     "src/common/generic/include/tools.h": "c3472971869c8e5911d762b64aaadbdca051b801bb4ec6e87afdeec2c907c6e0",
     "include/ct_testing.h": "0c546fc703780cf5d86ddead5c89e7391c4b832d5709f6f04782b3cfec2d2cb5",
+    "src/ec/ref/lvlx/isog.c": "b83aae0dd85b7d43dc1d413cb56cf8f9a7d762007d13ba0a106cf74988a092cd",
+    "src/ec/ref/lvlx/normalize.c": "48bfbf00836e4ec69e1a1ece00c33b923abfbfae4217467ad5900aef2992c874",
+    "src/ec/ref/include/isog.h": "270b1e4d0b31a765b18ba72458bb7d0116f5b6d121bbcc49b98343841e331eb0",
 }
 
 
@@ -196,6 +200,7 @@ def check_parameter(repository, oracle, level):
         check_basis_actions(binary, oracle)
         check_basis_changes(binary, oracle)
         check_correspondences(binary, oracle)
+        check_isogenies(binary, oracle)
         roots = [record.split(":") for record in oracle.root_records()]
         root_result = subprocess.run([str(binary), "--roots"],
                                      input="\n".join(fields[0] for fields in roots) + "\n",
@@ -242,6 +247,8 @@ def main():
     subprocess.run([sys.executable, "-B", str(ROOT / "tools/generate_pairing_vectors.py"), "--check"],
                    check=True)
     subprocess.run([sys.executable, "-B", str(ROOT / "tools/generate_basis_change_vectors.py"), "--check"],
+                   check=True)
+    subprocess.run([sys.executable, "-B", str(ROOT / "tools/generate_isogeny_vectors.py"), "--check"],
                    check=True)
     for oracle, level in zip(ORACLES, (1, 3, 5), strict=True):
         check_parameter(repository, oracle, level)

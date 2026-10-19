@@ -33,6 +33,9 @@ on:
       - 'src/ec/ref/lvlx/biextension.c'
       - 'src/ec/ref/include/ec.h'
       - 'src/ec/ref/include/biextension.h'
+      - 'src/ec/ref/lvlx/isog.c'
+      - 'src/ec/ref/lvlx/normalize.c'
+      - 'src/ec/ref/include/isog.h'
       - 'include/ct_testing.h'
       - 'scripts/add_parameter_set.py'
       - 'scripts/precomp/torsion_basis.py'
@@ -69,6 +72,9 @@ on:
       - 'src/ec/ref/lvlx/biextension.c'
       - 'src/ec/ref/include/ec.h'
       - 'src/ec/ref/include/biextension.h'
+      - 'src/ec/ref/lvlx/isog.c'
+      - 'src/ec/ref/lvlx/normalize.c'
+      - 'src/ec/ref/include/isog.h'
       - 'include/ct_testing.h'
       - 'scripts/add_parameter_set.py'
       - 'scripts/precomp/torsion_basis.py'
@@ -302,6 +308,10 @@ jobs:
               "parameterSet": ("NIST_I", "NIST_III", "NIST_V"),
               "torsionShape": ("TWO_TORSION", "FULL_TORSION"),
           }
+          for operation in ("normalize", "fourIsogeny", "chain"):
+              workloads[f"IsogenyBenchmark.{operation}"] = {
+                  "parameterSet": ("NIST_I", "NIST_III", "NIST_V"),
+              }
           for operation in ("compare", "add", "subtract"):
               workloads[f"Int656Benchmark.{operation}"] = {
                   "operandShape": ("ZERO_EQUAL", "MIN_BY_ZERO", "MAX_BY_ZERO",

@@ -30,6 +30,8 @@
 #include "../../src/ec/ref/lvlx/ec.c"
 #include "../../src/ec/ref/lvlx/basis.c"
 #include "../../src/ec/ref/lvlx/biextension.c"
+#include "../../src/ec/ref/lvlx/isog.c"
+#include "../../src/ec/ref/lvlx/normalize.c"
 
 #include <ctype.h>
 #include <errno.h>
@@ -258,10 +260,17 @@ check_shared_differences(void)
 
 #include "pairing_reference.h"
 #include "basis_transform_reference.h"
+#include "isogeny_reference.h"
 
 int
 main(int argc, char **argv)
 {
+    if (argc == 2 && strcmp(argv[1], "--normalize") == 0)
+        return check_isogenies(0);
+    if (argc == 2 && strcmp(argv[1], "--four-isogeny") == 0)
+        return check_isogenies(1);
+    if (argc == 2 && strcmp(argv[1], "--isogeny-chain") == 0)
+        return check_isogenies(2);
     if (argc == 2 && strcmp(argv[1], "--basis-combination") == 0)
         return check_basis_combinations();
     if (argc == 2 && strcmp(argv[1], "--basis-change") == 0)

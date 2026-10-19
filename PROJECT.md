@@ -77,7 +77,7 @@ Benchmark-only tooling: explicitly accepted Alpha `kotlinx-benchmark` plugin/run
 | Module / target | Host / prerequisites | Task from `kotlin/` | Proof / limitations |
 | --- | --- | --- | --- |
 | `:` / JVM | JDK `26` | `jvmTest jvmCoverageVerification` | Runtime; JaCoCo line/branch coverage of JVM-compiled `commonMain`, both thresholds `100%`, no production exclusions |
-| `:` / JVM benchmark | JDK `26`; controlled host for measurements | `jvmBenchmarkSmokeBenchmark`; opt-in `jvmBenchmarkBenchmark` | Linux CI validates 348 primitive/parameter cases and JSON samples; no score gate or baseline; no JS/Native benchmark proof |
+| `:` / JVM benchmark | JDK `26`; controlled host for measurements | `jvmBenchmarkSmokeBenchmark`; opt-in `jvmBenchmarkBenchmark` | Linux CI validates 357 primitive/parameter cases and JSON samples; no score gate or baseline; no JS/Native benchmark proof |
 | `:` / JS | JDK `26`; plugin downloads Node | `jsNodeTest` | Node runtime; approved 600-second per-test limit accommodates measured composed curve operations; no browser or coverage proof |
 | `:` / Linux x64 | x86-64 Linux; downloaded Kotlin/Native toolchain | `linuxX64Test` | Native runtime; no measured coverage |
 | `:` / macOS ARM64 | Apple Silicon macOS with Xcode tools | `macosArm64Test` | Native runtime; Linux cannot supply this proof; no measured coverage |
@@ -290,11 +290,20 @@ target-compatible hints, inheriting canonical generation's maximality premise.
 Twenty-four retained cases cover action, prepared/fresh change and complete
 correspondence at two/full torsion across all parameters. The same generator
 owns benchmark-only `BasisTransformInputs.kt`, not expected results.
-Complete cross-runtime and fresh smoke gates remain pending. See
-[`ADR 0015`](kotlin/adr/0015-complete-basis-actions-and-changes.md).
+See [`ADR 0015`](kotlin/adr/0015-complete-basis-actions-and-changes.md).
+Internal `MontgomeryCurve.normalize`, `FourIsogeny` and the curve-only
+`MontgomeryCurve.twoIsogenyChain` implement algorithms 4.96-4.99. The owner
+`tools/generate_isogeny_vectors.py` generates independent affine records
+(12 normalizations, 42 four-isogeny images and 15 chains per parameter set)
+and benchmark-only `IsogenyInputs.kt`; `checkCurveReference` pins and
+cross-checks C `isog.c`, `normalize.c` and `isog.h`, including rejections.
+Nine retained cases cover normalization, one four-isogeny and a
+`lambda`-length chain per parameter set. Milestone 3 is complete for all
+parameter sets. See
+[`ADR 0017`](kotlin/adr/0017-normalization-and-two-isogeny-chains.md).
 
 Generated fixture owner: `python3 tools/generate_test_vectors.py`; output `src/commonTest/kotlin/ch/trancee/sqisign/TestVectors.kt`; `checkTestVectors` checks exact content from Python hashlib and the parent public KATs. This generated test file is excluded from Spotless/detekt, not from execution. No generated API docs or publication pipeline is configured.
 
-Benchmark owner: `kotlin/src/jvmBenchmark/`, with workload correctness tests in `kotlin/src/jvmTest/`. `kotlin/README.md` defines timed boundaries, workloads, profiles, and comparison controls. CI validates 348 JVM smoke cases and retains raw reports under `build/reports/benchmarks/smoke/`, logs, and commit/host/runtime metadata in uploaded artifacts; these are executability evidence only. Generated harnesses and benchmark sources are outside production coverage; production exclusions remain empty. JMH's deprecated Unsafe warnings on JDK `26` require revalidation on future JDK upgrades.
+Benchmark owner: `kotlin/src/jvmBenchmark/`, with workload correctness tests in `kotlin/src/jvmTest/`. `kotlin/README.md` defines timed boundaries, workloads, profiles, and comparison controls. CI validates 357 JVM smoke cases and retains raw reports under `build/reports/benchmarks/smoke/`, logs, and commit/host/runtime metadata in uploaded artifacts; these are executability evidence only. Generated harnesses and benchmark sources are outside production coverage; production exclusions remain empty. JMH's deprecated Unsafe warnings on JDK `26` require revalidation on future JDK upgrades.
 
 Limitations: passing Kotlin gates is not full constitutional compliance. Crypto expert review, constant-time guarantees, numeric performance budgets, and committed controlled-measurement baselines are not established. Retained JVM workloads do not establish performance or portability on other targets. JVM coverage does not imply coverage on JS/Native. C coverage remains measurement-only as documented in `DEVELOPERS.md`; this Kotlin-only change does not alter C gates.

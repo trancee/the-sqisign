@@ -118,6 +118,7 @@ spotless {
             "src/commonTest/kotlin/ch/trancee/sqisign/ec/TorsionRingVectors.kt",
             "src/commonTest/kotlin/ch/trancee/sqisign/ec/PairingVectors.kt",
             "src/commonTest/kotlin/ch/trancee/sqisign/ec/BasisChangeVectors.kt",
+            "src/commonTest/kotlin/ch/trancee/sqisign/ec/IsogenyVectors.kt",
             "src/commonTest/kotlin/ch/trancee/sqisign/ec/BasisActionOracleTest.kt",
             "src/commonTest/kotlin/ch/trancee/sqisign/ec/BasisChangeOracleTest.kt",
             "src/commonTest/kotlin/ch/trancee/sqisign/ec/BasisCorrespondenceOracleTest.kt",
@@ -126,6 +127,7 @@ spotless {
             "src/jvmBenchmark/kotlin/ch/trancee/sqisign/benchmarks/DiscreteLogInputs.kt",
             "src/jvmBenchmark/kotlin/ch/trancee/sqisign/benchmarks/TatePairingInputs.kt",
             "src/jvmBenchmark/kotlin/ch/trancee/sqisign/benchmarks/BasisTransformInputs.kt",
+            "src/jvmBenchmark/kotlin/ch/trancee/sqisign/benchmarks/IsogenyInputs.kt",
         )
         ktfmt("0.65").kotlinlangStyle()
     }
@@ -155,6 +157,7 @@ tasks.withType<dev.detekt.gradle.Detekt>().configureEach {
     exclude("**/TorsionRingVectors.kt")
     exclude("**/PairingVectors.kt")
     exclude("**/BasisChangeVectors.kt")
+    exclude("**/IsogenyVectors.kt")
     exclude("**/BasisActionOracleTest.kt")
     exclude("**/BasisChangeOracleTest.kt")
     exclude("**/BasisCorrespondenceOracleTest.kt")
@@ -163,6 +166,7 @@ tasks.withType<dev.detekt.gradle.Detekt>().configureEach {
     exclude("**/DiscreteLogInputs.kt")
     exclude("**/TatePairingInputs.kt")
     exclude("**/BasisTransformInputs.kt")
+    exclude("**/IsogenyInputs.kt")
 }
 
 jacoco {

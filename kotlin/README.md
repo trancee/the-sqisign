@@ -188,8 +188,13 @@ response widths and full order; three generic compositions also use the
 pinned C canonical/change/action seams. Its internal maximality precondition
 is inherited from canonical basis generation on both curves.
 See [`ADR 0015`](adr/0015-complete-basis-actions-and-changes.md).
-Canonical curve choices and isogeny chains are not implemented; milestone 3
-remains incomplete.
+Internal `MontgomeryCurve.normalize`, `FourIsogeny` and
+`MontgomeryCurve.twoIsogenyChain` implement algorithms 4.96-4.99. The chain
+returns only the normalized codomain, matching every specification and C
+caller. `tools/generate_isogeny_vectors.py` owns the independent affine
+records, and `checkCurveReference` cross-checks them against pinned C
+`isog.c`/`normalize.c`. Milestone 3 is complete for all three parameter sets.
+See [`ADR 0017`](adr/0017-normalization-and-two-isogeny-chains.md).
 
 The wire types expose byte encodings, not mathematical field/curve objects.
 They do not check curve validity, supersingularity, basis-hint validity, matrix
@@ -263,6 +268,8 @@ are likewise excluded from formatting/static analysis, not execution.
 generic Tate oracles; exceptional Tate cases use independent shifted Miller.
 The basis-change owner likewise checks its generated common records,
 one-operation runtime declarations and benchmark-only `BasisTransformInputs.kt`.
+The isogeny owner likewise checks common `ec/IsogenyVectors.kt` and
+benchmark-only `IsogenyInputs.kt`.
 Those generated files have formatting/static-analysis exclusions, not
 production coverage exclusions.
 detekt `2.0.0-alpha.6` runs default rules plus public API documentation checks,
@@ -320,6 +327,7 @@ python3 tools/generate_basis_vectors.py --check
 python3 tools/generate_torsion_ring_vectors.py --check
 python3 tools/generate_pairing_vectors.py --check
 python3 tools/generate_basis_change_vectors.py --check
+python3 tools/generate_isogeny_vectors.py --check
 # To intentionally regenerate:
 python3 tools/generate_test_vectors.py
 python3 tools/generate_curve_vectors.py
@@ -327,6 +335,7 @@ python3 tools/generate_basis_vectors.py
 python3 tools/generate_torsion_ring_vectors.py
 python3 tools/generate_pairing_vectors.py
 python3 tools/generate_basis_change_vectors.py
+python3 tools/generate_isogeny_vectors.py
 ```
 
 The basis generator also owns shipped `ec/E0BasisCoordinates.kt` and
@@ -522,6 +531,9 @@ Input preparation and parameter-name resolution occur outside timing.
 | `BasisTransformBenchmark.between` | Same six shapes | Complete affine cross-differences, checked Tate coordinates, logarithms and normalized matrix; reference lifts/root and checked input bases prepared outside timing |
 | `BasisTransformBenchmark.prepareAndBetween` | Same six shapes | Fresh reference lifts/full pairing root plus complete change; input decoding and basis validation excluded |
 | `BasisCorrespondenceBenchmark.setChangeOfBasisMatrix` | Same six shapes | Both canonical searches, first change, inverse action, second change and both hints; supplied-curve/basis decoding and validation excluded |
+| `IsogenyBenchmark.normalize` | All parameter sets | Order-four kernel validation, six candidate coefficients with one batched inversion, maximum selection and encoding; input decoding excluded |
+| `IsogenyBenchmark.fourIsogeny` | All parameter sets | Kernel validation, codomain, one generic image and both affine encodings; input decoding excluded |
+| `IsogenyBenchmark.chain` | All parameter sets | `lambda`-length chain from `E0`: every validated four-isogeny step and final normalization; input decoding excluded |
 
 The unsigned shapes are `ZERO_EQUAL` (`0`, `0`), `MAX_EQUAL` (`2^328 - 1`,
 `2^328 - 1`), `CARRY_CHAIN` (`2^328 - 1`, `1`), `BORROW_CHAIN` (`0`, `1`),
@@ -632,13 +644,13 @@ The public library API is unchanged; internal wide results are not exposed by it
 
 ```sh
 ./gradlew jvmTest                       # Check workload correctness before timing
-./gradlew jvmBenchmarkSmokeBenchmark    # Discovery/execution only: 348 cases
+./gradlew jvmBenchmarkSmokeBenchmark    # Discovery/execution only: 357 cases
 ./gradlew jvmBenchmarkBenchmarkJar      # Build the JMH harness before measurement
 ./gradlew jvmBenchmarkBenchmark         # Opt-in full profile on a controlled host
 ```
 
 The `smoke` profile uses one fork, one 50 ms warmup, and one 50 ms measurement
-per case. Linux CI requires the complete 348-case parameter matrix, the expected
+per case. Linux CI requires the complete 357-case parameter matrix, the expected
 mode/unit/profile, and finite positive samples. It uploads JSON reports,
 execution logs, and commit/host/JDK/Gradle metadata with the other Kotlin reports.
 The `main` measurement profile uses three forks, three 1 s warmups, and five 1 s
