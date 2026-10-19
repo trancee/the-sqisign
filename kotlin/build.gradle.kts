@@ -128,6 +128,8 @@ spotless {
             "src/jvmBenchmark/kotlin/ch/trancee/sqisign/benchmarks/TatePairingInputs.kt",
             "src/jvmBenchmark/kotlin/ch/trancee/sqisign/benchmarks/BasisTransformInputs.kt",
             "src/jvmBenchmark/kotlin/ch/trancee/sqisign/benchmarks/IsogenyInputs.kt",
+            "src/commonTest/kotlin/ch/trancee/sqisign/hd/ThetaChainVectors.kt",
+            "src/jvmBenchmark/kotlin/ch/trancee/sqisign/benchmarks/ThetaChainInputs.kt",
         )
         ktfmt("0.65").kotlinlangStyle()
     }
@@ -167,6 +169,8 @@ tasks.withType<dev.detekt.gradle.Detekt>().configureEach {
     exclude("**/TatePairingInputs.kt")
     exclude("**/BasisTransformInputs.kt")
     exclude("**/IsogenyInputs.kt")
+    exclude("**/ThetaChainVectors.kt")
+    exclude("**/ThetaChainInputs.kt")
 }
 
 jacoco {
@@ -236,6 +240,14 @@ val checkTorsionRingReference =
         commandLine("python3", "-B", "tools/check_torsion_ring_reference.py")
     }
 
+val checkHdReference =
+    tasks.register<Exec>("checkHdReference") {
+        group = "verification"
+        description =
+            "Cross-checks theta-chain kernels, vectors, and the Python oracle against the pinned C reference."
+        commandLine("python3", "-B", "tools/check_hd_reference.py")
+    }
+
 tasks.named("check") {
     dependsOn(
         coverageVerification,
@@ -243,6 +255,7 @@ tasks.named("check") {
         checkUnsignedReference,
         checkCurveReference,
         checkTorsionRingReference,
+        checkHdReference,
         "detektMainJvm",
         "detektBenchmarkJvm",
         "detektTestJvm",

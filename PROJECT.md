@@ -77,13 +77,13 @@ Benchmark-only tooling: explicitly accepted Alpha `kotlinx-benchmark` plugin/run
 | Module / target | Host / prerequisites | Task from `kotlin/` | Proof / limitations |
 | --- | --- | --- | --- |
 | `:` / JVM | JDK `26` | `jvmTest jvmCoverageVerification` | Runtime; JaCoCo line/branch coverage of JVM-compiled `commonMain`, both thresholds `100%`, no production exclusions |
-| `:` / JVM benchmark | JDK `26`; controlled host for measurements | `jvmBenchmarkSmokeBenchmark`; opt-in `jvmBenchmarkBenchmark` | Linux CI validates 357 primitive/parameter cases and JSON samples; no score gate or baseline; no JS/Native benchmark proof |
+| `:` / JVM benchmark | JDK `26`; controlled host for measurements | `jvmBenchmarkSmokeBenchmark`; opt-in `jvmBenchmarkBenchmark` | Linux CI validates 360 primitive/parameter cases and JSON samples; no score gate or baseline; no JS/Native benchmark proof |
 | `:` / JS | JDK `26`; plugin downloads Node | `jsNodeTest` | Node runtime; approved 600-second per-test limit accommodates measured composed curve operations; no browser or coverage proof |
 | `:` / Linux x64 | x86-64 Linux; downloaded Kotlin/Native toolchain | `linuxX64Test` | Native runtime; no measured coverage |
 | `:` / macOS ARM64 | Apple Silicon macOS with Xcode tools | `macosArm64Test` | Native runtime; Linux cannot supply this proof; no measured coverage |
 | `:` / all target libraries | JDK `26`; downloaded Kotlin/Native toolchain | `checkKotlinAbi` | Compiled ABI against `kotlin/api/`; inference disabled; not final published-artifact validation |
 
-Fast checks: `./gradlew spotlessCheck detektMainJvm detektBenchmarkJvm detektTestJvm jvmTest` from `kotlin/`. Authoritative CI-equivalent: `./gradlew clean check --no-build-cache --rerun-tasks` on both host runners, plus `./gradlew jvmBenchmarkSmokeBenchmark` on Linux. On each host, CI splits `check` into five parallel clean jobs whose task sets together cover all of `check`: `jvm` (`check` minus the other shards), `js-p664` and `js-other` (`jsNodeTest -PjsTestShard=p664|other`, complementary include/exclude filters on `*P664*`), `native` (the host's own `linuxX64Test` or `macosArm64Test`; the other host builds and runs the other target), and `reference` (`checkTestVectors` and the three C reference checks). The smoke benchmark runs as its own Linux job. Pushes trigger CI only on `main`; feature branches are checked through their pull requests, which avoids duplicate push and PR runs competing for macOS runners. `check` also verifies generated fixtures, default detekt rules, strict ABI, and JVM coverage. CI additionally scans Kotlin history/current files with Gitleaks `8.30.1`.
+Fast checks: `./gradlew spotlessCheck detektMainJvm detektBenchmarkJvm detektTestJvm jvmTest` from `kotlin/`. Authoritative CI-equivalent: `./gradlew clean check --no-build-cache --rerun-tasks` on both host runners, plus `./gradlew jvmBenchmarkSmokeBenchmark` on Linux. On each host, CI splits `check` into five parallel clean jobs whose task sets together cover all of `check`: `jvm` (`check` minus the other shards), `js-p664` and `js-other` (`jsNodeTest -PjsTestShard=p664|other`, complementary include/exclude filters on `*P664*`), `native` (the host's own `linuxX64Test` or `macosArm64Test`; the other host builds and runs the other target), and `reference` (`checkTestVectors` and the four C reference checks). The smoke benchmark runs as its own Linux job. Pushes trigger CI only on `main`; feature branches are checked through their pull requests, which avoids duplicate push and PR runs competing for macOS runners. `check` also verifies generated fixtures, default detekt rules, strict ABI, and JVM coverage. CI additionally scans Kotlin history/current files with Gitleaks `8.30.1`.
 
 Initial internal unsigned arithmetic: `UInt328` in `commonMain` uses 22 radix-`2^15`
 limbs and exact 41-byte encodings, with explicit addition carry/subtraction borrow.
@@ -301,9 +301,21 @@ Nine retained cases cover normalization, one four-isogeny and a
 `lambda`-length chain per parameter set. Milestone 3 is complete for all
 parameter sets. See
 [`ADR 0017`](kotlin/adr/0017-normalization-and-two-isogeny-chains.md).
+Internal `thetaChain` (package `hd`) implements algorithm 4.133 with the
+reference strategy, factor order, checks and diagnostics in all four modes.
+`tools/generate_hd_vectors.py` owns independent-oracle `hd/ThetaChainVectors.kt`
+(18 p324 chain records including seven malformed kernels, plus models,
+gluing matrices and splits; four chain records each for p500 and p664) and
+benchmark-only `ThetaChainInputs.kt`. `checkHdReference`, included in `check`,
+requires host `cc`, pins `src/hd/ref` and the verifier sources, replays all 300
+public KAT signatures through C `protocols_verify`, checks the captured kernels
+in `tools/hd_kernels.txt`, and cross-checks every chain record against C.
+Three retained `ThetaChainBenchmark.verify` cases time the captured KAT chain.
+Milestone 4 is complete for all parameter sets. See
+[`ADR 0018`](kotlin/adr/0018-dimension-two-theta-chains.md).
 
 Generated fixture owner: `python3 tools/generate_test_vectors.py`; output `src/commonTest/kotlin/ch/trancee/sqisign/TestVectors.kt`; `checkTestVectors` checks exact content from Python hashlib and the parent public KATs. This generated test file is excluded from Spotless/detekt, not from execution. No generated API docs or publication pipeline is configured.
 
-Benchmark owner: `kotlin/src/jvmBenchmark/`, with workload correctness tests in `kotlin/src/jvmTest/`. `kotlin/README.md` defines timed boundaries, workloads, profiles, and comparison controls. CI validates 357 JVM smoke cases and retains raw reports under `build/reports/benchmarks/smoke/`, logs, and commit/host/runtime metadata in uploaded artifacts; these are executability evidence only. Generated harnesses and benchmark sources are outside production coverage; production exclusions remain empty. JMH's deprecated Unsafe warnings on JDK `26` require revalidation on future JDK upgrades.
+Benchmark owner: `kotlin/src/jvmBenchmark/`, with workload correctness tests in `kotlin/src/jvmTest/`. `kotlin/README.md` defines timed boundaries, workloads, profiles, and comparison controls. CI validates 360 JVM smoke cases and retains raw reports under `build/reports/benchmarks/smoke/`, logs, and commit/host/runtime metadata in uploaded artifacts; these are executability evidence only. Generated harnesses and benchmark sources are outside production coverage; production exclusions remain empty. JMH's deprecated Unsafe warnings on JDK `26` require revalidation on future JDK upgrades.
 
 Limitations: passing Kotlin gates is not full constitutional compliance. Crypto expert review, constant-time guarantees, numeric performance budgets, and committed controlled-measurement baselines are not established. Retained JVM workloads do not establish performance or portability on other targets. JVM coverage does not imply coverage on JS/Native. C coverage remains measurement-only as documented in `DEVELOPERS.md`; this Kotlin-only change does not alter C gates.

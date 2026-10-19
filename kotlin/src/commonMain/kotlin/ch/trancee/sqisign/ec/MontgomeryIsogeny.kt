@@ -92,7 +92,7 @@ internal fun <Element : QuadraticFieldElement<Element>> MontgomeryCurve<Element>
     }
 }
 
-private fun <Element : QuadraticFieldElement<Element>> batchInverse(
+internal fun <Element : QuadraticFieldElement<Element>> batchInverse(
     values: List<Element>,
 ): List<Element> {
     val (first, second, third) = values
@@ -106,7 +106,7 @@ private fun <Element : QuadraticFieldElement<Element>> batchInverse(
     )
 }
 
-private fun <Element : QuadraticFieldElement<Element>> imaginaryUnit(
+internal fun <Element : QuadraticFieldElement<Element>> imaginaryUnit(
     field: QuadraticField<Element>,
 ): Element =
     field.fromLittleEndian(

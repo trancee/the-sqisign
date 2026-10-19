@@ -1104,3 +1104,30 @@ Milestone 3 is complete for `p324_3`, `p500_27` and `p664_17`. Everything
 remains variable-time and without expert review; the 521-line
 `tools/check_unsigned_reference.py` still exceeds the preferred file size.
 No public ABI, wire format, dependency or toolchain changes.
+
+## Isogeny decision 2026-10-19: dimension-two theta chains
+
+[`ADR 0018`](adr/0018-dimension-two-theta-chains.md) completes milestone 4.
+Internal `thetaChain(length, curves, kernel, points, mode)` implements
+algorithm 4.133 and its gluing (4.117-4.119), generic-step and splitting
+(4.124-4.127) pieces, following the pinned `src/hd/ref` strategy, check order,
+`(x : z)`/`(x : y)` factor order and diagnostics in all four C modes. It
+returns a sealed codomain or rejection outcome. Lengths must be in `2..f-2`,
+kernel components must be finite and not `(0 : 1)`, and pushed couple points
+need a component at infinity. Kotlin rejects a failed gluing immediately where
+C continues on uninitialized state, and rejects `(0 : 0)` split images where C
+reports success.
+
+`tools/hd_oracle.py` is an independent Python oracle; `tools/hd_reference.c`
+captures every public KAT verification chain through pinned C
+`protocols_verify` (`tools/hd_kernels.txt` keeps the selected kernels);
+`tools/generate_hd_vectors.py` owns `hd/ThetaChainVectors.kt` and
+benchmark-only `ThetaChainInputs.kt`. `checkHdReference` checks the capture,
+vector currency and every chain record against C, including the gluing-theta,
+gluing-torsion, generic, splitting-product and degenerate-image rejections of
+seven malformed p324 kernels. Three retained `ThetaChainBenchmark.verify` cases
+extend the smoke inventory to 360.
+
+Milestone 4 is complete for `p324_3`, `p500_27` and `p664_17`. Everything
+remains variable-time and without expert review. No public ABI, wire format,
+dependency or toolchain changes.

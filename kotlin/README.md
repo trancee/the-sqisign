@@ -195,6 +195,16 @@ caller. `tools/generate_isogeny_vectors.py` owns the independent affine
 records, and `checkCurveReference` cross-checks them against pinned C
 `isog.c`/`normalize.c`. Milestone 3 is complete for all three parameter sets.
 See [`ADR 0017`](adr/0017-normalization-and-two-isogeny-chains.md).
+Internal `thetaChain` in `ch.trancee.sqisign.hd` implements algorithm 4.133:
+gluing, generic (2,2)-steps and splitting with the reference strategy, factor
+order, checks and diagnostics in four modes, returning a sealed codomain or
+rejection outcome. `tools/hd_oracle.py` is an independent Python oracle;
+`tools/generate_hd_vectors.py` owns `hd/ThetaChainVectors.kt` and
+benchmark-only `ThetaChainInputs.kt`; `checkHdReference` replays every public
+KAT signature through the pinned C verifier, checks the captured kernels and
+cross-checks every chain record against C. Milestone 4 is complete for all
+three parameter sets.
+See [`ADR 0018`](adr/0018-dimension-two-theta-chains.md).
 
 The wire types expose byte encodings, not mathematical field/curve objects.
 They do not check curve validity, supersingularity, basis-hint validity, matrix
@@ -242,6 +252,7 @@ Install JDK `26` and select it with `JAVA_HOME`. From this directory:
 ./gradlew checkUnsignedReference  # Python/C cross-check of public integer vectors
 ./gradlew checkCurveReference     # Independent affine Python / pinned C curve checks
 ./gradlew checkTorsionRingReference  # Independent Python / pinned C torsion-ring checks
+./gradlew checkHdReference        # KAT chain capture and Python / pinned C theta-chain checks
 ./gradlew clean check --no-build-cache --rerun-tasks  # CI-equivalent, on each native host
 ```
 
@@ -306,8 +317,8 @@ Native tests must run on their corresponding hosts; a skipped foreign-host test
 is not evidence of compatibility. Gradle downloads Kotlin/Native and Node.js when
 needed. The wrapper verifies the Gradle distribution against its pinned SHA-256.
 The Kotlin library and its runtime tests do not require C interop or C libraries.
-The development-only `checkUnsignedReference`, `checkCurveReference` and
-`checkTorsionRingReference` tasks,
+The development-only `checkUnsignedReference`, `checkCurveReference`,
+`checkTorsionRingReference` and `checkHdReference` tasks,
 included in `check`, require
 a host `cc` compiler (GCC or Clang) and the parent C reference sources/headers.
 Both hosted CI images provide it; no C code enters the library artifact.
@@ -329,6 +340,7 @@ python3 tools/generate_torsion_ring_vectors.py --check
 python3 tools/generate_pairing_vectors.py --check
 python3 tools/generate_basis_change_vectors.py --check
 python3 tools/generate_isogeny_vectors.py --check
+python3 tools/generate_hd_vectors.py --check
 # To intentionally regenerate:
 python3 tools/generate_test_vectors.py
 python3 tools/generate_curve_vectors.py
@@ -337,6 +349,8 @@ python3 tools/generate_torsion_ring_vectors.py
 python3 tools/generate_pairing_vectors.py
 python3 tools/generate_basis_change_vectors.py
 python3 tools/generate_isogeny_vectors.py
+python3 tools/generate_hd_vectors.py
+python3 tools/check_hd_reference.py --write-fixture  # Recapture tools/hd_kernels.txt from C
 ```
 
 The basis generator also owns shipped `ec/E0BasisCoordinates.kt` and
@@ -535,6 +549,7 @@ Input preparation and parameter-name resolution occur outside timing.
 | `IsogenyBenchmark.normalize` | All parameter sets | Order-four kernel validation, six candidate coefficients with one batched inversion, maximum selection and encoding; input decoding excluded |
 | `IsogenyBenchmark.fourIsogeny` | All parameter sets | Kernel validation, codomain, one generic image and both affine encodings; input decoding excluded |
 | `IsogenyBenchmark.chain` | All parameter sets | `lambda`-length chain from `E0`: every validated four-isogeny step and final normalization; input decoding excluded |
+| `ThetaChainBenchmark.verify` | All parameter sets | Captured KAT 0 verification chain in verify mode: kernel ladders, gluing, every checked generic step and the first-factor split; input decoding excluded |
 
 The unsigned shapes are `ZERO_EQUAL` (`0`, `0`), `MAX_EQUAL` (`2^328 - 1`,
 `2^328 - 1`), `CARRY_CHAIN` (`2^328 - 1`, `1`), `BORROW_CHAIN` (`0`, `1`),
@@ -645,13 +660,13 @@ The public library API is unchanged; internal wide results are not exposed by it
 
 ```sh
 ./gradlew jvmTest                       # Check workload correctness before timing
-./gradlew jvmBenchmarkSmokeBenchmark    # Discovery/execution only: 357 cases
+./gradlew jvmBenchmarkSmokeBenchmark    # Discovery/execution only: 360 cases
 ./gradlew jvmBenchmarkBenchmarkJar      # Build the JMH harness before measurement
 ./gradlew jvmBenchmarkBenchmark         # Opt-in full profile on a controlled host
 ```
 
 The `smoke` profile uses one fork, one 50 ms warmup, and one 50 ms measurement
-per case. Linux CI requires the complete 357-case parameter matrix, the expected
+per case. Linux CI requires the complete 360-case parameter matrix, the expected
 mode/unit/profile, and finite positive samples. It uploads JSON reports,
 execution logs, and commit/host/JDK/Gradle metadata with the other Kotlin reports.
 The `main` measurement profile uses three forks, three 1 s warmups, and five 1 s
