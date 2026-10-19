@@ -19,6 +19,8 @@ group = "ch.trancee.sqisign"
 
 version = "0.1.0-SNAPSHOT"
 
+val P664_TEST_PATTERN = "*P664*"
+
 kotlin {
     explicitApi()
     jvmToolchain(26)
@@ -45,6 +47,13 @@ kotlin {
     js {
         nodejs {
             testTask {
+                // CI splits Node tests into complementary shards over one pattern.
+                when (val shard = providers.gradleProperty("jsTestShard").orNull) {
+                    null -> Unit
+                    "p664" -> filter.includeTestsMatching(P664_TEST_PATTERN)
+                    "other" -> filter.excludeTestsMatching(P664_TEST_PATTERN)
+                    else -> error("Unknown jsTestShard '$shard'")
+                }
                 useMocha {
                     timeout = "30000"
                 }

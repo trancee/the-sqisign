@@ -82,6 +82,15 @@ tasks in `check`. The JVM benchmark smoke runs in its own Linux job. Per-job
 timeouts are 15 minutes. Both hosts still run every check, and no case or task
 is dropped.
 
+The first sharded run passed. Most jobs took 2.5 to 5.5 minutes, but Linux
+`jsNodeTest` alone took 448 seconds, so that job took 9m48s. Mocha runs
+single-threaded. Concurrent push and pull-request runs also queued the macOS
+jobs, and the run took about 13.5 minutes of wall time. Node tests are therefore
+split by `-PjsTestShard` into complementary `p664` and `other` shards. These use
+one include/exclude pattern, `*P664*`. Locally, the shards ran 155 and 723
+tests, with no overlap, and covered all 878. Pushes trigger CI only on `main`;
+pull requests cover feature branches.
+
 ## Alternatives
 
 - **Keep raising timeouts:** rejected by the user. The cost recurs on every gate.

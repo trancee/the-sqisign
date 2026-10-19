@@ -2,6 +2,7 @@ name: Kotlin checks
 
 on:
   push:
+    branches: [main]
     paths:
       - 'kotlin/**'
       - '!kotlin/**/*.md'
@@ -96,7 +97,7 @@ jobs:
           - os: macos-15
             architecture: arm64
             target: macosArm64
-        shard: [jvm, js, native, reference]
+        shard: [jvm, js-p664, js-other, native, reference]
     runs-on: ${{ matrix.host.os }}
     timeout-minutes: 15
     defaults:
@@ -129,7 +130,8 @@ jobs:
               tasks=(check -x jsNodeTest -x linuxX64Test -x macosArm64Test)
               for task in "${reference_tasks[@]}"; do tasks+=(-x "$task"); done
               ;;
-            js) tasks=(jsNodeTest) ;;
+            js-p664) tasks=(jsNodeTest -PjsTestShard=p664) ;;
+            js-other) tasks=(jsNodeTest -PjsTestShard=other) ;;
             native) tasks=(linuxX64Test macosArm64Test) ;;
             reference) tasks=("${reference_tasks[@]}") ;;
             *) echo "Unknown shard $SHARD" >&2; exit 1 ;;
