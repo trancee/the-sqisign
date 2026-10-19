@@ -105,6 +105,10 @@ final object ch.trancee.sqisign/ChallengeHash { // ch.trancee.sqisign/ChallengeH
     final fun compute(ch.trancee.sqisign/EncodedPublicKey, kotlin/ByteArray, kotlin/ByteArray): kotlin/ByteArray // ch.trancee.sqisign/ChallengeHash.compute|compute(ch.trancee.sqisign.EncodedPublicKey;kotlin.ByteArray;kotlin.ByteArray){}[0]
 }
 
+final object ch.trancee.sqisign/SqiSign { // ch.trancee.sqisign/SqiSign|null[0]
+    final fun verify(ch.trancee.sqisign/EncodedPublicKey, kotlin/ByteArray, ch.trancee.sqisign/EncodedSignature): kotlin/Boolean // ch.trancee.sqisign/SqiSign.verify|verify(ch.trancee.sqisign.EncodedPublicKey;kotlin.ByteArray;ch.trancee.sqisign.EncodedSignature){}[0]
+}
+
 final object ch.trancee.sqisign/WireFormat { // ch.trancee.sqisign/WireFormat|null[0]
     final fun publicKey(ch.trancee.sqisign/ParameterSet, kotlin/ByteArray): ch.trancee.sqisign/EncodedPublicKey // ch.trancee.sqisign/WireFormat.publicKey|publicKey(ch.trancee.sqisign.ParameterSet;kotlin.ByteArray){}[0]
     final fun signature(ch.trancee.sqisign/ParameterSet, kotlin/ByteArray): ch.trancee.sqisign/EncodedSignature // ch.trancee.sqisign/WireFormat.signature|signature(ch.trancee.sqisign.ParameterSet;kotlin.ByteArray){}[0]

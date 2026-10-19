@@ -1131,3 +1131,28 @@ extend the smoke inventory to 360.
 Milestone 4 is complete for `p324_3`, `p500_27` and `p664_17`. Everything
 remains variable-time and without expert review. No public ABI, wire format,
 dependency or toolchain changes.
+
+## Verification decision 2026-10-20: public signature verification
+
+[`ADR 0019`](adr/0019-public-signature-verification.md) completes milestone 5.
+The first public cryptographic API is `SqiSign.verify(publicKey, message,
+signature)`. It implements algorithm 3.24 in the pinned `protocols_verify`
+order and returns `false` for every invalid key or signature. It throws only
+when the key and signature belong to different parameter sets. Canonical
+lengths, field representatives and response padding are rejected earlier, by
+`WireFormat`. The hint and matrix-action departures from C are inherited from
+ADRs 0011 and 0015 and change no observed verdict.
+
+The JVM-only `jvmKatTest` task verifies all 300 public KAT signatures. It also
+replays `tools/verify_mutations.txt`: 168 canonical patches of KAT records 0-3
+per level, covering messages, challenges, hints, matrices and curves. The C
+verdict for each patch comes from `tools/check_verify_reference.py`
+(`checkVerifyReference`), which runs the checksum-pinned `protocols_verify`,
+and every Kotlin verdict must match it. Common tests on every runtime verify
+KAT 0 at each level and reach every verifier rejection path. A deterministic
+32-case p324 bit-flip fuzz must return `false` without throwing. Three
+retained `VerifyBenchmark.verify` cases extend the smoke inventory to 363.
+
+Milestone 5 is complete for `p324_3`, `p500_27` and `p664_17`. Everything
+remains variable-time and without expert review. The public ABI gains
+`SqiSign`. The wire format, dependencies and toolchain are unchanged.

@@ -67,6 +67,11 @@ public final class ch/trancee/sqisign/Shake256$Companion {
 	public final fun digest ([BI)[B
 }
 
+public final class ch/trancee/sqisign/SqiSign {
+	public static final field INSTANCE Lch/trancee/sqisign/SqiSign;
+	public final fun verify (Lch/trancee/sqisign/EncodedPublicKey;[BLch/trancee/sqisign/EncodedSignature;)Z
+}
+
 public final class ch/trancee/sqisign/SqiSignPrng {
 	public fun <init> ([BLch/trancee/sqisign/PrngDomain;)V
 	public final fun bytes (I)[B

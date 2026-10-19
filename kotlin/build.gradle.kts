@@ -20,6 +20,8 @@ group = "ch.trancee.sqisign"
 version = "0.1.0-SNAPSHOT"
 
 val P664_TEST_PATTERN = "*P664*"
+val KAT_TEST_PATTERN = "ch.trancee.sqisign.kat.*"
+val KAT_TEST_FORKS = Runtime.getRuntime().availableProcessors()
 
 kotlin {
     explicitApi()
@@ -130,6 +132,7 @@ spotless {
             "src/jvmBenchmark/kotlin/ch/trancee/sqisign/benchmarks/IsogenyInputs.kt",
             "src/commonTest/kotlin/ch/trancee/sqisign/hd/ThetaChainVectors.kt",
             "src/jvmBenchmark/kotlin/ch/trancee/sqisign/benchmarks/ThetaChainInputs.kt",
+            "src/jvmBenchmark/kotlin/ch/trancee/sqisign/benchmarks/VerifyInputs.kt",
         )
         ktfmt("0.65").kotlinlangStyle()
     }
@@ -171,6 +174,7 @@ tasks.withType<dev.detekt.gradle.Detekt>().configureEach {
     exclude("**/IsogenyInputs.kt")
     exclude("**/ThetaChainVectors.kt")
     exclude("**/ThetaChainInputs.kt")
+    exclude("**/VerifyInputs.kt")
 }
 
 jacoco {
@@ -178,6 +182,32 @@ jacoco {
 }
 
 val jvmTest = tasks.named<Test>("jvmTest")
+val katDirectory = layout.projectDirectory.dir("../KAT")
+
+// Verifying all 300 upstream KAT signatures runs as its own task, so CI can shard it.
+jvmTest.configure { filter.excludeTestsMatching(KAT_TEST_PATTERN) }
+
+val jvmKatTest =
+    tasks.register<Test>("jvmKatTest") {
+        group = "verification"
+        description =
+            "Verifies every upstream KAT signature and the C-pinned mutation corpus on the JVM."
+        testClassesDirs = jvmTest.get().testClassesDirs
+        classpath = jvmTest.get().classpath
+        filter.includeTestsMatching(KAT_TEST_PATTERN)
+        inputs
+            .dir(katDirectory)
+            .withPathSensitivity(PathSensitivity.RELATIVE)
+            .withPropertyName("katDirectory")
+        systemProperty("sqisign.katDirectory", katDirectory.asFile.absolutePath)
+        val corpus = layout.projectDirectory.file("tools/verify_mutations.txt")
+        inputs
+            .file(corpus)
+            .withPathSensitivity(PathSensitivity.RELATIVE)
+            .withPropertyName("verifyCorpus")
+        systemProperty("sqisign.verifyCorpus", corpus.asFile.absolutePath)
+        maxParallelForks = KAT_TEST_FORKS
+    }
 val jvmClasses = layout.buildDirectory.dir("classes/kotlin/jvm/main")
 val coverageReport =
     tasks.register<JacocoReport>("jvmCoverageReport") {
@@ -248,6 +278,14 @@ val checkHdReference =
         commandLine("python3", "-B", "tools/check_hd_reference.py")
     }
 
+val checkVerifyReference =
+    tasks.register<Exec>("checkVerifyReference") {
+        group = "verification"
+        description =
+            "Cross-checks the verification mutation corpus against pinned C protocols_verify verdicts."
+        commandLine("python3", "-B", "tools/check_verify_reference.py")
+    }
+
 tasks.named("check") {
     dependsOn(
         coverageVerification,
@@ -256,6 +294,8 @@ tasks.named("check") {
         checkCurveReference,
         checkTorsionRingReference,
         checkHdReference,
+        checkVerifyReference,
+        jvmKatTest,
         "detektMainJvm",
         "detektBenchmarkJvm",
         "detektTestJvm",

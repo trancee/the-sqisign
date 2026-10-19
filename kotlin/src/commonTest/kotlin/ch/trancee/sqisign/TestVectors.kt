@@ -112,6 +112,7 @@ internal val referenceVectors: List<ReferenceVector> = listOf(
             "3a1750117e4d665ffdd21ed048147a2f5f7955d463af8cb53a673f66ae0dd5380f186302369a07d48ffde881f955a871" +
             "ddc372acd4a6401884530b6835fd5a050eea188026474533afa387c4cc966cef0d81ec694f3c90e2cee6c6c0cb0ebf82" +
             "682562d6d7d80d02",
+        "d81c4d8d734fcbfbeade3d3f8a039faa2a2c9957e835ad55b22e75bf57bb556ac8",
     ),
     // KAT/PQCsignKAT_417_SQIsign_p500_27.rsp, count = 0
     ReferenceVector(
@@ -126,6 +127,7 @@ internal val referenceVectors: List<ReferenceVector> = listOf(
             "0bb75e159eb8f293a08bc38373c110e6cb6aa1e5b17c4a5b6b0792fe31a1788b4e535f8aa82c90f684b93c64faa671bd" +
             "5ba50b50405c91568cdcd818afd4444cc7a34821d485cf67d4d72ef2b9786d8dce77b598acec2b61c504203156e08436" +
             "4626a1ac1cc478f79d0ef6e27e7cdcff0a09",
+        "d81c4d8d734fcbfbeade3d3f8a039faa2a2c9957e835ad55b22e75bf57bb556ac8",
     ),
     // KAT/PQCsignKAT_549_SQIsign_p664_17.rsp, count = 0
     ReferenceVector(
@@ -143,6 +145,7 @@ internal val referenceVectors: List<ReferenceVector> = listOf(
             "3ea212177ed309c8f719d2383230f14654cd64d1f0ec0ebaef2c13afed1c02460205c212a2849877f8cf34134b7f9562" +
             "0b5b3137ce3afe8f71e6d965c8cedd7d0a38510f098d07a6a8eeec98ca65862eee6c4902eda308a9a18db4d16e0869ad" +
             "9c8648eb79e64952f77d07161092696e49d214710225",
+        "d81c4d8d734fcbfbeade3d3f8a039faa2a2c9957e835ad55b22e75bf57bb556ac8",
     ),
 )
 

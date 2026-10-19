@@ -11,6 +11,7 @@ internal data class ReferenceVector(
     val parameters: ParameterSet,
     val publicKey: String,
     val signature: String,
+    val message: String,
 )
 
 class WireFormatTest {

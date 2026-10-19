@@ -109,7 +109,7 @@ jobs:
           - os: macos-15
             architecture: arm64
             target: macosArm64
-        shard: [jvm, js-p664, js-other, native, reference]
+        shard: [jvm, kat, js-p664, js-other, native, reference]
     runs-on: ${{ matrix.host.os }}
     timeout-minutes: 15
     defaults:
@@ -137,12 +137,13 @@ jobs:
           SHARD: ${{ matrix.shard }}
           NATIVE_TARGET: ${{ matrix.host.target }}
         run: |
-          reference_tasks=(checkTestVectors checkUnsignedReference checkCurveReference checkTorsionRingReference checkHdReference)
+          reference_tasks=(checkTestVectors checkUnsignedReference checkCurveReference checkTorsionRingReference checkHdReference checkVerifyReference)
           case "$SHARD" in
             jvm)
-              tasks=(check -x jsNodeTest -x linuxX64Test -x macosArm64Test)
+              tasks=(check -x jsNodeTest -x linuxX64Test -x macosArm64Test -x jvmKatTest)
               for task in "${reference_tasks[@]}"; do tasks+=(-x "$task"); done
               ;;
+            kat) tasks=(jvmKatTest) ;;
             js-p664) tasks=(jsNodeTest -PjsTestShard=p664) ;;
             js-other) tasks=(jsNodeTest -PjsTestShard=other) ;;
             # The other host builds and runs its own target; linking it here cannot execute.
@@ -321,6 +322,9 @@ jobs:
                   "parameterSet": ("NIST_I", "NIST_III", "NIST_V"),
               }
           workloads["ThetaChainBenchmark.verify"] = {
+              "parameterSet": ("NIST_I", "NIST_III", "NIST_V"),
+          }
+          workloads["VerifyBenchmark.verify"] = {
               "parameterSet": ("NIST_I", "NIST_III", "NIST_V"),
           }
           for operation in ("compare", "add", "subtract"):

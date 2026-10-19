@@ -1,8 +1,10 @@
 # SQIsign Kotlin foundation
 
-**Experimental foundation, not a signature implementation.** There is no key
-generation, signing, or signature verification yet. Do not use this project to
-protect real keys or authenticate messages. Parsing a signature does not verify it.
+**Experimental, variable-time verifier; not a complete signature implementation.**
+`SqiSign.verify` checks SQIsign v3 signatures, but there is no key generation or
+signing, and nothing is constant-time or expert-reviewed. Do not use this project
+to protect real keys or to authenticate messages in production. Parsing a
+signature does not verify it.
 
 This independent Kotlin Multiplatform build targets the
 [SQIsign v3.0 specification, September 1, 2026](https://sqisign.org/spec/sqisign-20260901.pdf).
@@ -19,6 +21,7 @@ library. The existing C build is unchanged.
 | `SqiSignPrng` | 48-byte seed expansion using `key`, `com`, `res`, and `def` domains |
 | `WireFormat` | Exact public-key/signature lengths, canonical field encodings, response scalar bit bounds, defensive byte copies |
 | `ChallengeHash` | Exact v3 Fiat-Shamir transcript using the commitment's Montgomery coefficient |
+| `SqiSign.verify` | Algorithm 3.24 signature verification for all three parameter sets; variable-time |
 
 The internal arithmetic package now contains `UInt328`: the full 41-byte unsigned
 width needed to hold `p324_3` encodings, using 22 radix-`2^15` limbs (13 bits in
@@ -205,6 +208,15 @@ KAT signature through the pinned C verifier, checks the captured kernels and
 cross-checks every chain record against C. Milestone 4 is complete for all
 three parameter sets.
 See [`ADR 0018`](adr/0018-dimension-two-theta-chains.md).
+Public `SqiSign.verify` implements algorithm 3.24 in the pinned
+`protocols_verify` order. It returns `false` for every invalid key or
+signature and throws `IllegalArgumentException` only when the key and
+signature belong to different parameter sets. The JVM-only `jvmKatTest` task
+verifies all 300 public KAT signatures and replays the 168-case
+`tools/verify_mutations.txt` corpus. `checkVerifyReference` pins that corpus's
+verdicts to the C verifier. Milestone 5 is complete for all three parameter
+sets.
+See [`ADR 0019`](adr/0019-public-signature-verification.md).
 
 The wire types expose byte encodings, not mathematical field/curve objects.
 They do not check curve validity, supersingularity, basis-hint validity, matrix
@@ -215,6 +227,24 @@ deliberately deferred until the ideal and integer layers exist.
 import ch.trancee.sqisign.Shake256
 
 val output = Shake256.digest("abc".encodeToByteArray(), outputLength = 64)
+```
+
+Verify a signature by parsing both canonical encodings first. `WireFormat`
+throws `IllegalArgumentException` for wrong lengths or non-canonical bytes.
+
+```kotlin
+import ch.trancee.sqisign.ParameterSet
+import ch.trancee.sqisign.SqiSign
+import ch.trancee.sqisign.WireFormat
+
+fun isValid(publicKey: ByteArray, message: ByteArray, signature: ByteArray): Boolean {
+    val parameters = ParameterSet.NIST_I
+    return SqiSign.verify(
+        WireFormat.publicKey(parameters, publicKey),
+        message,
+        WireFormat.signature(parameters, signature),
+    )
+}
 ```
 
 ## Toolchain and execution
@@ -253,13 +283,15 @@ Install JDK `26` and select it with `JAVA_HOME`. From this directory:
 ./gradlew checkCurveReference     # Independent affine Python / pinned C curve checks
 ./gradlew checkTorsionRingReference  # Independent Python / pinned C torsion-ring checks
 ./gradlew checkHdReference        # KAT chain capture and Python / pinned C theta-chain checks
+./gradlew checkVerifyReference    # Pinned C verdicts for the verification mutation corpus
+./gradlew jvmKatTest              # All 300 KAT signatures and the mutation corpus on the JVM
 ./gradlew clean check --no-build-cache --rerun-tasks  # CI-equivalent, on each native host
 ```
 
 [Kotlin CI](../.github/workflows/kotlin.yml) runs on pushes to `main` and pull requests,
 using x86-64 Linux and Apple Silicon macOS. Each host runs JVM and Node.js tests
 and its own Native tests; an explicit result check rejects a missing Native run.
-On each host, `check` is split into parallel clean `jvm`, `js-p664`,
+On each host, `check` is split into parallel clean `jvm`, `kat`, `js-p664`,
 `js-other`, `native` (the host's own Native target only), and `reference` jobs that
 together cover every task in `check` across both hosts. The JVM benchmark
 smoke runs as a separate Linux job.
@@ -282,6 +314,8 @@ The basis-change owner likewise checks its generated common records,
 one-operation runtime declarations and benchmark-only `BasisTransformInputs.kt`.
 The isogeny owner likewise checks common `ec/IsogenyVectors.kt` and
 benchmark-only `IsogenyInputs.kt`.
+`checkTestVectors` also owns benchmark-only `VerifyInputs.kt`, which holds KAT
+record 0 for every level.
 Those generated files have formatting/static-analysis exclusions, not
 production coverage exclusions.
 detekt `2.0.0-alpha.6` runs default rules plus public API documentation checks,
@@ -550,6 +584,7 @@ Input preparation and parameter-name resolution occur outside timing.
 | `IsogenyBenchmark.fourIsogeny` | All parameter sets | Kernel validation, codomain, one generic image and both affine encodings; input decoding excluded |
 | `IsogenyBenchmark.chain` | All parameter sets | `lambda`-length chain from `E0`: every validated four-isogeny step and final normalization; input decoding excluded |
 | `ThetaChainBenchmark.verify` | All parameter sets | Captured KAT 0 verification chain in verify mode: kernel ladders, gluing, every checked generic step and the first-factor split; input decoding excluded |
+| `VerifyBenchmark.verify` | All parameter sets | Public `SqiSign.verify` of KAT record 0: every step of algorithm 3.24; wire parsing excluded |
 
 The unsigned shapes are `ZERO_EQUAL` (`0`, `0`), `MAX_EQUAL` (`2^328 - 1`,
 `2^328 - 1`), `CARRY_CHAIN` (`2^328 - 1`, `1`), `BORROW_CHAIN` (`0`, `1`),
@@ -649,7 +684,7 @@ switch or scalar export; scalars are already encoded. The former
 an explicit `parameterSet` dimension. Timing boundaries therefore differ
 from the previous retained workloads; smoke scores are not regression evidence.
 
-Fixtures use synthetic public bytes, not secrets or real signatures. Ordinary
+Fixtures use synthetic or public KAT bytes, never secrets. Ordinary
 JVM tests verify all workload cases against independent existing SHAKE vectors,
 explicit domain/transcript construction, and expected canonical wire bytes.
 Unsigned workload tests check every shape against explicit encodings and JVM
@@ -660,13 +695,13 @@ The public library API is unchanged; internal wide results are not exposed by it
 
 ```sh
 ./gradlew jvmTest                       # Check workload correctness before timing
-./gradlew jvmBenchmarkSmokeBenchmark    # Discovery/execution only: 360 cases
+./gradlew jvmBenchmarkSmokeBenchmark    # Discovery/execution only: 363 cases
 ./gradlew jvmBenchmarkBenchmarkJar      # Build the JMH harness before measurement
 ./gradlew jvmBenchmarkBenchmark         # Opt-in full profile on a controlled host
 ```
 
 The `smoke` profile uses one fork, one 50 ms warmup, and one 50 ms measurement
-per case. Linux CI requires the complete 360-case parameter matrix, the expected
+per case. Linux CI requires the complete 363-case parameter matrix, the expected
 mode/unit/profile, and finite positive samples. It uploads JSON reports,
 execution logs, and commit/host/JDK/Gradle metadata with the other Kotlin reports.
 The `main` measurement profile uses three forks, three 1 s warmups, and five 1 s
