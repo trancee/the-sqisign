@@ -249,7 +249,8 @@ Install JDK `26` and select it with `JAVA_HOME`. From this directory:
 using x86-64 Linux and Apple Silicon macOS. Each host runs JVM and Node.js tests
 and its own Native tests; an explicit result check rejects a missing Native run.
 On each host, `check` is split into parallel clean `jvm`, `js-p664`,
-`js-other`, `native`, and `reference` jobs that together cover every task in `check`. The JVM benchmark
+`js-other`, `native` (the host's own Native target only), and `reference` jobs that
+together cover every task in `check` across both hosts. The JVM benchmark
 smoke runs as a separate Linux job.
 It also scans Kotlin history and current files with redacted Gitleaks output.
 

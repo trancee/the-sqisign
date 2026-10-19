@@ -129,6 +129,7 @@ jobs:
       - name: Run clean ${{ matrix.shard }} checks
         env:
           SHARD: ${{ matrix.shard }}
+          NATIVE_TARGET: ${{ matrix.host.target }}
         run: |
           reference_tasks=(checkTestVectors checkUnsignedReference checkCurveReference checkTorsionRingReference)
           case "$SHARD" in
@@ -138,7 +139,8 @@ jobs:
               ;;
             js-p664) tasks=(jsNodeTest -PjsTestShard=p664) ;;
             js-other) tasks=(jsNodeTest -PjsTestShard=other) ;;
-            native) tasks=(linuxX64Test macosArm64Test) ;;
+            # The other host builds and runs its own target; linking it here cannot execute.
+            native) tasks=("${NATIVE_TARGET}Test") ;;
             reference) tasks=("${reference_tasks[@]}") ;;
             *) echo "Unknown shard $SHARD" >&2; exit 1 ;;
           esac
