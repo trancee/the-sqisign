@@ -12,14 +12,15 @@ from check_unsigned_reference import REFERENCE_COMMIT, REFERENCE_FILES
 from generate_ibz_vectors import CAPACITIES, ROOT, records
 
 
-INVALID_INPUTS = ("add\n", "add 9:1\n", "add 0:1 2:1\n", "add 2:x 2:1\n", "nope 2:1\n", "rand 1:0 2:1 00\n")
+INVALID_INPUTS = ("add\n", "add 9:1\n", "add 0:1 2:1\n", "add 2:x 2:1\n", "nope 2:1\n", "rand 1:0 2:1 00\n",
+                  "shr 2:1\n", "set 1\n", "rand 2:1\n", "parse\n", "modui 2:1\n", "bits 3\n")
 
 
 def compile_adapter(repository, directory, level):
     binary = Path(directory) / f"ibz-reference-{level}"
     includes = ("include", "src/mp/ref/include", "src/common/generic/include", f"src/precomp/ref/{level}/include")
     subprocess.run([
-        "cc", "-std=c11", "-O2", "-ffunction-sections", "-fdata-sections",
+        "cc", "-std=c11", "-O2", "-ftrivial-auto-var-init=pattern", "-ffunction-sections", "-fdata-sections",
         "-DRADIX_64", f"-DSQISIGN_VARIANT={level}", "-DSQISIGN_BUILD_TYPE_REF",
         *(f"-I{repository / include}" for include in includes),
         str(ROOT / "tools/ibz_reference.c"),

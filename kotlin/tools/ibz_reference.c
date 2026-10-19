@@ -37,6 +37,14 @@ fail(const char *reason)
     exit(1);
 }
 
+static const char *
+required(const char *text)
+{
+    if (text == NULL)
+        fail("missing field");
+    return text;
+}
+
 static int
 hex_digit(char character)
 {
@@ -51,7 +59,7 @@ hex_digit(char character)
 static void
 decode_magnitude(digit_t *words, int count, const char *hex)
 {
-    size_t length = strlen(hex);
+    size_t length = strlen(required(hex));
     memset(words, 0, (size_t)count * sizeof(digit_t));
     if (length == 0 || length > (size_t)count * 16)
         fail("magnitude width");
@@ -65,7 +73,7 @@ static void
 decode(ibz_t *value, const char *text)
 {
     char *colon;
-    long bitlen = strtol(text, &colon, 10);
+    long bitlen = strtol(required(text), &colon, 10);
     if (*colon != ':' || bitlen < 1 || bitlen > IBZ_NLIMBS * NUM_BITS_LIMB)
         fail("ibz bound");
     const char *hex = colon + 1;
@@ -101,7 +109,7 @@ static long
 number(const char *text)
 {
     char *end;
-    long value = strtol(text, &end, 10);
+    long value = strtol(required(text), &end, 10);
     if (*end != '\0')
         fail("integer");
     return value;
@@ -116,7 +124,7 @@ sign(int comparison)
 static void
 script(const char *hex)
 {
-    size_t length = strlen(hex);
+    size_t length = strlen(required(hex));
     if (length % 2 || length / 2 > MAX_RANDOM_BYTES)
         fail("random bytes");
     for (size_t index = 0; index < length / 2; index++)
@@ -252,7 +260,7 @@ unary(const char *op, char **arguments)
         printf("%d", sign(ibz_cmp_int32(&a, (int32_t)number(arguments[1]))));
         return;
     } else if (strcmp(op, "modui") == 0) {
-        printf("%lu", ibz_mod_ui(&a, strtoul(arguments[1], NULL, 10)));
+        printf("%lu", ibz_mod_ui(&a, strtoul(required(arguments[1]), NULL, 10)));
         return;
     } else if (strcmp(op, "digits") == 0) {
         digits(&a);
@@ -270,7 +278,7 @@ special(const char *op, char **arguments)
     if (strcmp(op, "set") == 0) {
         ibz_set(&r, (sdigit_t)number(arguments[0]), (int)number(arguments[1]));
     } else if (strcmp(op, "parse") == 0) {
-        const char *text = strcmp(arguments[0], "_") == 0 ? "" : arguments[0];
+        const char *text = strcmp(required(arguments[0]), "_") == 0 ? "" : arguments[0];
         if (!ibz_set_from_str(&r, text, (int)number(arguments[1]))) {
             printf("fail");
             return;
@@ -303,7 +311,7 @@ main(void)
 {
     static char line[LINE_BYTES];
     while (fgets(line, sizeof(line), stdin)) {
-        char *fields[8];
+        char *fields[9] = { NULL };
         int count = 0;
         for (char *token = strtok(line, " \n"); token; token = strtok(NULL, " \n")) {
             if (count == 8)
