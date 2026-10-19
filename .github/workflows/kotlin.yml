@@ -109,7 +109,7 @@ jobs:
           - os: macos-15
             architecture: arm64
             target: macosArm64
-        shard: [jvm, kat, js-p664, js-other, native, reference]
+        shard: [jvm, kat-p664, kat-other, js-p664, js-other, native, reference]
     runs-on: ${{ matrix.host.os }}
     timeout-minutes: 15
     defaults:
@@ -143,7 +143,8 @@ jobs:
               tasks=(check -x jsNodeTest -x linuxX64Test -x macosArm64Test -x jvmKatTest)
               for task in "${reference_tasks[@]}"; do tasks+=(-x "$task"); done
               ;;
-            kat) tasks=(jvmKatTest) ;;
+            kat-p664) tasks=(jvmKatTest -PkatTestShard=p664) ;;
+            kat-other) tasks=(jvmKatTest -PkatTestShard=other) ;;
             js-p664) tasks=(jsNodeTest -PjsTestShard=p664) ;;
             js-other) tasks=(jsNodeTest -PjsTestShard=other) ;;
             # The other host builds and runs its own target; linking it here cannot execute.

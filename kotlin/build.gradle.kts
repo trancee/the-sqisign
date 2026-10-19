@@ -20,7 +20,8 @@ group = "ch.trancee.sqisign"
 version = "0.1.0-SNAPSHOT"
 
 val P664_TEST_PATTERN = "*P664*"
-val KAT_TEST_PATTERN = "ch.trancee.sqisign.kat.*"
+val KAT_TEST_PACKAGE = "ch.trancee.sqisign.kat"
+val KAT_TEST_PATTERN = "$KAT_TEST_PACKAGE.*"
 val KAT_TEST_FORKS = Runtime.getRuntime().availableProcessors()
 
 kotlin {
@@ -194,7 +195,16 @@ val jvmKatTest =
             "Verifies every upstream KAT signature and the C-pinned mutation corpus on the JVM."
         testClassesDirs = jvmTest.get().testClassesDirs
         classpath = jvmTest.get().classpath
-        filter.includeTestsMatching(KAT_TEST_PATTERN)
+        // CI splits KAT classes into complementary shards over the P664 pattern.
+        when (val shard = providers.gradleProperty("katTestShard").orNull) {
+            null -> filter.includeTestsMatching(KAT_TEST_PATTERN)
+            "p664" -> filter.includeTestsMatching("$KAT_TEST_PACKAGE.$P664_TEST_PATTERN")
+            "other" -> {
+                filter.includeTestsMatching(KAT_TEST_PATTERN)
+                filter.excludeTestsMatching(P664_TEST_PATTERN)
+            }
+            else -> error("Unknown katTestShard '$shard'")
+        }
         inputs
             .dir(katDirectory)
             .withPathSensitivity(PathSensitivity.RELATIVE)

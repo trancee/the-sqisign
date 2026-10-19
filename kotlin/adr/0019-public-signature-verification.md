@@ -85,8 +85,9 @@ SqiSign.verify(publicKey: EncodedPublicKey, message: ByteArray, signature: Encod
 
 - **Public KATs.** The JVM-only `jvmKatTest` task verifies all 300 upstream KAT
   signatures, reading `KAT/*.rsp` directly. It runs in seven balanced classes
-  across parallel forks, about 1.5 minutes on eight cores, as its own `kat` CI
-  shard.
+  across parallel forks, about 1.5 minutes on eight cores. CI splits it into
+  `kat-p664` and `kat-other` shards with `-PkatTestShard`, because one
+  four-vCPU Linux job took almost 9 minutes.
 - **C-pinned mutation corpus.**
   - `tools/check_verify_reference.py` compiles the checksum-pinned verifier
     through the existing `tools/hd_reference.c` adapter. It derives 14 canonical

@@ -64,8 +64,13 @@ internal class ThetaChainOracleAssertions<Element : QuadraticFieldElement<Elemen
         }
     }
 
-    internal fun verifyChains(records: List<String>, labels: Set<String>) {
-        val selected = records.map { it.split(':') }.filter { it[0] in labels }
+    internal fun verifyChains(
+        records: List<String>,
+        labels: Set<String>,
+        modes: Set<ThetaChainMode> = ThetaChainMode.entries.toSet(),
+    ) {
+        val selected =
+            records.map { it.split(':') }.filter { it[0] in labels && mode(it[1]) in modes }
         assertTrue(selected.isNotEmpty(), "Theta chain selection must not be empty")
         for (record in selected) {
             val (first, second) = record.subList(3, 5).map(::curve)
