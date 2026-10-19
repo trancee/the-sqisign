@@ -70,6 +70,18 @@ and pinned C field check. The refactor itself adds no vector.
 These are single local runs, not controlled benchmarks. They show the order of
 magnitude, not a performance budget.
 
+## CI sharding
+
+Even after the arithmetic fix, one serial `clean check` took about 14 minutes
+on macOS. Linux took about 18 minutes, then ran the smoke benchmark. The longest
+tasks were `jsNodeTest` (155s), `macosArm64Test` (144s), `checkCurveReference`
+(122s), and `jvmTest` (67s). The user required CI under 10 minutes. On each
+host, the workflow now runs four parallel clean jobs: `jvm`, `js`, `native`, and
+`reference`. A local `--dry-run` confirms that together they cover exactly the
+tasks in `check`. The JVM benchmark smoke runs in its own Linux job. Per-job
+timeouts are 15 minutes. Both hosts still run every check, and no case or task
+is dropped.
+
 ## Alternatives
 
 - **Keep raising timeouts:** rejected by the user. The cost recurs on every gate.

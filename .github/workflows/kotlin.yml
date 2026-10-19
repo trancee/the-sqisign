@@ -84,19 +84,21 @@ concurrency:
 
 jobs:
   checks:
-    name: Kotlin (${{ matrix.target }})
+    # Shards partition `check` so both hosts still run every task, in parallel.
+    name: Kotlin (${{ matrix.host.target }}, ${{ matrix.shard }})
     strategy:
       fail-fast: false
       matrix:
-        include:
+        host:
           - os: ubuntu-24.04
             architecture: x86_64
             target: linuxX64
           - os: macos-15
             architecture: arm64
             target: macosArm64
-    runs-on: ${{ matrix.os }}
-    timeout-minutes: 30
+        shard: [jvm, js, native, reference]
+    runs-on: ${{ matrix.host.os }}
+    timeout-minutes: 15
     defaults:
       run:
         working-directory: kotlin
@@ -107,7 +109,7 @@ jobs:
           persist-credentials: false
       - name: Verify native host
         env:
-          EXPECTED_ARCHITECTURE: ${{ matrix.architecture }}
+          EXPECTED_ARCHITECTURE: ${{ matrix.host.architecture }}
         run: test "$(uname -m)" = "$EXPECTED_ARCHITECTURE"
       - uses: actions/setup-java@v6.1.0
         with:
@@ -117,11 +119,26 @@ jobs:
         with:
           python-version: '3.14.0'
       - uses: gradle/actions/setup-gradle@v6.4.0
-      - name: Run clean checks
-        run: ./gradlew clean check --no-build-cache --rerun-tasks --console=plain
-      - name: Require native runtime results
+      - name: Run clean ${{ matrix.shard }} checks
         env:
-          NATIVE_TARGET: ${{ matrix.target }}
+          SHARD: ${{ matrix.shard }}
+        run: |
+          reference_tasks=(checkTestVectors checkUnsignedReference checkCurveReference checkTorsionRingReference)
+          case "$SHARD" in
+            jvm)
+              tasks=(check -x jsNodeTest -x linuxX64Test -x macosArm64Test)
+              for task in "${reference_tasks[@]}"; do tasks+=(-x "$task"); done
+              ;;
+            js) tasks=(jsNodeTest) ;;
+            native) tasks=(linuxX64Test macosArm64Test) ;;
+            reference) tasks=("${reference_tasks[@]}") ;;
+            *) echo "Unknown shard $SHARD" >&2; exit 1 ;;
+          esac
+          ./gradlew clean "${tasks[@]}" --no-build-cache --rerun-tasks --console=plain
+      - name: Require native runtime results
+        if: matrix.shard == 'native'
+        env:
+          NATIVE_TARGET: ${{ matrix.host.target }}
         run: |
           python3 - <<'PY'
           import os
@@ -135,9 +152,38 @@ jobs:
           if executed == 0:
               raise SystemExit(f"No native runtime tests executed for {target}")
           PY
+      - uses: actions/upload-artifact@v7.0.2
+        if: always()
+        with:
+          name: kotlin-reports-${{ matrix.host.target }}-${{ matrix.shard }}
+          path: |
+            kotlin/build/reports/
+            kotlin/build/test-results/
+          if-no-files-found: ignore
+
+  smoke:
+    name: Kotlin JVM benchmark smoke
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: kotlin
+        shell: bash
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@v6.1.0
+        with:
+          distribution: temurin
+          java-version: '26.0.2+101'
+      - uses: actions/setup-python@v7.0.0
+        with:
+          python-version: '3.14.0'
+      - uses: gradle/actions/setup-gradle@v6.4.0
       - name: Run JVM benchmark smoke
-        if: runner.os == 'Linux'
         run: |
+          mkdir -p build
           {
             git rev-parse HEAD
             uname -a
@@ -147,7 +193,6 @@ jobs:
           } > build/benchmark-environment.txt 2>&1
           ./gradlew jvmBenchmarkSmokeBenchmark --console=plain | tee build/benchmark-smoke.log
       - name: Require complete JVM smoke results
-        if: runner.os == 'Linux'
         run: |
           python3 - <<'PY'
           import itertools
@@ -283,10 +328,9 @@ jobs:
       - uses: actions/upload-artifact@v7.0.2
         if: always()
         with:
-          name: kotlin-reports-${{ matrix.target }}
+          name: kotlin-benchmark-smoke
           path: |
-            kotlin/build/reports/
-            kotlin/build/test-results/
+            kotlin/build/reports/benchmarks/
             kotlin/build/benchmark-environment.txt
             kotlin/build/benchmark-smoke.log
           if-no-files-found: error
