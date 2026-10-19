@@ -120,6 +120,7 @@ spotless {
             "src/commonTest/kotlin/ch/trancee/sqisign/ec/TorsionVectors.kt",
             "src/commonTest/kotlin/ch/trancee/sqisign/ec/TorsionRingVectors.kt",
             "src/commonTest/kotlin/ch/trancee/sqisign/arithmetic/IbzVectors.kt",
+            "src/commonTest/kotlin/ch/trancee/sqisign/arithmetic/IbzNumberTheoryVectors.kt",
             "src/commonTest/kotlin/ch/trancee/sqisign/ec/PairingVectors.kt",
             "src/commonTest/kotlin/ch/trancee/sqisign/ec/BasisChangeVectors.kt",
             "src/commonTest/kotlin/ch/trancee/sqisign/ec/IsogenyVectors.kt",
@@ -163,6 +164,7 @@ tasks.withType<dev.detekt.gradle.Detekt>().configureEach {
     exclude("**/TorsionVectors.kt")
     exclude("**/TorsionRingVectors.kt")
     exclude("**/IbzVectors.kt")
+    exclude("**/IbzNumberTheoryVectors.kt")
     exclude("**/PairingVectors.kt")
     exclude("**/BasisChangeVectors.kt")
     exclude("**/IsogenyVectors.kt")

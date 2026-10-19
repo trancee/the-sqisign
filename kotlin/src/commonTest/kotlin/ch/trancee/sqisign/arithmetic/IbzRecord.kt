@@ -32,8 +32,11 @@ internal class IbzRecord(text: String) {
         private const val DESCRIPTION_LENGTH = 160
         private val CAPACITIES = mapOf("p324_3" to 1920, "p500_27" to 2560, "p664_17" to 3520)
 
-        internal fun all(operation: String): List<IbzRecord> {
-            val records = IbzVectors.records.map(::IbzRecord).filter { it.operation == operation }
+        internal fun all(
+            operation: String,
+            source: List<String> = IbzVectors.records,
+        ): List<IbzRecord> {
+            val records = source.map(::IbzRecord).filter { it.operation == operation }
             check(records.isNotEmpty()) { "No $operation records" }
             return records
         }

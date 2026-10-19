@@ -25,6 +25,7 @@ from generate_test_vectors import (
 REFERENCE_COMMIT = "f417ebd4c2c336ad6a9feb6f9255f95fc03acc41"
 REFERENCE_FILES = {
     "src/mp/ref/lvlx/mp.c": "08da97fe30cd2c2801f580502557013015722c1897f18c5db58dbcbca99ed318",
+    "src/mp/ref/lvlx/modqx.c": "9edf9e0ddeef7dc5a9d55df9395da18e9e48ebefed8c3d0fee017047f2008915",
     "src/mp/ref/include/mp.h": "07317c61c7106eaad6083ce4599a74afe1848bf9764b6ea3944cbc18d4e68e9b",
     "src/common/generic/include/tutil.h": "de9d1972630f5dde4ff1bdb29916dc879cb35f6f45614d6fe81addaa8210af77",
     "include/sqisign_namespace.h": "bb33f192914bf74d008ab25019c53a6b2c62ef8c7cac92bafc1162637472f584",

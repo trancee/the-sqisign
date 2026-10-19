@@ -259,6 +259,10 @@ jobs:
                   "parameterSet": ("NIST_I", "NIST_III", "NIST_V"),
                   "operandShape": ("WORD", "HALF_CAPACITY"),
               }
+          for operation in ("gcd", "inverseMod", "powMod", "probablePrime"):
+              workloads[f"IbzNumberTheoryBenchmark.{operation}"] = {
+                  "parameterSet": ("NIST_I", "NIST_III", "NIST_V"),
+              }
           for operation in ("coefficient", "doublePoint", "differentialAdd", "multiply",
                             "threePointMultiply", "biscalarMultiply", "deterministicDifference",
                             "referenceSquareRoot", "sharedDifference"):

@@ -6,15 +6,17 @@
 #include <string.h>
 
 // The pinned bounded-integer implementation remains an external test oracle.
+#include "../../src/mp/ref/lvlx/modqx.c"
 #include "../../src/mp/ref/lvlx/mp.c"
 
 enum
 {
     LINE_BYTES = 16384,
-    MAX_RANDOM_BYTES = 512
+    MAX_RANDOM_BYTES = 8192
 };
 
 SQISIGN_THREAD_LOCAL prng_domain_ctx_t PRNG_default_domain;
+static void fail(const char *reason);
 static unsigned char scripted[MAX_RANDOM_BYTES];
 static size_t scripted_length;
 static size_t scripted_offset;
@@ -23,8 +25,9 @@ int
 prng_random_bytes(prng_domain_ctx_t *ctx, unsigned char *out, size_t len)
 {
     (void)ctx;
+    // Callers such as ibz_sqrt_m1_mod retry forever on PRNG failure, so exhaustion must stop the adapter.
     if (len > scripted_length - scripted_offset)
-        return -1;
+        fail("random bytes exhausted");
     memcpy(out, scripted + scripted_offset, len);
     scripted_offset += len;
     return 0;
@@ -272,6 +275,119 @@ unary(const char *op, char **arguments)
 }
 
 static void
+print_flag(int value)
+{
+    printf("%d", value != 0);
+}
+
+static void
+print_optional(int found, const ibz_t *value)
+{
+    print_flag(found);
+    putchar(' ');
+    if (value->bitlen == 1)
+        putchar('-');
+    else
+        print_ibz(value);
+}
+
+static void
+inverse_matrix(char **arguments)
+{
+    ibz_t entries[4];
+    for (int index = 0; index < 4; index++)
+        decode(&entries[index], arguments[index]);
+    print_flag(ibz_invmat(&entries[0], &entries[1], &entries[2], &entries[3], (int)number(arguments[4])));
+    for (int index = 0; index < 4; index++) {
+        putchar(' ');
+        print_ibz(&entries[index]);
+    }
+}
+
+static void
+square_roots(const char *op, char **arguments)
+{
+    // An untouched output keeps bitlen 1, which no written root modulo p > 1 can have.
+    ibz_t a, p, r = { 0 };
+    r.bitlen = 1;
+    if (strcmp(op, "sqrtp") == 0) {
+        decode(&a, arguments[0]);
+        decode(&p, arguments[1]);
+        script(strcmp(required(arguments[2]), "_") == 0 ? "" : arguments[2]);
+        print_optional(ibz_sqrt_mod_p(&r, &a, &p), &r);
+    } else if (strcmp(op, "sqrtm1") == 0) {
+        decode(&p, arguments[0]);
+        script(strcmp(required(arguments[1]), "_") == 0 ? "" : arguments[1]);
+        ibz_sqrt_m1_mod(&r, &p);
+        print_ibz(&r);
+    } else {
+        decode(&p, arguments[0]);
+        print_optional(ibz_sqrt_m1_mod_verified(&r, &p), &r);
+        return;
+    }
+    finish_script();
+}
+
+static int
+number_theory(const char *op, char **arguments)
+{
+    ibz_t a, b, c, d, r, u, v;
+    if (strcmp(op, "sqrtp") == 0 || strcmp(op, "sqrtm1") == 0 || strcmp(op, "sqrtm1v") == 0) {
+        square_roots(op, arguments);
+    } else if (strcmp(op, "invmat") == 0) {
+        inverse_matrix(arguments);
+    } else if (strcmp(op, "prime") == 0) {
+        decode(&a, arguments[0]);
+        int rounds = (int)number(arguments[1]);
+        script(strcmp(required(arguments[2]), "_") == 0 ? "" : arguments[2]);
+        print_flag(ibz_probab_prime(&a, rounds));
+        finish_script();
+    } else if (strcmp(op, "legendre") == 0) {
+        decode(&a, arguments[0]);
+        decode(&b, arguments[1]);
+        printf("%d", ibz_legendre(&a, &b));
+    } else if (strcmp(op, "sqrtfloor") == 0) {
+        decode(&a, arguments[0]);
+        ibz_sqrt_floor(&r, &a);
+        print_ibz(&r);
+    } else if (strcmp(op, "gcd") == 0 || strcmp(op, "xgcd") == 0 || strcmp(op, "invmod") == 0) {
+        decode(&a, arguments[0]);
+        decode(&b, arguments[1]);
+        if (strcmp(op, "gcd") == 0) {
+            ibz_gcd(&r, &a, &b);
+            print_ibz(&r);
+        } else if (strcmp(op, "xgcd") == 0) {
+            ibz_xgcd(&r, &u, &v, &a, &b);
+            print_ibz(&r);
+            putchar(' ');
+            print_ibz(&u);
+            putchar(' ');
+            print_ibz(&v);
+        } else {
+            print_flag(ibz_invmod(&r, &a, &b));
+            putchar(' ');
+            print_ibz(&r);
+        }
+    } else if (strcmp(op, "powmod") == 0) {
+        decode(&a, arguments[0]);
+        decode(&b, arguments[1]);
+        decode(&c, arguments[2]);
+        ibz_pow_mod(&r, &a, &b, &c);
+        print_ibz(&r);
+    } else if (strcmp(op, "crt") == 0) {
+        decode(&a, arguments[0]);
+        decode(&b, arguments[1]);
+        decode(&c, arguments[2]);
+        decode(&d, arguments[3]);
+        ibz_crt(&r, &a, &b, &c, &d);
+        print_ibz(&r);
+    } else {
+        return 0;
+    }
+    return 1;
+}
+
+static void
 special(const char *op, char **arguments)
 {
     ibz_t a, b, r;
@@ -300,7 +416,8 @@ special(const char *op, char **arguments)
             fail("random symmetric interval");
         finish_script();
     } else {
-        unary(op, arguments);
+        if (!number_theory(op, arguments))
+            unary(op, arguments);
         return;
     }
     print_ibz(&r);

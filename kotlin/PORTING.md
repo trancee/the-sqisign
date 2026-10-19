@@ -1205,3 +1205,29 @@ Milestone 6 remaining slices, in order:
 
 Everything remains variable-time and without expert review. No public ABI,
 wire format, dependency or toolchain changes.
+
+## Quaternion decision 2026-10-19: number theory
+
+[`ADR 0021`](adr/0021-quaternion-number-theory.md) completes the second slice
+of milestone 6. Internal `Ibz` extensions port `ibz_gcd`, `ibz_xgcd`,
+`ibz_invmod`, `ibz_crt`, `ibz_legendre`, `ibz_invmat`, `ibz_sqrt_floor`,
+`ibz_pow_mod`, `ibz_sqrt_mod_p`, `ibz_sqrt_m1_mod`,
+`ibz_sqrt_m1_mod_verified` and `ibz_probab_prime`, on unbounded natural words
+with C's result bit lengths and random-byte order. Classical Euclid replaces
+Lehmer's algorithm and gives the same cofactors. Odd-modulus residues stay in
+Montgomery form and multiply over 16-bit `Int` digits, whose multiply-adds stay
+below `2^32`, so Kotlin/JS needs no boxed `Long` arithmetic. `ibz_sqrt_m1_mod`'s
+unconverted Montgomery base `x / R` is reproduced explicitly. Inputs on which
+C asserts, loops or wraps a full-width quotient throw
+`IllegalArgumentException`.
+
+`tools/generate_number_theory_vectors.py` independently models 711 records,
+including the exact random bytes each randomized record consumes.
+`checkIbzReference` now checks 1655 records against pinned C, which includes
+the pinned `modqx.c`. Precondition and composite tests bring coverage to
+100%. Twelve retained `IbzNumberTheoryBenchmark` cases are checked against
+`BigInteger`, so the smoke inventory changes from 304 to 316.
+
+Remaining milestone 6 slices: integer-only LLL, quaternion algebra elements
+and lattices, then ideals. Everything remains variable-time and without
+expert review. No public ABI, wire format, dependency or toolchain changes.

@@ -77,7 +77,7 @@ Benchmark-only tooling: explicitly accepted Alpha `kotlinx-benchmark` plugin/run
 | Module / target | Host / prerequisites | Task from `kotlin/` | Proof / limitations |
 | --- | --- | --- | --- |
 | `:` / JVM | JDK `26` | `jvmTest jvmCoverageVerification` | Runtime; JaCoCo line/branch coverage of JVM-compiled `commonMain`, both thresholds `100%`, no production exclusions |
-| `:` / JVM benchmark | JDK `26`; controlled host for measurements | `jvmBenchmarkSmokeBenchmark`; opt-in `jvmBenchmarkBenchmark` | Linux CI validates 304 primitive/parameter cases and JSON samples; no score gate or baseline; no JS/Native benchmark proof |
+| `:` / JVM benchmark | JDK `26`; controlled host for measurements | `jvmBenchmarkSmokeBenchmark`; opt-in `jvmBenchmarkBenchmark` | Linux CI validates 316 primitive/parameter cases and JSON samples; no score gate or baseline; no JS/Native benchmark proof |
 | `:` / JVM KATs | JDK `26`; parent `KAT/` files | `jvmKatTest` | All 300 public KAT signatures and the 168-case C-pinned mutation corpus through `SqiSign.verify`; parallel forks; excluded from `jvmTest` and coverage |
 | `:` / JS | JDK `26`; plugin downloads Node | `jsNodeTest` | Node runtime; approved 600-second per-test limit accommodates measured composed curve operations; no browser or coverage proof |
 | `:` / Linux x64 | x86-64 Linux; downloaded Kotlin/Native toolchain | `linuxX64Test` | Native runtime; no measured coverage |
@@ -133,7 +133,11 @@ every overflow record. Eighteen retained `IbzBenchmark` cases are checked
 against `BigInteger`. Execution is variable-time. The former `Int328`/`Int656`
 types and their fixtures are removed; see
 [`kotlin/adr/0020-bounded-quaternion-integers.md`](kotlin/adr/0020-bounded-quaternion-integers.md),
-which supersedes ADRs 0001-0003.
+which supersedes ADRs 0001-0003. Number theory on `Ibz` (gcd family, CRT,
+Jacobi, inverses modulo `2^e`, modular powers and roots, Baillie-PSW) has 711
+further independent records, also checked against pinned C, and twelve
+retained `IbzNumberTheoryBenchmark` cases checked against `BigInteger`; see
+[`kotlin/adr/0021-quaternion-number-theory.md`](kotlin/adr/0021-quaternion-number-theory.md).
 The internal field layer implements base fields and quadratic extensions for
 all three parameter sets: `Fp324`/`Fp2P324`, `Fp500P27`/`Fp2P500`, and
 `Fp664P17`/`Fp2P664`. Encodings are strict canonical little-endian residues;
@@ -300,6 +304,6 @@ cases time the public API. Milestone 5 is complete for all parameter sets. See
 
 Generated fixture owner: `python3 tools/generate_test_vectors.py`; output `src/commonTest/kotlin/ch/trancee/sqisign/TestVectors.kt`; `checkTestVectors` checks exact content from Python hashlib and the parent public KATs. This generated test file is excluded from Spotless/detekt, not from execution. No generated API docs or publication pipeline is configured.
 
-Benchmark owner: `kotlin/src/jvmBenchmark/`, with workload correctness tests in `kotlin/src/jvmTest/`. `kotlin/README.md` defines timed boundaries, workloads, profiles, and comparison controls. CI validates 304 JVM smoke cases and retains raw reports under `build/reports/benchmarks/smoke/`, logs, and commit/host/runtime metadata in uploaded artifacts; these are executability evidence only. Generated harnesses and benchmark sources are outside production coverage; production exclusions remain empty. JMH's deprecated Unsafe warnings on JDK `26` require revalidation on future JDK upgrades.
+Benchmark owner: `kotlin/src/jvmBenchmark/`, with workload correctness tests in `kotlin/src/jvmTest/`. `kotlin/README.md` defines timed boundaries, workloads, profiles, and comparison controls. CI validates 316 JVM smoke cases and retains raw reports under `build/reports/benchmarks/smoke/`, logs, and commit/host/runtime metadata in uploaded artifacts; these are executability evidence only. Generated harnesses and benchmark sources are outside production coverage; production exclusions remain empty. JMH's deprecated Unsafe warnings on JDK `26` require revalidation on future JDK upgrades.
 
 Limitations: passing Kotlin gates is not full constitutional compliance. Crypto expert review, constant-time guarantees, numeric performance budgets, and committed controlled-measurement baselines are not established. Retained JVM workloads do not establish performance or portability on other targets. JVM coverage does not imply coverage on JS/Native. C coverage remains measurement-only as documented in `DEVELOPERS.md`; this Kotlin-only change does not alter C gates.
