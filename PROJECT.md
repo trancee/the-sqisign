@@ -77,14 +77,14 @@ Benchmark-only tooling: explicitly accepted Alpha `kotlinx-benchmark` plugin/run
 | Module / target | Host / prerequisites | Task from `kotlin/` | Proof / limitations |
 | --- | --- | --- | --- |
 | `:` / JVM | JDK `26` | `jvmTest jvmCoverageVerification` | Runtime; JaCoCo line/branch coverage of JVM-compiled `commonMain`, both thresholds `100%`, no production exclusions |
-| `:` / JVM benchmark | JDK `26`; controlled host for measurements | `jvmBenchmarkSmokeBenchmark`; opt-in `jvmBenchmarkBenchmark` | Linux CI validates 363 primitive/parameter cases and JSON samples; no score gate or baseline; no JS/Native benchmark proof |
+| `:` / JVM benchmark | JDK `26`; controlled host for measurements | `jvmBenchmarkSmokeBenchmark`; opt-in `jvmBenchmarkBenchmark` | Linux CI validates 304 primitive/parameter cases and JSON samples; no score gate or baseline; no JS/Native benchmark proof |
 | `:` / JVM KATs | JDK `26`; parent `KAT/` files | `jvmKatTest` | All 300 public KAT signatures and the 168-case C-pinned mutation corpus through `SqiSign.verify`; parallel forks; excluded from `jvmTest` and coverage |
 | `:` / JS | JDK `26`; plugin downloads Node | `jsNodeTest` | Node runtime; approved 600-second per-test limit accommodates measured composed curve operations; no browser or coverage proof |
 | `:` / Linux x64 | x86-64 Linux; downloaded Kotlin/Native toolchain | `linuxX64Test` | Native runtime; no measured coverage |
 | `:` / macOS ARM64 | Apple Silicon macOS with Xcode tools | `macosArm64Test` | Native runtime; Linux cannot supply this proof; no measured coverage |
 | `:` / all target libraries | JDK `26`; downloaded Kotlin/Native toolchain | `checkKotlinAbi` | Compiled ABI against `kotlin/api/`; inference disabled; not final published-artifact validation |
 
-Fast checks: `./gradlew spotlessCheck detektMainJvm detektBenchmarkJvm detektTestJvm jvmTest` from `kotlin/`. Authoritative CI-equivalent: `./gradlew clean check --no-build-cache --rerun-tasks` on both host runners, plus `./gradlew jvmBenchmarkSmokeBenchmark` on Linux. On each host, CI splits `check` into seven parallel clean jobs whose task sets together cover all of `check`: `jvm` (`check` minus the other shards), `kat-p664` and `kat-other` (`jvmKatTest -PkatTestShard=p664|other`), `js-p664` and `js-other` (`jsNodeTest -PjsTestShard=p664|other`, complementary include/exclude filters on `*P664*`), `native` (the host's own `linuxX64Test` or `macosArm64Test`; the other host builds and runs the other target), and `reference` (`checkTestVectors` and the five C reference checks). The smoke benchmark runs as its own Linux job. Pushes trigger CI only on `main`; feature branches are checked through their pull requests, which avoids duplicate push and PR runs competing for macOS runners. `check` also verifies generated fixtures, default detekt rules, strict ABI, and JVM coverage. CI additionally scans Kotlin history/current files with Gitleaks `8.30.1`.
+Fast checks: `./gradlew spotlessCheck detektMainJvm detektBenchmarkJvm detektTestJvm jvmTest` from `kotlin/`. Authoritative CI-equivalent: `./gradlew clean check --no-build-cache --rerun-tasks` on both host runners, plus `./gradlew jvmBenchmarkSmokeBenchmark` on Linux. On each host, CI splits `check` into seven parallel clean jobs whose task sets together cover all of `check`: `jvm` (`check` minus the other shards), `kat-p664` and `kat-other` (`jvmKatTest -PkatTestShard=p664|other`), `js-p664` and `js-other` (`jsNodeTest -PjsTestShard=p664|other`, complementary include/exclude filters on `*P664*`), `native` (the host's own `linuxX64Test` or `macosArm64Test`; the other host builds and runs the other target), and `reference` (`checkTestVectors` and the six C reference checks). The smoke benchmark runs as its own Linux job. Pushes trigger CI only on `main`; feature branches are checked through their pull requests, which avoids duplicate push and PR runs competing for macOS runners. `check` also verifies generated fixtures, default detekt rules, strict ABI, and JVM coverage. CI additionally scans Kotlin history/current files with Gitleaks `8.30.1`.
 
 Initial internal unsigned arithmetic: `UInt328` in `commonMain` uses 22 radix-`2^15`
 limbs and exact 41-byte encodings, with explicit addition carry/subtraction borrow.
@@ -120,46 +120,20 @@ rejecting smaller moduli and non-coprime inputs with explicit reasons.
 Reduced Euclidean coefficients and exact wide products avoid signed arithmetic;
 577 independent Python `pow`/pinned C `ibz_invmod` records cover success and failure.
 Inversion is variable-time and does not establish a field or secret-input contract.
-Internal `Int328` adds checked signed arithmetic in `[-2^327, 2^327 - 1]`,
-with exact 41-byte two's-complement little-endian codecs and signed comparison.
-Addition/subtraction return exact results or throw `ArithmeticException` on
-overflow; no wrapped result is returned. Storage reuses immutable `UInt328`
-bits, not a signed reinterpretation of field values. Another 314 Python/C
-records independently check ordering, sum/difference, overflow markers and exact
-82-byte signed products via pinned C `ibz_mul`.
-Six valid operand shapes retain signed codecs/comparison/addition/subtraction
-benchmarks. `Int328.multiply` returns an immutable `Int656` with an owned
-82-byte two's-complement encoding; unsigned magnitudes retain minimum-value
-products without narrowing. Six additional signed multiplication shapes cover
-zero, signed bounds and full-width operands.
-`Int328.divideAndRemainder` truncates the quotient toward zero, with the
-nonzero remainder following the dividend's sign and absolute value below the
-divisor's magnitude. Zero divisors and `minimum / -1` fail explicitly.
-Another 570 Python/C records check both signed results/failure categories;
-eight valid JVM workloads preserve both outputs. `Int656.divideAndRemainder`
-accepts an exact signed 656-bit dividend and signed 328-bit divisor, returning
-a full-width signed quotient and narrow remainder with the same truncation and
-sign rules. It rejects zero divisors and the sole positive quotient overflow
-(`minimum / -1`). `Int656` also provides signed comparison and checked addition/subtraction;
-overflow throws `ArithmeticException` instead of wrapping. Separate 209-record
-Python/C fixtures check wide arithmetic and wide division over boundary and
-deterministic full-width inputs. Six JVM shapes preserve each compare/add/subtract
-workload and are checked against `BigInteger`; eight more workloads verify wide
-division. Arithmetic remains variable-time. The division rationale, alternatives,
-risks and migration are in
-[`kotlin/adr/0001-int656-signed-division.md`](kotlin/adr/0001-int656-signed-division.md).
-`Int328.extendedGcd` returns an unsigned nonnegative GCD and signed 328-bit
-Bezout coefficients, including explicit zero-operand conventions. The
-implementation uses unsigned magnitudes and checked `Int656` coefficient
-updates; an unused terminal coefficient for zero remainder is not narrowed.
-Another 117 signed boundary/deterministic vectors are generated by Python and
-cross-checked with pinned C `ibz_xgcd`, comparing the GCD and validating the
-Bezout identity without requiring canonical coefficients. Seven retained JVM
-workloads cover zero, signed limits, full-width values and a long Fibonacci
-chain. The implementation is variable-time and establishes neither secret-
-input suitability nor expert review or a controlled performance baseline.
-The algorithm, coefficient-width reasoning, alternatives and migration are in
-[`kotlin/adr/0003-int328-extended-gcd.md`](kotlin/adr/0003-int328-extended-gcd.md).
+Internal `Ibz` (milestone 6, slice 1) ports the pinned `ibz_t` used by the
+quaternion layer: an immutable signed integer that carries C's bit length and
+the two's complement of `ceil(bitlen / 64)` 64-bit words, bounded by a
+per-level capacity of 1920, 2560 or 3520 bits. Bit-length rules, truncating
+division, logical right shift and bounded truncation follow C. Checked
+addition, subtraction, multiplication and left shift throw
+`ArithmeticException` where C wraps at capacity, and parsing returns `null`
+where C would wrap. 944 independent Python records are cross-checked by
+`checkIbzReference` against pinned C `mp.c`, including the wrapped C value of
+every overflow record. Eighteen retained `IbzBenchmark` cases are checked
+against `BigInteger`. Execution is variable-time. The former `Int328`/`Int656`
+types and their fixtures are removed; see
+[`kotlin/adr/0020-bounded-quaternion-integers.md`](kotlin/adr/0020-bounded-quaternion-integers.md),
+which supersedes ADRs 0001-0003.
 The internal field layer implements base fields and quadratic extensions for
 all three parameter sets: `Fp324`/`Fp2P324`, `Fp500P27`/`Fp2P500`, and
 `Fp664P17`/`Fp2P664`. Encodings are strict canonical little-endian residues;
@@ -326,6 +300,6 @@ cases time the public API. Milestone 5 is complete for all parameter sets. See
 
 Generated fixture owner: `python3 tools/generate_test_vectors.py`; output `src/commonTest/kotlin/ch/trancee/sqisign/TestVectors.kt`; `checkTestVectors` checks exact content from Python hashlib and the parent public KATs. This generated test file is excluded from Spotless/detekt, not from execution. No generated API docs or publication pipeline is configured.
 
-Benchmark owner: `kotlin/src/jvmBenchmark/`, with workload correctness tests in `kotlin/src/jvmTest/`. `kotlin/README.md` defines timed boundaries, workloads, profiles, and comparison controls. CI validates 363 JVM smoke cases and retains raw reports under `build/reports/benchmarks/smoke/`, logs, and commit/host/runtime metadata in uploaded artifacts; these are executability evidence only. Generated harnesses and benchmark sources are outside production coverage; production exclusions remain empty. JMH's deprecated Unsafe warnings on JDK `26` require revalidation on future JDK upgrades.
+Benchmark owner: `kotlin/src/jvmBenchmark/`, with workload correctness tests in `kotlin/src/jvmTest/`. `kotlin/README.md` defines timed boundaries, workloads, profiles, and comparison controls. CI validates 304 JVM smoke cases and retains raw reports under `build/reports/benchmarks/smoke/`, logs, and commit/host/runtime metadata in uploaded artifacts; these are executability evidence only. Generated harnesses and benchmark sources are outside production coverage; production exclusions remain empty. JMH's deprecated Unsafe warnings on JDK `26` require revalidation on future JDK upgrades.
 
 Limitations: passing Kotlin gates is not full constitutional compliance. Crypto expert review, constant-time guarantees, numeric performance budgets, and committed controlled-measurement baselines are not established. Retained JVM workloads do not establish performance or portability on other targets. JVM coverage does not imply coverage on JS/Native. C coverage remains measurement-only as documented in `DEVELOPERS.md`; this Kotlin-only change does not alter C gates.

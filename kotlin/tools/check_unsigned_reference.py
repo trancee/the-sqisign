@@ -13,11 +13,6 @@ from generate_test_vectors import (
     sqrt_floor_cases, sqrt_floor_record,
     gcd_cases, gcd_record,
     inverse_cases, inverse_record,
-    signed_cases, signed_record,
-    extended_gcd_cases, extended_gcd_record,
-    signed_division_cases, signed_division_record,
-    signed_wide_division_cases, signed_wide_division_record,
-    signed_wide_cases, signed_wide_record,
     fp324_cases, fp324_record, fp324_nonlinear_cases, fp324_nonlinear_record,
     fp2_324_cases, fp2_324_record, fp2_324_nonlinear_cases, fp2_324_nonlinear_record,
     fp2_prime_field_cases,     fp2_prime_field_record, fp2_prime_field_control_record, fp2_prime_field_nonlinear_cases,
@@ -78,11 +73,6 @@ def main():
     square_root_cases = sqrt_floor_cases()
     common_divisor_cases = gcd_cases()
     modular_inverse_cases = inverse_cases()
-    signed_integer_cases = signed_cases()
-    signed_extended_gcd_cases = extended_gcd_cases()
-    signed_quotient_cases = signed_division_cases()
-    signed_wide_quotient_cases = signed_wide_division_cases()
-    signed_wide_integer_cases = signed_wide_cases()
     field_cases = fp324_cases()
     field_nonlinear_values = fp324_nonlinear_cases()
     fp2_cases = fp2_324_cases()
@@ -295,38 +285,6 @@ def main():
             for value, modulus in modular_inverse_cases) + "\n"
         inverse_result = subprocess.run([str(binary), "--inverse"], input=inverse_inputs,
                                         capture_output=True, text=True, check=True)
-        signed_inputs = "\n".join(
-            f"{left.to_bytes(41, 'little', signed=True).hex()} {right.to_bytes(41, 'little', signed=True).hex()}"
-            for left, right in signed_integer_cases) + "\n"
-        signed_result = subprocess.run([str(binary), "--signed"], input=signed_inputs,
-                                       capture_output=True, text=True, check=True)
-        extended_gcd_inputs = "\n".join(
-            f"{left.to_bytes(41, 'little', signed=True).hex()} "
-            f"{right.to_bytes(41, 'little', signed=True).hex()}"
-            for left, right in signed_extended_gcd_cases) + "\n"
-        extended_gcd_result = subprocess.run(
-            [str(binary), "--extended-gcd"], input=extended_gcd_inputs,
-            capture_output=True, text=True, check=True)
-        signed_division_inputs = "\n".join(
-            f"{left.to_bytes(41, 'little', signed=True).hex()} {right.to_bytes(41, 'little', signed=True).hex()}"
-            for left, right in signed_quotient_cases) + "\n"
-        signed_division_result = subprocess.run(
-            [str(binary), "--signed-division"], input=signed_division_inputs,
-            capture_output=True, text=True, check=True)
-        signed_wide_division_inputs = "\n".join(
-            f"{dividend.to_bytes(82, 'little', signed=True).hex()} "
-            f"{divisor.to_bytes(41, 'little', signed=True).hex()}"
-            for dividend, divisor in signed_wide_quotient_cases) + "\n"
-        signed_wide_division_result = subprocess.run(
-            [str(binary), "--signed-wide-division"], input=signed_wide_division_inputs,
-            capture_output=True, text=True, check=True)
-        signed_wide_integer_inputs = "\n".join(
-            f"{left.to_bytes(82, 'little', signed=True).hex()} "
-            f"{right.to_bytes(82, 'little', signed=True).hex()}"
-            for left, right in signed_wide_integer_cases) + "\n"
-        signed_wide_integer_result = subprocess.run(
-            [str(binary), "--signed-wide"], input=signed_wide_integer_inputs,
-            capture_output=True, text=True, check=True)
     actual = result.stdout.splitlines()
     expected = [unsigned_record(left, right) for left, right in cases]
     if actual != expected:
@@ -456,53 +414,10 @@ def main():
     inverse_expected = [inverse_record(value, modulus) for value, modulus in modular_inverse_cases]
     if inverse_result.stdout.splitlines() != inverse_expected:
         raise SystemExit("C/Python modular inverse differential mismatch")
-    signed_expected = [signed_record(left, right) for left, right in signed_integer_cases]
-    if signed_result.stdout.splitlines() != signed_expected:
-        raise SystemExit("C/Python signed arithmetic differential mismatch")
-    extended_gcd_expected = [
-        extended_gcd_record(left, right) for left, right in signed_extended_gcd_cases
-    ]
-    extended_gcd_actual = extended_gcd_result.stdout.splitlines()
-    if len(extended_gcd_actual) != len(extended_gcd_expected):
-        raise SystemExit("C extended-GCD result count differs from the Python oracle")
-    for index, (actual, expected) in enumerate(zip(extended_gcd_actual, extended_gcd_expected)):
-        actual_fields = actual.split(":")
-        expected_fields = expected.split(":")
-        if len(actual_fields) != 5 or actual_fields[:3] != expected_fields[:3]:
-            raise SystemExit(f"C/Python extended-GCD input/GCD mismatch at case {index}")
-        if "overflow" in actual_fields[3:]:
-            raise SystemExit(f"C extended-GCD coefficient exceeded signed 328 bits at case {index}")
-        left, right = signed_extended_gcd_cases[index]
-        gcd = int.from_bytes(bytes.fromhex(actual_fields[2]), "little")
-        left_coefficient = int.from_bytes(
-            bytes.fromhex(actual_fields[3]), "little", signed=True
-        )
-        right_coefficient = int.from_bytes(
-            bytes.fromhex(actual_fields[4]), "little", signed=True
-        )
-        if left * left_coefficient + right * right_coefficient != gcd:
-            raise SystemExit(f"C extended-GCD Bezout identity mismatch at case {index}")
-    signed_division_expected = [signed_division_record(left, right) for left, right in signed_quotient_cases]
-    if signed_division_result.stdout.splitlines() != signed_division_expected:
-        raise SystemExit("C/Python signed division differential mismatch")
-    signed_wide_division_expected = [
-        signed_wide_division_record(dividend, divisor)
-        for dividend, divisor in signed_wide_quotient_cases
-    ]
-    if signed_wide_division_result.stdout.splitlines() != signed_wide_division_expected:
-        raise SystemExit("C/Python signed wide division differential mismatch")
-    signed_wide_integer_expected = [
-        signed_wide_record(left, right) for left, right in signed_wide_integer_cases
-    ]
-    if signed_wide_integer_result.stdout.splitlines() != signed_wide_integer_expected:
-        raise SystemExit("C/Python signed wide arithmetic differential mismatch")
     print(f"Verified {len(cases)} UInt328, {len(wide_cases)} wide division, "
           f"{len(square_root_cases)} floor square root, "
-          f"{len(common_divisor_cases)} GCD, {len(modular_inverse_cases)} modular inverse, "
-          f"{len(signed_integer_cases)} Int328, {len(signed_extended_gcd_cases)} signed extended GCD, "
-          f"{len(signed_quotient_cases)} signed division and "
-          f"{len(signed_wide_quotient_cases)} signed wide division and "
-          f"{len(signed_wide_integer_cases)} Int656 arithmetic public cases against "
+          f"{len(common_divisor_cases)} GCD and {len(modular_inverse_cases)} modular inverse "
+          f"public cases against "
           f"C {REFERENCE_COMMIT} and Python integers; "
           f"{len(field_cases)} p324_3 field and {len(field_nonlinear_values)} nonlinear cases; "
           f"{len(fp2_cases)} p324_3 extension-field and "

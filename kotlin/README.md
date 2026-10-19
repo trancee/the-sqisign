@@ -46,37 +46,18 @@ does not reduce or validate a field element. This internal slice is not yet used
 by the public wire parser and does not supply field reduction or the larger
 parameter-set widths.
 
-The separate internal `Int328` represents `[-2^327, 2^327 - 1]`, using the same
-owned unsigned bit storage with exact 41-byte **two's-complement** little-endian
-codecs. All 41-byte patterns are valid, with a single zero representation.
-Signed comparison returns `-1`, `0` or `1`. Addition/subtraction either return
-the exact signed result or throw `ArithmeticException` with a stable operation-
-specific overflow reason; neither silently wraps or mutates its operands.
-Operations are variable-time. This is an internal integer codec, not an SQIsign
-wire format or a field interpretation.
-`Int328.multiply(Int328)` returns an immutable `Int656`, retaining the exact
-signed product in an owned 82-byte two's-complement little-endian encoding.
-It handles `minimum * minimum` and `minimum * -1` without narrowing, overflow
-or a special invalid minimum case. `Int656` accepts every exact-width pattern
-in `[-2^655, 2^655 - 1]` and provides signed comparison plus checked
-addition/subtraction that throw `ArithmeticException` on overflow.
-`Int328.divideAndRemainder` returns a quotient truncated toward zero and a
-remainder satisfying `dividend = quotient * divisor + remainder`. A nonzero
-remainder has the dividend's sign and magnitude strictly below the divisor's.
-Zero divisors throw `IllegalArgumentException`; `minimum / -1` throws
-`ArithmeticException` instead of returning a wrapped quotient. Inputs remain
-immutable, and both results have canonical two's-complement encodings.
-Division is variable-time. `Int656.divideAndRemainder(Int328)` returns a full
-signed wide quotient and signed narrow remainder under the same rounding and
-failure rules.
-`Int328.extendedGcd` returns an unsigned nonnegative GCD and signed coefficients
-satisfying Bezout's identity. The `(0, 0)` result is all zero; for one zero
-operand, the nonzero input receives its sign as coefficient. Coefficient
-selection is not canonical, and callers should rely on the GCD and identity,
-not a particular valid coefficient pair. The signed minimum's magnitude is
-retained in the unsigned GCD result. Execution is variable-time and is not
-intended for secret inputs. Conversions and larger operand bounds remain
-separate work.
+The quaternion layer's signed integers use the separate internal `Ibz`, a port of
+the pinned C `ibz_t`. Each value carries C's bit length and the two's
+complement of `ceil(bitlen / 64)` 64-bit words, bounded by a per-parameter-set
+capacity of 1920, 2560 or 3520 bits. Result bit lengths follow C. Checked
+addition, subtraction, multiplication and left shift throw `ArithmeticException`
+where C would wrap at capacity; the explicit `*WithBound` forms keep C's
+intentional truncation. Division truncates toward zero, with a remainder that
+takes the dividend's sign; `mod` returns a nonnegative residue. Right shift is
+C's logical shift of the stored words. Decimal/hexadecimal parsing returns
+`null` for invalid or over-capacity text. Values are immutable and operations
+are variable-time. [`adr/0020-bounded-quaternion-integers.md`](adr/0020-bounded-quaternion-integers.md)
+records the semantics and departures from C.
 The internal field package implements canonical prime fields for all three
 parameter sets: `Fp324` (`p324_3`), `Fp500P27` (`p500_27`), and `Fp664P17`
 (`p664_17`). Each rejects noncanonical little-endian encodings and supports
@@ -280,6 +261,7 @@ Install JDK `26` and select it with `JAVA_HOME`. From this directory:
 ./gradlew spotlessApply     # Format owned Kotlin sources and Gradle scripts
 ./gradlew check             # Tests, formatting, static analysis, ABI, fixtures, coverage
 ./gradlew checkUnsignedReference  # Python/C cross-check of public integer vectors
+./gradlew checkIbzReference       # Independent Python / pinned C bounded-integer checks
 ./gradlew checkCurveReference     # Independent affine Python / pinned C curve checks
 ./gradlew checkTorsionRingReference  # Independent Python / pinned C torsion-ring checks
 ./gradlew checkHdReference        # KAT chain capture and Python / pinned C theta-chain checks
@@ -351,7 +333,7 @@ Native tests must run on their corresponding hosts; a skipped foreign-host test
 is not evidence of compatibility. Gradle downloads Kotlin/Native and Node.js when
 needed. The wrapper verifies the Gradle distribution against its pinned SHA-256.
 The Kotlin library and its runtime tests do not require C interop or C libraries.
-The development-only `checkUnsignedReference`, `checkCurveReference`,
+The development-only `checkUnsignedReference`, `checkIbzReference`, `checkCurveReference`,
 `checkTorsionRingReference` and `checkHdReference` tasks,
 included in `check`, require
 a host `cc` compiler (GCC or Clang) and the parent C reference sources/headers.
@@ -458,63 +440,16 @@ The implementation keeps Euclidean coefficients reduced modulo the modulus,
 using exact wide products before reduction; no signed coefficients are exposed.
 It does not perform field inversion.
 
-Another 209 signed-wide division records use Python truncation-toward-zero
-arithmetic and pinned C `ibz_div`, covering signed 656-bit dividends, signed
-328-bit divisors, both sign combinations, zero divisors, the wide minimum and
-the positive quotient overflow for `minimum / -1`. Each record checks both
-exact outputs or the explicit failure marker. Common tests run four
-interleaved batches on JVM, Node.js and Native. Eight retained JVM shapes
-compare the complete quotient and remainder against `BigInteger`, including
-reconstruction and the strict remainder bound. The implementation reuses
-unsigned magnitude division without narrowing the quotient; it remains
-variable-time and does not imply support for secret operands.
-
-Another 209 `Int656` comparison/addition/subtraction records use Python signed
-integers and pinned C `ibz_cmp`, `ibz_add` and `ibz_sub` in `--signed-wide` mode.
-They cover signed bounds, overflow, and deterministic full-width operands;
-results are exact 82-byte two's-complement values or explicit overflow markers.
-The C adapter sign-extends both 656-bit operands into the reference's wider
-integer storage before checking result bounds. Common tests preserve both
-operands and verify each operation on every target. Six retained JVM shapes per
-operation compare their results with independent `BigInteger` arithmetic.
-
-Another 314 signed records use Python signed integers and the pinned C
-`ibz_cmp`, `ibz_add`, `ibz_sub`, and `ibz_mul` in `--signed` mode. They cover the signed
-minimum/maximum, all sign combinations, radix transitions and deterministic
-full-width inputs. C imports sign-extend bit 327 into its wider storage and
-preserve the exact wider result before detecting 328-bit signed overflow.
-Each record contains comparison and exact sum/difference encodings or explicit
-`overflow` markers, followed by the full 82-byte signed product.
-Common tests additionally exercise exhaustive small sums/
-differences, both overflow directions, minimum-value subtraction, every codec
-bit/sign byte, invalid widths and defensive ownership. No signed C code is
-shipped in the Kotlin library. Multiplication tests check both operand orders,
-every possible product bit through bit 654 (the signed minimum square),
-small signed products, minimum times negative one, canonical zero and ownership.
-Separate `Int656` codec tests include bit 655, invalid widths and defensive copies.
-
-An additional 570 signed-division records preserve all earlier fixture formats.
-Python uses exact magnitude division and sign restoration (not floating-point
-division or Python's floor division on signed inputs). Pinned C `ibz_div` in
-`--signed-division` mode independently supplies truncating quotient/remainder
-results. The C source calls this Euclidean division, but restores signs without
-floor correction: its nonzero remainder follows the dividend. Nine zero-divisor
-records carry explicit markers before any C division; the one `minimum / -1`
-case marks the quotient overflow and retains its mathematical zero remainder
-only in the oracle record. Kotlin rejects the entire operation.
-The cases include all 314 signed pairs and 256 varying-divisor-width cases with
-all sign combinations. Common tests check both outputs, failure reasons, signs,
-exhaustive small signed divisions, minimum boundaries and defensive ownership.
-
-Another 117 signed extended-GCD records cover signed boundaries, 32
-deterministic full-width pairs and a near-maximum Fibonacci chain. Python
-computes the reference GCD and coefficient pair; pinned C `ibz_xgcd` is
-cross-checked on the GCD and its returned coefficients are checked against
-Bezout's identity, without requiring identical coefficient choices. Common
-tests check the GCD and identity for both oracle and Kotlin coefficients,
-including zero conventions and the signed minimum. Seven retained JVM
-workloads are checked against `BigInteger` for both the GCD and identity.
-The variable-time implementation is not evidence of secret-input suitability.
+Another 944 `Ibz` records come from `tools/generate_ibz_vectors.py`, an
+independent Python model stated on `(bitlen, value)` pairs. They cover all
+three capacities, signed boundaries at 12 bit lengths, near-capacity operands,
+every arithmetic, shift, bound, comparison, conversion and text operation, and
+both random samplers. Records whose checked result wraps carry a `! ` marker:
+Kotlin must throw, and pinned C must reproduce the wrapped value. The
+`checkIbzReference` task compiles the checksum-pinned `src/mp/ref/lvlx/mp.c`
+through `tools/ibz_reference.c` and checks every record. Common tests also
+reach each Knuth D correction branch with searched operands, and retained
+`IbzBenchmark` workloads are checked against `BigInteger`.
 
 ## JVM benchmarks
 
@@ -551,12 +486,7 @@ Input preparation and parameter-name resolution occur outside timing.
 | `UInt328GcdBenchmark.gcd` | Seven GCD shapes below | Complete Euclidean remainder loop and its allocations; no fixture preparation or output encoding |
 | `UInt328SqrtBenchmark.sqrtFloor` | Seven square-root shapes below | Complete integer Newton iteration and all quotient/root allocations; no fixture preparation or output encoding |
 | `UInt328ModInverseBenchmark.modInverse` | Five invertible shapes below | Complete residue-coefficient Euclidean loop, exact wide products/reductions and allocations; no fixture preparation or output encoding |
-| `Int328Benchmark.decode`, `encode`, `compare`, `add`, `subtract` | Six valid signed shapes below | Owned codec results or complete signed operation, including wrapper/sign construction and overflow checks; no fixture preparation |
-| `Int328MultiplyBenchmark.multiply` | Six full-product signed shapes below | Exact unsigned magnitude multiplication, signed encoding and immutable wide-result ownership; no fixture preparation or result export |
-| `Int328DivisionBenchmark.divideAndRemainder` | Eight valid signed division shapes below | Complete magnitude division, sign restoration, overflow check and both immutable results; no fixture preparation or result export |
-| `Int328ExtendedGcdBenchmark.extendedGcd` | Seven valid signed extended-GCD shapes below | Complete variable-time Euclidean loop, exact wide coefficient updates and immutable result; no fixture preparation |
-| `Int656Benchmark.compare`, `add`, `subtract` | Six valid signed-wide shapes below | Signed comparison or full-width checked arithmetic, including overflow checks and owned results; no fixture preparation |
-| `Int656DivisionBenchmark.divideAndRemainder` | Eight valid signed-wide division shapes below | Full-width magnitude division, sign restoration, overflow check and both immutable results; no fixture preparation or result export |
+| `IbzBenchmark.add`, `multiply`, `divideAndRemainder` | All parameter sets; `WORD`, `HALF_CAPACITY` | Checked signed sum, exact product or truncating quotient/remainder, including bit-length derivation and result allocation; parsing outside timing |
 | `MontgomeryBenchmark.coefficient` | All parameter sets; `SHORT`, `FULL_WIDTH` | `A/C`, including inversion and canonical field result allocation |
 | `MontgomeryBenchmark.doublePoint` / `differentialAdd` | All parameter sets; `SHORT`, `FULL_WIDTH` | Complete x-only operation and projective result allocation, without affine normalization |
 | `MontgomeryBenchmark.multiply` | All parameter sets; `SHORT`, `FULL_WIDTH` | Encoded-scalar ladder and all intermediate/result allocations; no setup or affine normalization |
@@ -629,44 +559,12 @@ outside timing; ordinary JVM tests compare results with `BigInteger.modInverse`.
 The benchmark retains the full canonical result, including all coefficient
 products, reductions and immutable result allocations in the timed boundary.
 
-Signed workloads use `ZERO_EQUAL` (`0`, `0`), `MIN_BY_ZERO` (`-2^327`, `0`),
-`MAX_BY_ZERO` (`2^327 - 1`, `0`), `NEGATIVE_EQUAL` (`-2^326`, `-2^326`),
-`MIXED_SIGN` (`2^325`, `-2^325`), and `CARRY_CHAIN` (`2^315 - 1`, `1`).
-All sums and differences fit the signed range; timed paths do not measure
-exception handling. Construction/decoding is outside timing except in the
-dedicated decode method. Ordinary JVM tests compare every operation to signed
-`BigInteger` arithmetic and exact two's-complement encodings.
-
-Signed multiplication uses `ZERO_NEGATIVE` (`0`, `-2^327`), `MIN_SQUARE`
-(`-2^327`, `-2^327`), `MIN_NEGATIVE_ONE` (`-2^327`, `-1`), `MIN_MAX`
-(`-2^327`, `2^327 - 1`), `MAX_SQUARE` (`2^327 - 1`, `2^327 - 1`), and
-`FULL_WIDTH` (41 bytes of `0x55`, 41 bytes of `0xaa`, interpreted as signed).
-Both full results and every setup shape are independently checked against
-`BigInteger`; none of the earlier signed workloads is changed.
-
-Signed division uses `ZERO_NEGATIVE` (`0`, `-1`), `MIN_BY_ONE` (`-2^327`, `1`),
-`MIN_EQUAL` (`-2^327`, `-2^327`), `NEGATIVE_POSITIVE` (`-2^327`, `7`),
-`POSITIVE_NEGATIVE` (`2^327 - 1`, `-7`), `BOTH_NEGATIVE` (`-2^327`, `-7`),
-`FULL_WIDTH` (41 bytes of `0xaa`, 41 bytes of `0x55`, interpreted as signed),
-and `LARGER_DIVISOR` (`-1`, `-2^327`). Every divisor is nonzero and quotient
-representable. Ordinary JVM tests compare both results with `BigInteger`,
-including the reconstruction identity and strict remainder-magnitude bound.
-
-Signed extended GCD uses `ZERO_EQUAL` (`0`, `0`), `ZERO_NEGATIVE` (`0`, `-2^327`),
-`MIN_ZERO` (`-2^327`, `0`), `MIN_ONE` (`-2^327`, `1`), `MIN_MAX`
-(`-2^327`, `2^327 - 1`), `FULL_WIDTH` (41 bytes of `0xaa` and `0x55`,
-interpreted as signed), and `FIBONACCI` (the largest consecutive positive
-Fibonacci pair fitting in the signed range). Setup is outside timing; workload
-correctness checks compare the unsigned GCD and Bezout identity with
-`BigInteger`. These are synthetic public workloads, not a secret-input
-distribution or constant-time claim.
-
-Signed-wide arithmetic uses `ZERO_EQUAL` (`0`, `0`), `MIN_BY_ZERO`
-(`-2^655`, `0`), `MAX_BY_ZERO` (`2^655 - 1`, `0`), `NEGATIVE_EQUAL`
-(`-2^654`, `-2^654`), `MIXED_SIGN` (`2^653`, `-2^653`), and `CARRY_CHAIN`
-(`2^645 - 1`, `1`). Every sum and difference is representable; common fixtures
-separately cover both overflow directions. Signed-wide division shapes and
-their representability are checked against `BigInteger` by their workload test.
+`Ibz` workloads parse fixed public hexadecimal operands at the selected
+capacity (1920, 2560 or 3520 bits). `WORD` uses a negative 64-bit left operand
+and a positive 32-bit right operand; `HALF_CAPACITY` uses a negative left
+operand of half the capacity and a positive right operand of a quarter of it.
+Every result is representable. Ordinary JVM tests compare the sum, product,
+quotient and remainder with `BigInteger`.
 
 Curve workloads use `A=0`, `P=(2:1)` and `[2]P=(9:40)`, with the known
 difference `P-[2]P=-P`. `SHORT` uses scalar `17`; `FULL_WIDTH` uses
@@ -695,13 +593,13 @@ The public library API is unchanged; internal wide results are not exposed by it
 
 ```sh
 ./gradlew jvmTest                       # Check workload correctness before timing
-./gradlew jvmBenchmarkSmokeBenchmark    # Discovery/execution only: 363 cases
+./gradlew jvmBenchmarkSmokeBenchmark    # Discovery/execution only: 304 cases
 ./gradlew jvmBenchmarkBenchmarkJar      # Build the JMH harness before measurement
 ./gradlew jvmBenchmarkBenchmark         # Opt-in full profile on a controlled host
 ```
 
 The `smoke` profile uses one fork, one 50 ms warmup, and one 50 ms measurement
-per case. Linux CI requires the complete 363-case parameter matrix, the expected
+per case. Linux CI requires the complete 304-case parameter matrix, the expected
 mode/unit/profile, and finite positive samples. It uploads JSON reports,
 execution logs, and commit/host/JDK/Gradle metadata with the other Kotlin reports.
 The `main` measurement profile uses three forks, three 1 s warmups, and five 1 s

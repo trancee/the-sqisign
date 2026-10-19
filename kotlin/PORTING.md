@@ -446,6 +446,9 @@ controlled performance baseline, or a numeric resource budget.
 
 ## Arithmetic decision 2026-10-17: checked bounded signed integers
 
+**Superseded 2026-10-21** by [ADR 0020](adr/0020-bounded-quaternion-integers.md):
+`Int328` and `Int656` were removed in favor of the bounded `Ibz`.
+
 **Context.** Milestone 1 still needs signed integer semantics for later
 quaternion/lattice work. This first bounded slice establishes sign, codec,
 comparison and exact addition/subtraction without guessing larger algorithmic
@@ -502,6 +505,9 @@ has its own contract below.
 
 ## Arithmetic decision 2026-10-17: exact wide signed multiplication
 
+**Superseded 2026-10-21** by [ADR 0020](adr/0020-bounded-quaternion-integers.md):
+`Int328` and `Int656` were removed in favor of the bounded `Ibz`.
+
 **Context.** The signed core needs exact products before any signed division or
 quaternion layer. Returning a checked or wrapped `Int328` would not preserve
 products required by later operations, notably `minimum * -1`.
@@ -550,6 +556,9 @@ support, field arithmetic, expert review, leakage proof, a numeric performance
 budget or a controlled comparison baseline.
 
 ## Arithmetic decision 2026-10-17: truncating signed division
+
+**Superseded 2026-10-21** by [ADR 0020](adr/0020-bounded-quaternion-integers.md):
+`Int328` and `Int656` were removed in favor of the bounded `Ibz`.
 
 **Context.** The signed integer slice needs quotient/remainder semantics before
 later integer algorithms. Unsigned division already handles the full magnitude
@@ -605,6 +614,9 @@ controlled comparison baseline.
 
 ## Arithmetic decision 2026-10-17: full-width signed division
 
+**Superseded 2026-10-21** by [ADR 0020](adr/0020-bounded-quaternion-integers.md):
+`Int328` and `Int656` were removed in favor of the bounded `Ibz`.
+
 The approved detailed record is
 [`adr/0001-int656-signed-division.md`](adr/0001-int656-signed-division.md).
 Internal `Int656.divideAndRemainder(Int328)` reuses the exact unsigned
@@ -625,6 +637,9 @@ toolchain or release-version change; this does not establish constant-time
 behavior, expert review, numeric performance budgets or a controlled baseline.
 
 ## Arithmetic decision 2026-10-17: checked wide signed arithmetic
+
+**Superseded 2026-10-21** by [ADR 0020](adr/0020-bounded-quaternion-integers.md):
+`Int328` and `Int656` were removed in favor of the bounded `Ibz`.
 
 The detailed rationale and migration record is
 [`adr/0002-int656-checked-arithmetic.md`](adr/0002-int656-checked-arithmetic.md).
@@ -713,6 +728,9 @@ documentation, and do not label the finished mathematical port production-ready
 without an explicit threat model and independent review.
 
 ## Arithmetic decision 2026-10-17: signed extended GCD
+
+**Superseded 2026-10-21** by [ADR 0020](adr/0020-bounded-quaternion-integers.md):
+`Int328` and `Int656` were removed in favor of the bounded `Ibz`.
 
 The detailed rationale and migration record is
 [`adr/0003-int328-extended-gcd.md`](adr/0003-int328-extended-gcd.md).
@@ -1156,3 +1174,34 @@ retained `VerifyBenchmark.verify` cases extend the smoke inventory to 363.
 Milestone 5 is complete for `p324_3`, `p500_27` and `p664_17`. Everything
 remains variable-time and without expert review. The public ABI gains
 `SqiSign`. The wire format, dependencies and toolchain are unchanged.
+
+## Quaternion decision 2026-10-21: bounded `ibz_t` integers
+
+[`ADR 0020`](adr/0020-bounded-quaternion-integers.md) begins milestone 6 with
+its first slice. Internal immutable `Ibz` ports the pinned `ibz_t` from
+`src/mp/ref/lvlx/mp.c`. Values carry C's bit length and two's-complement
+words, and the per-level capacity is 1920, 2560 or 3520 bits. Bit-length
+rules, truncating division, logical right shift and bounded truncation follow
+C. Checked addition, subtraction, multiplication and left shift throw
+`ArithmeticException` where C wraps at capacity. `parse` returns `null` where
+`ibz_set_from_str` would wrap. `Int328`, `Int656` and their tests, benchmarks,
+oracle modes and fixtures are deleted, which supersedes ADRs 0001-0003.
+
+`tools/generate_ibz_vectors.py` independently models 944 records over all
+three capacities. `checkIbzReference` (`tools/check_ibz_reference.py` and
+`tools/ibz_reference.c`) requires the checksum-pinned C to reproduce each
+record, including its wrapped value for overflow records. Common tests reach
+every Knuth D branch, and coverage is 100%. Eighteen retained `IbzBenchmark`
+cases replace 77 legacy signed cases, so the smoke inventory changes from 363
+to 304.
+
+Milestone 6 remaining slices, in order:
+
+1. number theory (GCD/XGCD, CRT, Legendre, modular inverse and square root,
+   primality);
+2. integer-only LLL;
+3. quaternion algebra elements and lattices;
+4. ideals.
+
+Everything remains variable-time and without expert review. No public ABI,
+wire format, dependency or toolchain changes.

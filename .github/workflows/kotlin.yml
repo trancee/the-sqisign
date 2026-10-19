@@ -137,7 +137,7 @@ jobs:
           SHARD: ${{ matrix.shard }}
           NATIVE_TARGET: ${{ matrix.host.target }}
         run: |
-          reference_tasks=(checkTestVectors checkUnsignedReference checkCurveReference checkTorsionRingReference checkHdReference checkVerifyReference)
+          reference_tasks=(checkTestVectors checkUnsignedReference checkCurveReference checkTorsionRingReference checkIbzReference checkHdReference checkVerifyReference)
           case "$SHARD" in
             jvm)
               tasks=(check -x jsNodeTest -x linuxX64Test -x macosArm64Test -x jvmKatTest)
@@ -254,28 +254,11 @@ jobs:
           workloads["UInt328ModInverseBenchmark.modInverse"] = {
               "operandShape": ("ONE", "MAX_MINUS_ONE", "EVEN_MODULUS", "COMPOSITE", "FULL_WIDTH"),
           }
-          for operation in ("decode", "encode", "compare", "add", "subtract"):
-              workloads[f"Int328Benchmark.{operation}"] = {
-                  "operandShape": ("ZERO_EQUAL", "MIN_BY_ZERO", "MAX_BY_ZERO",
-                                   "NEGATIVE_EQUAL", "MIXED_SIGN", "CARRY_CHAIN"),
+          for operation in ("add", "multiply", "divideAndRemainder"):
+              workloads[f"IbzBenchmark.{operation}"] = {
+                  "parameterSet": ("NIST_I", "NIST_III", "NIST_V"),
+                  "operandShape": ("WORD", "HALF_CAPACITY"),
               }
-          workloads["Int328MultiplyBenchmark.multiply"] = {
-              "operandShape": ("ZERO_NEGATIVE", "MIN_SQUARE", "MIN_NEGATIVE_ONE",
-                               "MIN_MAX", "MAX_SQUARE", "FULL_WIDTH"),
-          }
-          workloads["Int328DivisionBenchmark.divideAndRemainder"] = {
-              "operandShape": ("ZERO_NEGATIVE", "MIN_BY_ONE", "MIN_EQUAL", "NEGATIVE_POSITIVE",
-                               "POSITIVE_NEGATIVE", "BOTH_NEGATIVE", "FULL_WIDTH", "LARGER_DIVISOR"),
-          }
-          workloads["Int328ExtendedGcdBenchmark.extendedGcd"] = {
-              "operandShape": ("ZERO_EQUAL", "ZERO_NEGATIVE", "MIN_ZERO", "MIN_ONE",
-                               "MIN_MAX", "FULL_WIDTH", "FIBONACCI"),
-          }
-          workloads["Int656DivisionBenchmark.divideAndRemainder"] = {
-              "operandShape": ("ZERO_NEGATIVE", "MIN_BY_ONE", "MIN_BY_NEGATIVE_MAX",
-                               "MAX_BY_NEGATIVE_ONE", "NEGATIVE_BY_POSITIVE", "POSITIVE_BY_NEGATIVE",
-                               "FULL_WIDTH", "LARGER_DIVISOR"),
-          }
           for operation in ("coefficient", "doublePoint", "differentialAdd", "multiply",
                             "threePointMultiply", "biscalarMultiply", "deterministicDifference",
                             "referenceSquareRoot", "sharedDifference"):
@@ -328,11 +311,6 @@ jobs:
           workloads["VerifyBenchmark.verify"] = {
               "parameterSet": ("NIST_I", "NIST_III", "NIST_V"),
           }
-          for operation in ("compare", "add", "subtract"):
-              workloads[f"Int656Benchmark.{operation}"] = {
-                  "operandShape": ("ZERO_EQUAL", "MIN_BY_ZERO", "MAX_BY_ZERO",
-                                   "NEGATIVE_EQUAL", "MIXED_SIGN", "CARRY_CHAIN"),
-              }
           expected = {
               (f"ch.trancee.sqisign.benchmarks.{name}", tuple(sorted(zip(parameters, values))))
               for name, parameters in workloads.items()

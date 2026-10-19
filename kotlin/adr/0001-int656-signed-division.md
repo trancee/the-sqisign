@@ -1,6 +1,6 @@
 # ADR 0001: Full-width signed division
 
-**Status:** Accepted  
+**Status:** Superseded by [ADR 0020](0020-bounded-quaternion-integers.md) (2026-10-21)  
 **Date:** 2026-10-17
 
 ## Context

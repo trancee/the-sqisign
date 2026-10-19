@@ -119,6 +119,7 @@ spotless {
             "src/commonTest/kotlin/ch/trancee/sqisign/ec/CurveVectors.kt",
             "src/commonTest/kotlin/ch/trancee/sqisign/ec/TorsionVectors.kt",
             "src/commonTest/kotlin/ch/trancee/sqisign/ec/TorsionRingVectors.kt",
+            "src/commonTest/kotlin/ch/trancee/sqisign/arithmetic/IbzVectors.kt",
             "src/commonTest/kotlin/ch/trancee/sqisign/ec/PairingVectors.kt",
             "src/commonTest/kotlin/ch/trancee/sqisign/ec/BasisChangeVectors.kt",
             "src/commonTest/kotlin/ch/trancee/sqisign/ec/IsogenyVectors.kt",
@@ -161,6 +162,7 @@ tasks.withType<dev.detekt.gradle.Detekt>().configureEach {
     exclude("**/CurveVectors.kt")
     exclude("**/TorsionVectors.kt")
     exclude("**/TorsionRingVectors.kt")
+    exclude("**/IbzVectors.kt")
     exclude("**/PairingVectors.kt")
     exclude("**/BasisChangeVectors.kt")
     exclude("**/IsogenyVectors.kt")
@@ -280,6 +282,14 @@ val checkTorsionRingReference =
         commandLine("python3", "-B", "tools/check_torsion_ring_reference.py")
     }
 
+val checkIbzReference =
+    tasks.register<Exec>("checkIbzReference") {
+        group = "verification"
+        description =
+            "Cross-checks bounded ibz integer vectors and the Python model against the pinned C reference."
+        commandLine("python3", "-B", "tools/check_ibz_reference.py")
+    }
+
 val checkHdReference =
     tasks.register<Exec>("checkHdReference") {
         group = "verification"
@@ -303,6 +313,7 @@ tasks.named("check") {
         checkUnsignedReference,
         checkCurveReference,
         checkTorsionRingReference,
+        checkIbzReference,
         checkHdReference,
         checkVerifyReference,
         jvmKatTest,
