@@ -1255,3 +1255,27 @@ reductions, quaternion algebra elements and lattices, then ideals. Everything
 remains variable-time and without expert review. No public ABI, wire format,
 dependency or toolchain changes.
 
+## Quaternion decision 2026-10-19: dimension-2 lattice reduction
+
+[`ADR 0023`](adr/0023-dimension-two-lattice-reduction.md) ports the
+production dimension-2 path of the pinned `lehmer_xgcd.c` and `integers.c`:
+`partial_xgcd_msb`, `ct_apply_matrix` and `partial_xgcd_lehmer` behind
+`sumOfSquares` (`quat_lll_dim2_sumofsquares`), together with
+`ibz_cornacchia_prime`, `ibz_rounded_div` and `ibz_sum_two_squares`. The
+machine-word windows, unsigned compares and `int32` transforms are
+reproduced exactly, so Cornacchia returns C's vector and not just some
+representation. The test-only `quat_lll_dim2_short_basis`,
+`sizered_lehmer`, `sizered_msb` and `ibz_generate_random_prime` are not
+ported.
+
+`tools/generate_lattice_vectors.py` independently models 291 records, and
+`checkIbzReference` now checks 2368 records against pinned C, which includes
+the pinned `lehmer_xgcd.c`, `integers.c`, `lll_config.h` and `lll.h`.
+Precondition, zero-window and wrong-root tests bring coverage to 100%. Six
+retained `CornacchiaBenchmark` cases are checked against `BigInteger`, so the
+smoke inventory changes from 322 to 328.
+
+Remaining milestone 6 work: the dimension-4 and Gaussian lattice reductions,
+quaternion algebra elements and lattices, then ideals. Everything remains
+variable-time and without expert review. No public ABI, wire format,
+dependency or toolchain changes.

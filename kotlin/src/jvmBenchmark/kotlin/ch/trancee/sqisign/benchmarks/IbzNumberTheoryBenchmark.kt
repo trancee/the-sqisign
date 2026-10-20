@@ -55,7 +55,7 @@ public open class IbzNumberTheoryBenchmark {
 }
 
 private const val PRIME_FRACTION = 8
-private const val BPSW_ONLY_ROUNDS = 24
+internal const val BPSW_ONLY_ROUNDS = 24
 private const val HEX_RADIX = 16
 
 internal fun numberTheoryPrimeBits(capacity: Int): Int = capacity / PRIME_FRACTION
@@ -74,4 +74,4 @@ private fun nextProbablePrime(start: Ibz): Ibz {
     return candidate
 }
 
-private fun noRandomBytes(length: Int): ByteArray = error("Unexpected draw of $length bytes")
+internal fun noRandomBytes(length: Int): ByteArray = error("Unexpected draw of $length bytes")

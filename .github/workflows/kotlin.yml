@@ -267,6 +267,10 @@ jobs:
               workloads[f"IbzFixedPointBenchmark.{operation}"] = {
                   "parameterSet": ("NIST_I", "NIST_III", "NIST_V"),
               }
+          for operation in ("twoSquares", "latticeReduction"):
+              workloads[f"CornacchiaBenchmark.{operation}"] = {
+                  "parameterSet": ("NIST_I", "NIST_III", "NIST_V"),
+              }
           for operation in ("coefficient", "doublePoint", "differentialAdd", "multiply",
                             "threePointMultiply", "biscalarMultiply", "deterministicDifference",
                             "referenceSquareRoot", "sharedDifference"):

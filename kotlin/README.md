@@ -67,7 +67,11 @@ records the details. The fixed-point layer of the lattice
 reduction (signed shifts, wide scaled products, Newton reciprocals and rounded
 word shifts) computes exact values narrowed as C does;
 [`adr/0022-fixed-point-lattice-integers.md`](adr/0022-fixed-point-lattice-integers.md)
-records the mapping.
+records the mapping. The dimension-2 Lehmer reduction behind Cornacchia
+reproduces C's machine-word windows and `int32` transforms, so it returns C's
+vector;
+[`adr/0023-dimension-two-lattice-reduction.md`](adr/0023-dimension-two-lattice-reduction.md)
+records the ported scope.
 The internal field package implements canonical prime fields for all three
 parameter sets: `Fp324` (`p324_3`), `Fp500P27` (`p500_27`), and `Fp664P17`
 (`p664_17`). Each rejects noncanonical little-endian encodings and supports
@@ -475,6 +479,13 @@ Python integers at each level's `FP_P_BITS` precision. `checkIbzReference`
 checks them against the same pinned C, and retained `IbzFixedPointBenchmark`
 workloads are checked against `BigInteger`. The Kotlin port is variable-time.
 
+Another 291 records from `tools/generate_lattice_vectors.py` model the
+dimension-2 Lehmer reduction (`quat_lll_dim2_sumofsquares`) with explicit
+machine-word windows, together with `ibz_cornacchia_prime`, `ibz_rounded_div`
+and `ibz_sum_two_squares`. `checkIbzReference` checks them against the same
+pinned C, and retained `CornacchiaBenchmark` workloads are checked against
+`BigInteger`.
+
 ## JVM benchmarks
 
 The explicitly accepted Alpha [`kotlinx-benchmark 0.5.0`](https://github.com/Kotlin/kotlinx-benchmark/releases/tag/v0.5.0)
@@ -513,6 +524,7 @@ Input preparation and parameter-name resolution occur outside timing.
 | `IbzBenchmark.add`, `multiply`, `divideAndRemainder` | All parameter sets; `WORD`, `HALF_CAPACITY` | Checked signed sum, exact product or truncating quotient/remainder, including bit-length derivation and result allocation; parsing outside timing |
 | `IbzNumberTheoryBenchmark.gcd`, `inverseMod`, `powMod`, `probablePrime` | All parameter sets | Euclid gcd, Bezout inverse, full-width modular power or Baillie-PSW without extra rounds over a deterministic `capacity / 8`-bit prime, including result allocation; prime search and parsing outside timing |
 | `IbzFixedPointBenchmark.highProduct`, `reciprocal` | All parameter sets | `floor(a * b / 2^P)` at `P + 4` bits, or five Newton rounds of the reciprocal, at the level's `FP_P_BITS` precision `P` over `P`-bit operands, including result allocation; parsing outside timing |
+| `CornacchiaBenchmark.twoSquares`, `latticeReduction` | All parameter sets | `ibz_cornacchia_prime` (square root of -1, Lehmer reduction and norm check), or the dimension-2 reduction alone from a precomputed root, over a deterministic `capacity / 4`-bit prime `1 mod 4`, including result allocation; prime and root search outside timing |
 | `MontgomeryBenchmark.coefficient` | All parameter sets; `SHORT`, `FULL_WIDTH` | `A/C`, including inversion and canonical field result allocation |
 | `MontgomeryBenchmark.doublePoint` / `differentialAdd` | All parameter sets; `SHORT`, `FULL_WIDTH` | Complete x-only operation and projective result allocation, without affine normalization |
 | `MontgomeryBenchmark.multiply` | All parameter sets; `SHORT`, `FULL_WIDTH` | Encoded-scalar ladder and all intermediate/result allocations; no setup or affine normalization |
@@ -619,13 +631,13 @@ The public library API is unchanged; internal wide results are not exposed by it
 
 ```sh
 ./gradlew jvmTest                       # Check workload correctness before timing
-./gradlew jvmBenchmarkSmokeBenchmark    # Discovery/execution only: 322 cases
+./gradlew jvmBenchmarkSmokeBenchmark    # Discovery/execution only: 328 cases
 ./gradlew jvmBenchmarkBenchmarkJar      # Build the JMH harness before measurement
 ./gradlew jvmBenchmarkBenchmark         # Opt-in full profile on a controlled host
 ```
 
 The `smoke` profile uses one fork, one 50 ms warmup, and one 50 ms measurement
-per case. Linux CI requires the complete 322-case parameter matrix, the expected
+per case. Linux CI requires the complete 328-case parameter matrix, the expected
 mode/unit/profile, and finite positive samples. It uploads JSON reports,
 execution logs, and commit/host/JDK/Gradle metadata with the other Kotlin reports.
 The `main` measurement profile uses three forks, three 1 s warmups, and five 1 s

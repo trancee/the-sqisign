@@ -8,6 +8,8 @@
 // The pinned bounded-integer implementation remains an external test oracle.
 #include "../../src/mp/ref/lvlx/modqx.c"
 #include "../../src/mp/ref/lvlx/mp.c"
+#include "../../src/quaternion/ref/lvlx/lll/lehmer_xgcd.c"
+#include "../../src/quaternion/ref/lvlx/integers.c"
 
 enum
 {
@@ -425,6 +427,44 @@ fixed_point(const char *op, char **arguments)
     return 1;
 }
 
+static int
+lattice(const char *op, char **arguments)
+{
+    ibz_t a, b, c, r;
+    if (strcmp(op, "squares") == 0) {
+        decode(&a, arguments[0]);
+        decode(&b, arguments[1]);
+        quat_lll_dim2_sumofsquares(&r, &c, &a, &b);
+        print_ibz(&r);
+        printf(" ");
+        print_ibz(&c);
+        return 1;
+    } else if (strcmp(op, "cornacchia") == 0) {
+        decode(&a, arguments[0]);
+        if (!ibz_cornacchia_prime(&r, &b, &a)) {
+            printf("0");
+            return 1;
+        }
+        printf("1 ");
+        print_ibz(&r);
+        printf(" ");
+        print_ibz(&b);
+        return 1;
+    } else if (strcmp(op, "rdiv") == 0) {
+        decode(&a, arguments[0]);
+        decode(&b, arguments[1]);
+        ibz_rounded_div(&r, &a, &b);
+    } else if (strcmp(op, "sq2") == 0) {
+        decode(&a, arguments[0]);
+        decode(&b, arguments[1]);
+        ibz_sum_two_squares(&r, &a, &b);
+    } else {
+        return 0;
+    }
+    print_ibz(&r);
+    return 1;
+}
+
 static void
 special(const char *op, char **arguments)
 {
@@ -454,7 +494,7 @@ special(const char *op, char **arguments)
             fail("random symmetric interval");
         finish_script();
     } else {
-        if (!fixed_point(op, arguments) && !number_theory(op, arguments))
+        if (!fixed_point(op, arguments) && !lattice(op, arguments) && !number_theory(op, arguments))
             unary(op, arguments);
         return;
     }
