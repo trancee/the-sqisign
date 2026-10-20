@@ -139,7 +139,7 @@ jobs:
           path: kotlin/build/jvm-natives
           merge-multiple: true
       - name: Test with all bundled libraries
-        run: ./gradlew jvmTest jvmJar -Psqisign.jvmNativeLibs=build/jvm-natives
+        run: ./gradlew jvmTest jvmJar -Psqisign.jvmNativeLibs=build/jvm-natives -Psqisign.katTests=false
       - name: Check jar contents
         run: |
           jar=$(ls build/libs/*-jvm-*.jar)

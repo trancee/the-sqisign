@@ -34,7 +34,7 @@ free_secret(uint8_t *buf, jsize len)
 }
 
 JNIEXPORT jint JNICALL
-Java_org_sqisign_SqisignJni_sizes(JNIEnv *env, jclass clazz, jint set, jintArray out)
+Java_org_sqisign_SqiSignJni_sizes(JNIEnv *env, jclass clazz, jint set, jintArray out)
 {
     (void)clazz;
     size_t pk = 0, sk = 0, sig = 0;
@@ -47,7 +47,7 @@ Java_org_sqisign_SqisignJni_sizes(JNIEnv *env, jclass clazz, jint set, jintArray
 }
 
 JNIEXPORT jint JNICALL
-Java_org_sqisign_SqisignJni_keypair(JNIEnv *env, jclass clazz, jint set, jbyteArray pk, jbyteArray sk)
+Java_org_sqisign_SqiSignJni_keypair(JNIEnv *env, jclass clazz, jint set, jbyteArray pk, jbyteArray sk)
 {
     (void)clazz;
     jsize pk_len = (*env)->GetArrayLength(env, pk);
@@ -68,7 +68,7 @@ Java_org_sqisign_SqisignJni_keypair(JNIEnv *env, jclass clazz, jint set, jbyteAr
 }
 
 JNIEXPORT jint JNICALL
-Java_org_sqisign_SqisignJni_sign(JNIEnv *env, jclass clazz, jint set, jbyteArray sig, jbyteArray msg, jbyteArray sk)
+Java_org_sqisign_SqiSignJni_sign(JNIEnv *env, jclass clazz, jint set, jbyteArray sig, jbyteArray msg, jbyteArray sk)
 {
     (void)clazz;
     jsize sig_len = (*env)->GetArrayLength(env, sig);
@@ -90,7 +90,7 @@ Java_org_sqisign_SqisignJni_sign(JNIEnv *env, jclass clazz, jint set, jbyteArray
 }
 
 JNIEXPORT jint JNICALL
-Java_org_sqisign_SqisignJni_verify(JNIEnv *env, jclass clazz, jint set, jbyteArray sig, jbyteArray msg, jbyteArray pk)
+Java_org_sqisign_SqiSignJni_verify(JNIEnv *env, jclass clazz, jint set, jbyteArray sig, jbyteArray msg, jbyteArray pk)
 {
     (void)clazz;
     jsize sig_len = 0, msg_len = 0, pk_len = 0;

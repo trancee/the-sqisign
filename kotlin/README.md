@@ -77,7 +77,7 @@ combined jar. MSVC cannot compile the C core (`__int128`), so Windows uses MinGW
 - `native/include/sqisign_kmp.h`: a stable C API whose function names do not depend on the build type.
 - Every variant is compiled with `SQISIGN_NAMESPACE_GENERIC_AS_VARIANT`. Without it, the level-dependent generic
   symbols (`sqisign_gen_*`) collide when several variants are linked into one binary.
-- The JNI library exports only the four `Java_org_sqisign_SqisignJni_*` symbols.
+- The JNI library exports only the four `Java_org_sqisign_SqiSignJni_*` symbols.
 
 ## Tests
 
@@ -89,7 +89,17 @@ combined jar. MSVC cannot compile the C core (`__int128`), so Windows uses MinGW
 - key encodings round-trip, and closing a secret key wipes it;
 - the first three NIST KAT signatures per set verify (generated from `../KAT/*.rsp` by `generateKatVectors`).
 
-Keygen and signing KATs are not reproduced, because they need the NIST DRBG build.
+`drbgTest` (JVM and Apple targets) reproduces the same KATs from their seeds: public key, secret key and signature must
+match byte for byte. It links a test-only native build (`-DSQISIGN_KMP_KAT=ON`) that replaces the system RNG with the
+NIST CTR-DRBG, seeded through `sqisign_kmp_kat_keypair_sign` (`native/include/sqisign_kmp_kat.h`):
+
+- JVM: `buildNativeJvmKat` builds `sqisign_kat_jni`, a separate library exporting only
+  `Java_org_sqisign_SqiSignKatJni_keypairSign`, loaded from the `jvmTest` resources (`org/sqisign/katnative/`).
+- Apple: `buildNative<Target>Kat` builds `libsqisign_kmp_kat.a`, prelinked so that it exports only
+  `sqisign_kmp_kat_keypair_sign`. It is linked into the test binaries through the `sqisignKat` test cinterop.
+
+Neither ends up in the published jar, AAR, klibs or XCFramework. Android device tests do not run `drbgTest`.
+`-Psqisign.katTests=false` skips it, for example when testing prebuilt libraries on a host without a C toolchain.
 
 CI runs these on the five JVM platforms, an `x86_64` Android emulator, macOS and the iOS Simulator, plus the Swift
 tests on macOS and the iOS Simulator.
