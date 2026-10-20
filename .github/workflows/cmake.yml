@@ -47,14 +47,15 @@ jobs:
             gf_radix: AUTO
             enable_sign: OFF
 
-    runs-on: [self-hosted, "${{ matrix.platform }}"]
+    runs-on: ${{ matrix.platform == 'arm64' && 'ubuntu-24.04-arm' || 'ubuntu-24.04' }}
 
     steps:
       - uses: actions/checkout@v5
 
-      ##    - name: Install dependencies Valgrind, Doxygen, TeX, gcc-multilib
-      ##      run: |
-      ##          sudo apt update && sudo apt --fix-missing install valgrind doxygen texlive-xetex gcc-multilib
+      - name: Install dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq --no-install-recommends ninja-build ccache valgrind clang ${{ matrix.platform == 'x64' && 'gcc-multilib' || '' }}
 
       - name: Set up environment for ccache
         run: echo "PATH=/usr/lib/ccache:$PATH" >> $GITHUB_ENV
@@ -150,14 +151,15 @@ jobs:
 
   pqm4:
     # The CMake configure and build commands are platform agnostic and should work equally well on Windows or Mac.
-    runs-on: [self-hosted, x64]
+    runs-on: ubuntu-24.04
 
     steps:
       - uses: actions/checkout@v5
 
-      ##    - name: Install dependencies Valgrind, Doxygen, TeX, gcc-multilib
-      ##      run: |
-      ##          sudo apt update && sudo apt --fix-missing install valgrind doxygen texlive-xetex gcc-multilib
+      - name: Install dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq --no-install-recommends ninja-build ccache gcc-arm-none-eabi libnewlib-arm-none-eabi qemu-system-arm python3-serial python3-tqdm
 
       - name: Set up environment for ccache
         run: echo "PATH=/usr/lib/ccache:$PATH" >> $GITHUB_ENV
@@ -178,7 +180,8 @@ jobs:
         # See https://cmake.org/cmake/help/latest/manual/ctest.1.html for more detail
         run: |
           ./scripts/gen_pqm4_sources.sh all
-          rsync -ac ~/the-sqisign-pqm4 .
+          git clone --quiet --depth 1 --recurse-submodules --shallow-submodules \
+            https://github.com/SQISign/the-sqisign-pqm4.git
           rm -rf ./the-sqisign-pqm4/crypto_sign/sqisign_{p324_3,p500_27,p664_17}
           cp -r src/pqm4/sqisign_{p324_3,p500_27,p664_17} ./the-sqisign-pqm4/crypto_sign
 
