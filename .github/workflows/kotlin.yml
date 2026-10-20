@@ -1,0 +1,203 @@
+name: Kotlin
+
+on:
+  push:
+    branches: ["**"]
+    paths:
+      - "kotlin/**"
+      - "src/**"
+      - "include/**"
+      - ".cmake/**"
+      - "CMakeLists.txt"
+      - "KAT/**"
+      - ".github/workflows/kotlin.yml"
+  pull_request:
+    paths:
+      - "kotlin/**"
+      - "src/**"
+      - "include/**"
+      - ".cmake/**"
+      - "CMakeLists.txt"
+      - "KAT/**"
+      - ".github/workflows/kotlin.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: kotlin-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    shell: bash
+    working-directory: kotlin
+
+jobs:
+  # Builds the JNI library on each JVM platform and runs the common tests against it.
+  jvm-native:
+    name: JVM native (${{ matrix.platform }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: linux-x86_64
+            os: ubuntu-24.04
+          - platform: linux-aarch64
+            os: ubuntu-24.04-arm
+          - platform: macos-aarch64
+            os: macos-15
+          - platform: macos-x86_64
+            os: macos-15-intel
+          - platform: windows-x86_64
+            os: windows-2025
+            # MSVC has no __int128, which the C code requires; build with MinGW clang instead.
+            cmake-args: -G Ninja -DCMAKE_C_COMPILER=clang -DCMAKE_ASM_COMPILER=clang
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: 21
+      - uses: gradle/actions/setup-gradle@v6
+      - name: Set up Android SDK
+        # The Android Gradle plugin needs an SDK to configure the project; the arm64 Linux image has none.
+        if: matrix.platform == 'linux-aarch64'
+        uses: android-actions/setup-android@v4
+      - name: Set up MinGW clang
+        if: matrix.platform == 'windows-x86_64'
+        id: msys2
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: CLANG64
+          path-type: inherit
+          install: >-
+            mingw-w64-clang-x86_64-clang
+            mingw-w64-clang-x86_64-cmake
+            mingw-w64-clang-x86_64-ninja
+      - name: Put MinGW clang on PATH
+        if: matrix.platform == 'windows-x86_64'
+        run: cygpath -w '${{ steps.msys2.outputs.msys2-location }}/clang64/bin' >> "$GITHUB_PATH"
+      - name: Build and test
+        run: ./gradlew buildNativeJvm jvmTest "-Psqisign.hostCMakeArgs=${{ matrix.cmake-args }}"
+      - name: Inspect library
+        run: |
+          lib=$(find build/sqisign/out/buildNativeJvm -type f)
+          ls -l $lib
+          case "${{ matrix.platform }}" in
+            linux-*)
+              readelf -d $lib | grep NEEDED
+              echo "Highest glibc symbol version: $(objdump -T $lib | grep -o 'GLIBC_[0-9.]*' | sort -uV | tail -1)" ;;
+            macos-*) otool -L $lib ;;
+            windows-*) llvm-objdump -p $lib | grep -E "DLL Name|Java_" ;;
+          esac
+      - uses: actions/upload-artifact@v7
+        with:
+          name: jvm-native-${{ matrix.platform }}
+          path: kotlin/build/sqisign/out/buildNativeJvm/
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v7
+        if: failure()
+        with:
+          name: jvm-native-${{ matrix.platform }}-reports
+          path: kotlin/build/reports/
+
+  # Runs the tests against the combined resources on every platform, then publishes the all-platform JVM jar.
+  jvm-jar:
+    name: JVM jar (${{ matrix.platform }})
+    needs: jvm-native
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: linux-x86_64
+            os: ubuntu-24.04
+          - platform: linux-aarch64
+            os: ubuntu-24.04-arm
+          - platform: macos-aarch64
+            os: macos-15
+          - platform: macos-x86_64
+            os: macos-15-intel
+          - platform: windows-x86_64
+            os: windows-2025
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: 21
+      - uses: gradle/actions/setup-gradle@v6
+      - name: Set up Android SDK
+        if: matrix.platform == 'linux-aarch64'
+        uses: android-actions/setup-android@v4
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: jvm-native-*-*64
+          path: kotlin/build/jvm-natives
+          merge-multiple: true
+      - name: Test with all bundled libraries
+        run: ./gradlew jvmTest jvmJar -Psqisign.jvmNativeLibs=build/jvm-natives
+      - name: Check jar contents
+        run: |
+          jar=$(ls build/libs/*-jvm-*.jar)
+          unzip -l "$jar" | grep org/sqisign/native/
+          for p in linux-x86_64/libsqisign_jni.so linux-aarch64/libsqisign_jni.so \
+                   macos-x86_64/libsqisign_jni.dylib macos-aarch64/libsqisign_jni.dylib \
+                   windows-x86_64/sqisign_jni.dll; do
+            unzip -l "$jar" | grep -q "org/sqisign/native/$p" || { echo "missing $p"; exit 1; }
+          done
+      - uses: actions/upload-artifact@v7
+        if: matrix.platform == 'linux-x86_64'
+        with:
+          name: sqisign-kotlin-jvm
+          path: kotlin/build/libs/*-jvm-*.jar
+          if-no-files-found: error
+
+  # Runs the common tests on an x86_64 emulator, which uses the portable `ref` build of the C core.
+  android-x86_64:
+    name: Android (x86_64 emulator)
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: 21
+      - uses: gradle/actions/setup-gradle@v6
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Install NDK and CMake
+        run: |
+          ndk=$(grep '^sqisign.ndkVersion=' gradle.properties | cut -d= -f2)
+          cmake=$(grep '^sqisign.cmakeVersion=' gradle.properties | cut -d= -f2)
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --install "ndk;$ndk" "cmake;$cmake" > /dev/null
+      - name: Build AAR
+        run: |
+          ./gradlew bundleAndroidMainAar assembleAndroidDeviceTest
+          unzip -l build/outputs/aar/*.aar | grep jni/
+      - name: Run device tests
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          arch: x86_64
+          target: google_apis
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -no-snapshot
+          working-directory: kotlin
+          script: |
+            adb shell getprop ro.product.cpu.abi
+            ./gradlew connectedAndroidDeviceTest
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: android-x86_64-reports
+          path: |
+            kotlin/build/reports/
+            kotlin/build/outputs/androidTest-results/
+          if-no-files-found: ignore

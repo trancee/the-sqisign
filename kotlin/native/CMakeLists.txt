@@ -37,6 +37,11 @@ if(CMAKE_CROSSCOMPILING)
     set(TEMP_RUN_RESULT "FAILED_TO_RUN" CACHE STRING "Cross-compiling: cycle counter probe not run")
 endif()
 
+# The upstream static libraries end up inside a shared library for JNI.
+if(SQISIGN_KMP_OUTPUT STREQUAL "jni")
+    set(CMAKE_POSITION_INDEPENDENT_CODE ON)
+endif()
+
 set(ENABLE_TESTS OFF CACHE BOOL "" FORCE)
 set(ENABLE_SIGN ON CACHE BOOL "" FORCE)
 set(ENABLE_CT_TESTING OFF CACHE BOOL "" FORCE)
@@ -106,7 +111,14 @@ if(SQISIGN_KMP_OUTPUT STREQUAL "jni")
     # Export only the JNI entry points.
     if(APPLE)
         target_link_options(sqisign_jni PRIVATE -Wl,-dead_strip "-Wl,-exported_symbol,_Java_*")
-    elseif(NOT WIN32)
+    elseif(WIN32)
+        # System.mapLibraryName("sqisign_jni") is "sqisign_jni.dll"; JNIEXPORT (dllexport) limits the exports.
+        set_target_properties(sqisign_jni PROPERTIES PREFIX "")
+        if(MINGW)
+            # Link the MinGW/compiler runtime statically so the DLL only depends on system DLLs.
+            target_link_options(sqisign_jni PRIVATE -static -Wl,--gc-sections)
+        endif()
+    else()
         target_link_options(sqisign_jni PRIVATE -Wl,--gc-sections -Wl,--exclude-libs,ALL
             -Wl,--version-script=${CMAKE_CURRENT_LIST_DIR}/src/sqisign_jni.map)
     endif()

@@ -174,7 +174,7 @@ val jniPlatformDir = when (hostOs) {
 }
 val jniJavaHome: Provider<String> = javaToolchains.launcherFor {
     languageVersion.set(JavaLanguageVersion.of(21))
-}.map { it.metadata.installationPath.asFile.path }
+}.map { it.metadata.installationPath.asFile.path.replace('\\', '/') }
 val hostBuildType: Provider<String> = providers.gradleProperty("sqisign.hostBuildType")
     .orElse(if (hostArch == "aarch64") "arm64" else "ref")
 
@@ -187,6 +187,17 @@ val buildJvmNative = registerCMake(
         jniJavaHome.map { "-DJNI_INCLUDE_DIRS=$it/include;$it/include/$jniPlatformDir" },
     ),
 )
+// Extra, whitespace-separated CMake arguments for the host build, e.g. "-G Ninja -DCMAKE_C_COMPILER=clang" on Windows.
+buildJvmNative.configure {
+    cmakeArguments.addAll(
+        providers.gradleProperty("sqisign.hostCMakeArgs").map { it.trim().split(Regex("\\s+")).filter(String::isNotEmpty) }
+            .orElse(emptyList()),
+    )
+}
+
+// A directory laid out as org/sqisign/native/<os>-<arch>/<library> (for example, CI artifacts from every platform).
+// When set, it replaces the host build as the JVM resource source so one jar can carry all platforms.
+val jvmNativeLibs: String? = providers.gradleProperty("sqisign.jvmNativeLibs").orNull
 
 // Android: arm64 uses the optimized arm64 build; x86_64 (emulators, Chromebooks) uses the portable reference build
 // because the broadwell build requires ADX/BMI2, which not every x86_64 device or emulator exposes.
@@ -260,7 +271,7 @@ kotlin {
 
     sourceSets {
         jvmMain {
-            resources.srcDir(buildJvmNative.flatMap { it.installDir })
+            resources.srcDir(jvmNativeLibs?.let(::file) ?: buildJvmNative.flatMap { it.installDir })
         }
         commonTest {
             kotlin.srcDir(generateKatVectors.flatMap { it.outputDir })
