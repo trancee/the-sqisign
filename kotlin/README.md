@@ -5,9 +5,9 @@ Kotlin adds a typed API, key handling, and the platform bridges:
 
 | Target | Bridge | Native artifact |
 |---|---|---|
-| `jvm` | JNI | `libsqisign_jni` for the build host, bundled as a jar resource |
+| `jvm` | JNI | `libsqisign_jni` per OS/architecture, bundled as jar resources (CI bundles all five platforms) |
 | `android` (minSdk 24) | JNI | `libsqisign_jni.so` for `arm64-v8a` and `x86_64`, packaged in the AAR |
-| `iosArm64`, `iosSimulatorArm64`, `macosArm64` | cinterop | `libsqisign_kmp_all.a`, embedded in the cinterop klib |
+| `iosArm64`, `iosSimulatorArm64`, `macosArm64` | cinterop | `libsqisign_kmp_all.a`, embedded in the cinterop klib and in the static `SqiSign.xcframework` |
 
 All three parameter sets (`P324_3`, `P500_27`, `P664_17`; NIST levels 1, 3 and 5) are linked into one binary.
 
@@ -26,6 +26,22 @@ for any invalid input of the right types. `generateKeyPair` and `sign` throw `Sq
 Every call blocks and is thread-safe. Keygen and signing take tens to hundreds of milliseconds, so keep them off the
 main thread.
 
+### Swift
+
+`./gradlew assembleSqiSignReleaseXCFramework` writes a static `build/XCFrameworks/release/SqiSign.xcframework`
+(`ios-arm64`, `ios-arm64-simulator`, `macos-arm64`). Failures surface as Swift errors:
+
+```swift
+import SqiSign
+
+let keyPair = try SqiSign.shared.generateKeyPair(parameterSet: .p3243)
+let signature = try SqiSign.shared.sign(message: message, secretKey: keyPair.secretKey) // KotlinByteArray
+let valid = SqiSign.shared.verify(message: message, signature: signature, publicKey: keyPair.publicKey)
+```
+
+`swift/` is a SwiftPM package that tests the framework from Swift; `swift/Tests/SqiSignTests/SqiSignTests.swift` also
+shows `Data` ⇄ `KotlinByteArray` conversion.
+
 ## Build
 
 Requirements: JDK 21 and the Android SDK with NDK `sqisign.ndkVersion` and CMake `sqisign.cmakeVersion` (see
@@ -40,7 +56,21 @@ Requirements: JDK 21 and the Android SDK with NDK `sqisign.ndkVersion` and CMake
 Each `buildNative*` task configures `native/CMakeLists.txt` with CMake. That file wraps the repository's CMake build.
 The CMake used is, in order of preference: `sqisign.cmakeBinDir`, the Android SDK's CMake (with Ninja), then `cmake`
 from `PATH`. On the host, `sqisign.hostBuildType` overrides the optimized build (`arm64` on aarch64 hosts, `ref`
-otherwise).
+otherwise). `sqisign.hostCMakeArgs` passes extra CMake arguments to the host build.
+
+### JVM jar for several platforms
+
+The jar loads `/org/sqisign/native/<os>-<arch>/` (`linux`, `macos`, `windows` × `x86_64`, `aarch64`) for the running
+JVM. A local build bundles only the host's library. To bundle prebuilt libraries instead, point
+`sqisign.jvmNativeLibs` at a directory with that layout:
+
+```sh
+./gradlew jvmJar -Psqisign.jvmNativeLibs=build/jvm-natives
+```
+
+The `Kotlin` workflow (`.github/workflows/kotlin.yml`) builds each library on its own runner, then tests and uploads the
+combined jar. MSVC cannot compile the C core (`__int128`), so Windows uses MinGW clang (MSYS2 `CLANG64`), passed with
+`-Psqisign.hostCMakeArgs="-G Ninja -DCMAKE_C_COMPILER=clang -DCMAKE_ASM_COMPILER=clang"`.
 
 ### Native layer
 
@@ -61,14 +91,36 @@ otherwise).
 
 Keygen and signing KATs are not reproduced, because they need the NIST DRBG build.
 
+CI runs these on the five JVM platforms, an `x86_64` Android emulator, macOS and the iOS Simulator, plus the Swift
+tests on macOS and the iOS Simulator.
+
+To run the Swift tests locally (after `assembleSqiSignReleaseXCFramework`):
+
+```sh
+cd swift
+swift test                                                          # macOS
+xcodebuild test -scheme SqiSignSwiftTests-Package -destination "platform=iOS Simulator,name=iPhone 17"
+```
+
+On a physical iPhone (connected, unlocked, Developer Mode on), find its id with `xcrun xctrace list devices` and sign
+with your team:
+
+```sh
+xcodebuild test -scheme SqiSignSwiftTests-Package -destination "id=<udid>" \
+  -allowProvisioningUpdates DEVELOPMENT_TEAM=<team-id>
+```
+
 ## Limitations
 
-- The JVM jar contains only the build host's library. Other platforms need a multi-host build, or
-  `-Dsqisign.library.path=/abs/path/to/lib` / `java.library.path`.
+- A locally built JVM jar contains only the build host's library (see above for the multi-platform jar). The
+  `-Dsqisign.library.path=/abs/path/to/lib` system property and `java.library.path` also work.
+- The Linux JNI libraries link glibc dynamically (musl is not supported). The CI log prints the highest `GLIBC_*`
+  symbol version they need.
 - Secret keys pass through the managed heap. `close()` wipes this instance's copy, but not copies made by the GC,
   `encoded`, or caller code. Use platform keystores where possible.
 - The C implementation's constant-time properties have not been re-audited for these build configurations. Android
   `x86_64` uses the portable `ref` build.
-- The Android `x86_64` library is built and packaged but has only been tested on arm64 devices.
+- Android `x86_64` is tested only on the CI emulator. The Swift tests have not yet run on a physical iPhone.
 - The Apple static library is embedded in the klib, so consumers cannot swap or deduplicate it.
-- No Swift-facing framework or XCFramework is produced. Apple apps consume this through their own KMP module.
+- Swift sees `KotlinByteArray` rather than `Data`, and Kotlin default arguments are not exported, so Swift callers
+  always pass a parameter set.

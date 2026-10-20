@@ -10,6 +10,7 @@ public object SqiSign {
     private const val OK = 0
 
     /** Generates a key pair using the operating system's random number generator. */
+    @Throws(SqiSignException::class)
     public fun generateKeyPair(parameterSet: ParameterSet = ParameterSet.P324_3): SqiSignKeyPair {
         val pk = ByteArray(parameterSet.publicKeyBytes)
         val sk = ByteArray(parameterSet.secretKeyBytes)
@@ -21,7 +22,12 @@ public object SqiSign {
         }
     }
 
-    /** Returns a detached signature of [message], exactly [ParameterSet.signatureBytes] long. */
+    /**
+     * Returns a detached signature of [message], exactly [ParameterSet.signatureBytes] long.
+     *
+     * @throws IllegalStateException if [secretKey] has been closed.
+     */
+    @Throws(SqiSignException::class, IllegalStateException::class)
     public fun sign(message: ByteArray, secretKey: SqiSignSecretKey): ByteArray {
         val set = secretKey.parameterSet
         val signature = ByteArray(set.signatureBytes)

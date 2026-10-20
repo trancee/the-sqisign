@@ -2,3 +2,5 @@
 .kotlin/
 build/
 local.properties
+.build/
+.swiftpm/
