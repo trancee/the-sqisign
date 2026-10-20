@@ -73,21 +73,31 @@ separate_arguments(SQISIGN_C_FLAGS)
 
 set(SQISIGN_KMP_OBJECTS "")
 foreach(V ${SQISIGN_KMP_VARIANTS})
-    add_library(sqisign_kmp_common_${V} OBJECT
+    # Per-variant PRNG and memory helpers (their names carry the variant namespace). A static library rather than
+    # objects in sqisign_kmp, so it can be ordered after the upstream libraries that use it.
+    add_library(sqisign_kmp_common_${V} STATIC
         ${SQISIGN_ROOT}/src/common/generic/prng.c
         ${SQISIGN_ROOT}/src/common/generic/mem.c)
     target_include_directories(sqisign_kmp_common_${V} PRIVATE
         ${SQISIGN_ROOT}/src/common/generic/include ${SQISIGN_ROOT}/include)
     target_compile_definitions(sqisign_kmp_common_${V} PRIVATE ${SQISIGN_DEFS} SQISIGN_VARIANT=${V})
     target_compile_options(sqisign_kmp_common_${V} PRIVATE ${SQISIGN_C_FLAGS})
+    target_link_libraries(sqisign_kmp_common_${V} PUBLIC sqisign_common_sys)
+
+    # The upstream component libraries use these helpers and SHAKE/randombytes from sqisign_common_sys without
+    # declaring it. Order-sensitive linkers (GNU ld) need the providers after their users, so declare the edges.
+    foreach(C signature verification id2iso quaternion hd ec gf mp precomp)
+        if(TARGET sqisign_${C}_${V})
+            target_link_libraries(sqisign_${C}_${V} sqisign_kmp_common_${V} sqisign_common_sys)
+        endif()
+    endforeach()
 
     add_library(sqisign_kmp_variant_${V} OBJECT src/sqisign_kmp_variant.c)
     target_compile_definitions(sqisign_kmp_variant_${V} PRIVATE ${SQISIGN_DEFS})
     target_compile_options(sqisign_kmp_variant_${V} PRIVATE ${SQISIGN_C_FLAGS})
     target_link_libraries(sqisign_kmp_variant_${V} PRIVATE sqisign_${V}_nistapi)
 
-    list(APPEND SQISIGN_KMP_OBJECTS
-        $<TARGET_OBJECTS:sqisign_kmp_common_${V}> $<TARGET_OBJECTS:sqisign_kmp_variant_${V}>)
+    list(APPEND SQISIGN_KMP_OBJECTS $<TARGET_OBJECTS:sqisign_kmp_variant_${V}>)
 endforeach()
 
 add_library(sqisign_kmp STATIC src/sqisign_kmp.c ${SQISIGN_KMP_OBJECTS})
@@ -95,17 +105,8 @@ target_include_directories(sqisign_kmp PUBLIC include)
 target_compile_options(sqisign_kmp PRIVATE ${SQISIGN_C_FLAGS})
 foreach(V ${SQISIGN_KMP_VARIANTS})
     # LINK_ONLY: each nistapi target carries a conflicting SQISIGN_VARIANT definition as a usage requirement.
-    target_link_libraries(sqisign_kmp INTERFACE $<LINK_ONLY:sqisign_${V}_nistapi>)
-    # The upstream component libraries use SHAKE/randombytes from sqisign_common_sys without declaring it, so
-    # order-sensitive linkers (GNU ld) see it before its users. Declaring the edge makes CMake place it after them.
-    foreach(C signature verification id2iso quaternion hd ec gf mp precomp)
-        if(TARGET sqisign_${C}_${V})
-            target_link_libraries(sqisign_${C}_${V} sqisign_common_sys)
-        endif()
-    endforeach()
+    target_link_libraries(sqisign_kmp INTERFACE $<LINK_ONLY:sqisign_${V}_nistapi> $<LINK_ONLY:sqisign_kmp_common_${V}>)
 endforeach()
-# prng.c in this archive uses SHAKE as well.
-target_link_libraries(sqisign_kmp INTERFACE $<LINK_ONLY:sqisign_common_sys>)
 
 if(SQISIGN_KMP_OUTPUT STREQUAL "jni")
     if(NOT ANDROID)
@@ -152,7 +153,7 @@ elseif(SQISIGN_KMP_OUTPUT STREQUAL "static")
     set(SQISIGN_KMP_ARCHIVES sqisign_kmp sqisign_common_sys)
     foreach(V ${SQISIGN_KMP_VARIANTS})
         string(TOUPPER ${V} VU)
-        list(APPEND SQISIGN_KMP_ARCHIVES sqisign_${V}_nistapi sqisign_${V}
+        list(APPEND SQISIGN_KMP_ARCHIVES sqisign_${V}_nistapi sqisign_${V} sqisign_kmp_common_${V}
             ${LIB_SIGNATURE_${VU}} ${LIB_VERIFICATION_${VU}} ${LIB_ID2ISO_${VU}} ${LIB_QUATERNION_${VU}}
             ${LIB_MP_${VU}} ${LIB_GF_${VU}} ${LIB_EC_${VU}} ${LIB_HD_${VU}} ${LIB_PRECOMP_${VU}})
     endforeach()
