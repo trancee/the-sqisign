@@ -14,6 +14,22 @@ project(sqisign_kmp C ASM)
 set(SQISIGN_KMP_OUTPUT "jni" CACHE STRING "Artifact to build: jni or static")
 set_property(CACHE SQISIGN_KMP_OUTPUT PROPERTY STRINGS jni static)
 
+# Test-only build for reproducing the NIST KATs (keygen and signing): links upstream's sqisign_<set>_test libraries,
+# whose randombytes() is the seedable NIST CTR-DRBG, and adds sqisign_kmp_kat_keypair_sign(). It produces
+# libsqisign_kat_jni (jni) or libsqisign_kmp_kat.a (static) so it can never be mistaken for the shipped library.
+option(SQISIGN_KMP_KAT "Build the test-only KAT library with the deterministic NIST DRBG" OFF)
+if(SQISIGN_KMP_KAT)
+    set(SQISIGN_KMP_COMMON sqisign_common_test)
+    set(SQISIGN_KMP_LIB_SUFFIX _test)
+    set(SQISIGN_KMP_JNI_NAME sqisign_kat_jni)
+    set(SQISIGN_KMP_ARCHIVE_NAME libsqisign_kmp_kat.a)
+else()
+    set(SQISIGN_KMP_COMMON sqisign_common_sys)
+    set(SQISIGN_KMP_LIB_SUFFIX "")
+    set(SQISIGN_KMP_JNI_NAME sqisign_jni)
+    set(SQISIGN_KMP_ARCHIVE_NAME libsqisign_kmp_all.a)
+endif()
+
 get_filename_component(SQISIGN_ROOT "${CMAKE_CURRENT_LIST_DIR}/../.." ABSOLUTE)
 set(SQISIGN_KMP_VARIANTS p324_3 p500_27 p664_17)
 
@@ -82,20 +98,20 @@ foreach(V ${SQISIGN_KMP_VARIANTS})
         ${SQISIGN_ROOT}/src/common/generic/include ${SQISIGN_ROOT}/include)
     target_compile_definitions(sqisign_kmp_common_${V} PRIVATE ${SQISIGN_DEFS} SQISIGN_VARIANT=${V})
     target_compile_options(sqisign_kmp_common_${V} PRIVATE ${SQISIGN_C_FLAGS})
-    target_link_libraries(sqisign_kmp_common_${V} PUBLIC sqisign_common_sys)
+    target_link_libraries(sqisign_kmp_common_${V} PUBLIC ${SQISIGN_KMP_COMMON})
 
-    # The upstream component libraries use these helpers and SHAKE/randombytes from sqisign_common_sys without
+    # The upstream component libraries use these helpers and SHAKE/randombytes from the common library without
     # declaring it. Order-sensitive linkers (GNU ld) need the providers after their users, so declare the edges.
     foreach(C signature verification id2iso quaternion hd ec gf mp precomp)
         if(TARGET sqisign_${C}_${V})
-            target_link_libraries(sqisign_${C}_${V} sqisign_kmp_common_${V} sqisign_common_sys)
+            target_link_libraries(sqisign_${C}_${V} sqisign_kmp_common_${V} ${SQISIGN_KMP_COMMON})
         endif()
     endforeach()
 
     add_library(sqisign_kmp_variant_${V} OBJECT src/sqisign_kmp_variant.c)
     target_compile_definitions(sqisign_kmp_variant_${V} PRIVATE ${SQISIGN_DEFS})
     target_compile_options(sqisign_kmp_variant_${V} PRIVATE ${SQISIGN_C_FLAGS})
-    target_link_libraries(sqisign_kmp_variant_${V} PRIVATE sqisign_${V}_nistapi)
+    target_link_libraries(sqisign_kmp_variant_${V} PRIVATE sqisign_${V}${SQISIGN_KMP_LIB_SUFFIX}_nistapi)
 
     list(APPEND SQISIGN_KMP_OBJECTS $<TARGET_OBJECTS:sqisign_kmp_variant_${V}>)
 endforeach()
@@ -103,9 +119,14 @@ endforeach()
 add_library(sqisign_kmp STATIC src/sqisign_kmp.c ${SQISIGN_KMP_OBJECTS})
 target_include_directories(sqisign_kmp PUBLIC include)
 target_compile_options(sqisign_kmp PRIVATE ${SQISIGN_C_FLAGS})
+if(SQISIGN_KMP_KAT)
+    target_sources(sqisign_kmp PRIVATE src/sqisign_kmp_kat.c)
+    target_include_directories(sqisign_kmp PRIVATE ${SQISIGN_ROOT}/include)
+endif()
 foreach(V ${SQISIGN_KMP_VARIANTS})
     # LINK_ONLY: each nistapi target carries a conflicting SQISIGN_VARIANT definition as a usage requirement.
-    target_link_libraries(sqisign_kmp INTERFACE $<LINK_ONLY:sqisign_${V}_nistapi> $<LINK_ONLY:sqisign_kmp_common_${V}>)
+    target_link_libraries(sqisign_kmp INTERFACE
+        $<LINK_ONLY:sqisign_${V}${SQISIGN_KMP_LIB_SUFFIX}_nistapi> $<LINK_ONLY:sqisign_kmp_common_${V}>)
 endforeach()
 
 if(SQISIGN_KMP_OUTPUT STREQUAL "jni")
@@ -115,7 +136,12 @@ if(SQISIGN_KMP_OUTPUT STREQUAL "jni")
             find_package(JNI REQUIRED COMPONENTS JVM)
         endif()
     endif()
-    add_library(sqisign_jni SHARED src/sqisign_jni.c)
+    if(SQISIGN_KMP_KAT)
+        add_library(sqisign_jni SHARED src/sqisign_kat_jni.c)
+    else()
+        add_library(sqisign_jni SHARED src/sqisign_jni.c)
+    endif()
+    set_target_properties(sqisign_jni PROPERTIES OUTPUT_NAME ${SQISIGN_KMP_JNI_NAME})
     target_include_directories(sqisign_jni PRIVATE ${JNI_INCLUDE_DIRS})
     target_compile_options(sqisign_jni PRIVATE ${SQISIGN_C_FLAGS})
     target_link_libraries(sqisign_jni PRIVATE sqisign_kmp)
@@ -123,7 +149,7 @@ if(SQISIGN_KMP_OUTPUT STREQUAL "jni")
     if(APPLE)
         target_link_options(sqisign_jni PRIVATE -Wl,-dead_strip "-Wl,-exported_symbol,_Java_*")
     elseif(WIN32)
-        # System.mapLibraryName("sqisign_jni") is "sqisign_jni.dll"; JNIEXPORT (dllexport) limits the exports.
+        # System.mapLibraryName("sqisign_jni") is "sqisign_jni.dll" (no "lib" prefix); JNIEXPORT (dllexport) limits the exports.
         set_target_properties(sqisign_jni PROPERTIES PREFIX "")
         if(MINGW)
             # Link the MinGW/compiler runtime statically so the DLL only depends on system DLLs.
@@ -150,10 +176,11 @@ elseif(SQISIGN_KMP_OUTPUT STREQUAL "static")
         message(FATAL_ERROR "SQISIGN_KMP_OUTPUT=static is only supported for Apple targets")
     endif()
     # Collect every archive the NIST API libraries depend on and merge them into one archive for cinterop.
-    set(SQISIGN_KMP_ARCHIVES sqisign_kmp sqisign_common_sys)
+    set(SQISIGN_KMP_ARCHIVES sqisign_kmp ${SQISIGN_KMP_COMMON})
     foreach(V ${SQISIGN_KMP_VARIANTS})
         string(TOUPPER ${V} VU)
-        list(APPEND SQISIGN_KMP_ARCHIVES sqisign_${V}_nistapi sqisign_${V} sqisign_kmp_common_${V}
+        list(APPEND SQISIGN_KMP_ARCHIVES sqisign_${V}${SQISIGN_KMP_LIB_SUFFIX}_nistapi sqisign_${V}${SQISIGN_KMP_LIB_SUFFIX}
+            sqisign_kmp_common_${V}
             ${LIB_SIGNATURE_${VU}} ${LIB_VERIFICATION_${VU}} ${LIB_ID2ISO_${VU}} ${LIB_QUATERNION_${VU}}
             ${LIB_MP_${VU}} ${LIB_GF_${VU}} ${LIB_EC_${VU}} ${LIB_HD_${VU}} ${LIB_PRECOMP_${VU}})
     endforeach()
@@ -162,16 +189,45 @@ elseif(SQISIGN_KMP_OUTPUT STREQUAL "static")
     foreach(T ${SQISIGN_KMP_ARCHIVES})
         list(APPEND SQISIGN_KMP_ARCHIVE_FILES $<TARGET_FILE:${T}>)
     endforeach()
-    set(SQISIGN_KMP_MERGED ${CMAKE_CURRENT_BINARY_DIR}/libsqisign_kmp_all.a)
-    add_custom_command(
-        OUTPUT ${SQISIGN_KMP_MERGED}
-        COMMAND xcrun libtool -static -no_warning_for_no_symbols -o ${SQISIGN_KMP_MERGED} ${SQISIGN_KMP_ARCHIVE_FILES}
-        DEPENDS ${SQISIGN_KMP_ARCHIVES}
-        COMMENT "Merging SQIsign archives into libsqisign_kmp_all.a"
-        VERBATIM)
+    set(SQISIGN_KMP_MERGED ${CMAKE_CURRENT_BINARY_DIR}/${SQISIGN_KMP_ARCHIVE_NAME})
+    if(SQISIGN_KMP_KAT)
+        # A test binary links this archive next to libsqisign_kmp_all.a, and both define the same SQIsign symbols. Prelink
+        # everything into one object that exports only sqisign_kmp_kat_*, so the DRBG chain cannot mix with the
+        # production one (ld -r turns the non-exported symbols local).
+        set(SQISIGN_KMP_PRELINKED ${CMAKE_CURRENT_BINARY_DIR}/sqisign_kmp_kat.o)
+        list(GET CMAKE_OSX_ARCHITECTURES 0 SQISIGN_KMP_ARCH)
+        # ld -r drops the platform load command, which the final link checks.
+        if(CMAKE_SYSTEM_NAME STREQUAL "iOS")
+            if(CMAKE_OSX_SYSROOT MATCHES "[Ss]imulator")
+                set(SQISIGN_KMP_PLATFORM ios-simulator)
+            else()
+                set(SQISIGN_KMP_PLATFORM ios)
+            endif()
+        else()
+            set(SQISIGN_KMP_PLATFORM macos)
+        endif()
+        add_custom_command(
+            OUTPUT ${SQISIGN_KMP_MERGED}
+            COMMAND xcrun libtool -static -no_warning_for_no_symbols -o ${SQISIGN_KMP_MERGED}.in ${SQISIGN_KMP_ARCHIVE_FILES}
+            COMMAND xcrun ld -r -arch ${SQISIGN_KMP_ARCH} -u _sqisign_kmp_kat_keypair_sign -exported_symbol _sqisign_kmp_kat_keypair_sign
+                    -platform_version ${SQISIGN_KMP_PLATFORM} ${CMAKE_OSX_DEPLOYMENT_TARGET} ${CMAKE_OSX_DEPLOYMENT_TARGET}
+                    -o ${SQISIGN_KMP_PRELINKED} ${SQISIGN_KMP_MERGED}.in
+            COMMAND ${CMAKE_COMMAND} -E rm -f ${SQISIGN_KMP_MERGED}
+            COMMAND xcrun libtool -static -o ${SQISIGN_KMP_MERGED} ${SQISIGN_KMP_PRELINKED}
+            DEPENDS ${SQISIGN_KMP_ARCHIVES}
+            COMMENT "Prelinking the KAT archive ${SQISIGN_KMP_ARCHIVE_NAME}"
+            VERBATIM)
+    else()
+        add_custom_command(
+            OUTPUT ${SQISIGN_KMP_MERGED}
+            COMMAND xcrun libtool -static -no_warning_for_no_symbols -o ${SQISIGN_KMP_MERGED} ${SQISIGN_KMP_ARCHIVE_FILES}
+            DEPENDS ${SQISIGN_KMP_ARCHIVES}
+            COMMENT "Merging SQIsign archives into ${SQISIGN_KMP_ARCHIVE_NAME}"
+            VERBATIM)
+    endif()
     add_custom_target(sqisign_kmp_all ALL DEPENDS ${SQISIGN_KMP_MERGED})
     install(FILES ${SQISIGN_KMP_MERGED} DESTINATION lib)
-    install(FILES include/sqisign_kmp.h DESTINATION include)
+    install(FILES include/sqisign_kmp.h include/sqisign_kmp_kat.h DESTINATION include)
 else()
     message(FATAL_ERROR "Unknown SQISIGN_KMP_OUTPUT: ${SQISIGN_KMP_OUTPUT}")
 endif()

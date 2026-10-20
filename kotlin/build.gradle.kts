@@ -2,6 +2,7 @@ import com.android.build.api.variant.KotlinMultiplatformAndroidComponentsExtensi
 import java.io.File
 import javax.inject.Inject
 import org.gradle.process.ExecOperations
+import org.jetbrains.kotlin.gradle.ExperimentalKotlinGradlePluginApi
 import org.jetbrains.kotlin.gradle.plugin.mpp.KotlinNativeTarget
 import org.jetbrains.kotlin.gradle.plugin.mpp.apple.XCFramework
 
@@ -84,7 +85,8 @@ abstract class GenerateKatVectors : DefaultTask() {
                 .filter { "sm" in it }
                 .take(vectorsPerSet.get())
                 .map { v ->
-                    "KatVector(ParameterSet.$set, ${v["count"]}, ${v["mlen"]}, \"${v["msg"]}\", \"${v["pk"]}\", \"${v["sm"]}\")"
+                    "KatVector(ParameterSet.$set, ${v["count"]}, \"${v["seed"]}\", ${v["mlen"]}, \"${v["msg"]}\", " +
+                        "\"${v["pk"]}\", \"${v["sk"]}\", \"${v["sm"]}\")"
                 }
         }
         val out = outputDir.get().asFile.resolve("org/sqisign/KatVectors.kt")
@@ -97,9 +99,11 @@ abstract class GenerateKatVectors : DefaultTask() {
             |internal class KatVector(
             |    val parameterSet: ParameterSet,
             |    val count: Int,
+            |    val seedHex: String,
             |    val messageLength: Int,
             |    val messageHex: String,
             |    val publicKeyHex: String,
+            |    val secretKeyHex: String,
             |    val signedMessageHex: String,
             |)
             |
@@ -179,22 +183,28 @@ val jniJavaHome: Provider<String> = javaToolchains.launcherFor {
 val hostBuildType: Provider<String> = providers.gradleProperty("sqisign.hostBuildType")
     .orElse(if (hostArch == "aarch64") "arm64" else "ref")
 
-val buildJvmNative = registerCMake(
-    "buildNativeJvm",
-    "org/sqisign/native/$hostOs-$hostArch",
-    listOf(
-        arg("-DSQISIGN_KMP_OUTPUT=jni"),
-        hostBuildType.map { "-DSQISIGN_BUILD_TYPE=$it" },
-        jniJavaHome.map { "-DJNI_INCLUDE_DIRS=$it/include;$it/include/$jniPlatformDir" },
-    ),
-)
 // Extra, whitespace-separated CMake arguments for the host build, e.g. "-G Ninja -DCMAKE_C_COMPILER=clang" on Windows.
-buildJvmNative.configure {
-    cmakeArguments.addAll(
-        providers.gradleProperty("sqisign.hostCMakeArgs").map { it.trim().split(Regex("\\s+")).filter(String::isNotEmpty) }
-            .orElse(emptyList()),
-    )
-}
+val hostCMakeArgs: Provider<List<String>> = providers.gradleProperty("sqisign.hostCMakeArgs")
+    .map { it.trim().split(Regex("\\s+")).filter(String::isNotEmpty) }
+    .orElse(emptyList())
+
+fun registerHostJni(taskName: String, resourceDir: String, extraArgs: List<String>) =
+    registerCMake(
+        taskName,
+        "$resourceDir/$hostOs-$hostArch",
+        listOf(
+            arg("-DSQISIGN_KMP_OUTPUT=jni"),
+            hostBuildType.map { "-DSQISIGN_BUILD_TYPE=$it" },
+            jniJavaHome.map { "-DJNI_INCLUDE_DIRS=$it/include;$it/include/$jniPlatformDir" },
+        ) + extraArgs.map(::arg),
+    ).also { task -> task.configure { cmakeArguments.addAll(hostCMakeArgs) } }
+
+val buildJvmNative = registerHostJni("buildNativeJvm", "org/sqisign/native", emptyList())
+
+// Test-only JNI library seeded by the NIST CTR-DRBG, used to reproduce the keygen/sign KATs on the JVM.
+// Set sqisign.katTests=false to skip them, e.g. when testing prebuilt libraries on a host without a C toolchain.
+val katTests: Boolean = providers.gradleProperty("sqisign.katTests").map(String::toBoolean).getOrElse(true)
+val buildJvmNativeKat = registerHostJni("buildNativeJvmKat", "org/sqisign/katnative", listOf("-DSQISIGN_KMP_KAT=ON"))
 
 // A directory laid out as org/sqisign/native/<os>-<arch>/<library> (for example, CI artifacts from every platform).
 // When set, it replaces the host build as the JVM resource source so one jar can carry all platforms.
@@ -232,6 +242,19 @@ val buildAppleNative = appleSlices.mapValues { (target, sliceArgs) ->
             .map(::arg),
     )
 }
+// Test-only static archives seeded by the NIST CTR-DRBG, linked into the Apple test binaries.
+val buildAppleNativeKat = appleSlices.mapValues { (target, sliceArgs) ->
+    registerCMake(
+        appleCMakeTaskNames.getValue(target) + "Kat",
+        "",
+        (sliceArgs + listOf(
+            "-DCMAKE_OSX_ARCHITECTURES=arm64",
+            "-DSQISIGN_KMP_OUTPUT=static",
+            "-DSQISIGN_BUILD_TYPE=arm64",
+            "-DSQISIGN_KMP_KAT=ON",
+        )).map(::arg),
+    )
+}
 
 val generateKatVectors = tasks.register<GenerateKatVectors>("generateKatVectors") {
     responseFiles.from(repoRoot.dir("KAT").asFileTree.matching { include("*.rsp") })
@@ -244,6 +267,17 @@ kotlin {
     explicitApi()
 
     jvm()
+
+    // drbgTest holds the keygen/sign KAT tests, which need a DRBG-seeded native library (JVM and Apple only).
+    @OptIn(ExperimentalKotlinGradlePluginApi::class)
+    applyDefaultHierarchyTemplate {
+        common {
+            group("drbg") {
+                withJvm()
+                group("apple")
+            }
+        }
+    }
 
     android {
         namespace = "org.sqisign"
@@ -275,11 +309,25 @@ kotlin {
             extraOpts("-libraryPath", libDir)
             project.tasks.named(interopProcessingTaskName).configure { dependsOn(cmakeTask) }
         }
+        val katTask = buildAppleNativeKat.getValue(name)
+        val katLibDir = cmakeInstallDir(appleCMakeTaskNames.getValue(name) + "Kat").get().dir("lib").asFile.path
+        compilations.getByName("test").cinterops.create("sqisignKat") {
+            definitionFile.set(project.file("src/nativeInterop/cinterop/sqisignKat.def"))
+            packageName = "org.sqisign.katinterop"
+            includeDirs(nativeDir.dir("include"))
+            extraOpts("-libraryPath", katLibDir)
+            project.tasks.named(interopProcessingTaskName).configure { dependsOn(katTask) }
+        }
     }
 
     sourceSets {
         jvmMain {
             resources.srcDir(jvmNativeLibs?.let(::file) ?: buildJvmNative.flatMap { it.installDir })
+        }
+        if (katTests) {
+            jvmTest {
+                resources.srcDir(buildJvmNativeKat.flatMap { it.installDir })
+            }
         }
         commonTest {
             kotlin.srcDir(generateKatVectors.flatMap { it.outputDir })
@@ -303,5 +351,11 @@ kotlin {
 extensions.getByType<KotlinMultiplatformAndroidComponentsExtension>().onVariants { variant ->
     buildAndroidNative.forEach { task ->
         variant.sources.jniLibs?.addGeneratedSourceDirectory(task, CMakeBuild::installDir)
+    }
+}
+
+if (!katTests) {
+    tasks.named<Test>("jvmTest") {
+        filter.excludeTestsMatching("org.sqisign.DeterministicKatTest")
     }
 }
