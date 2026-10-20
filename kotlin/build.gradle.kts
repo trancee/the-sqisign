@@ -3,6 +3,7 @@ import java.io.File
 import javax.inject.Inject
 import org.gradle.process.ExecOperations
 import org.jetbrains.kotlin.gradle.plugin.mpp.KotlinNativeTarget
+import org.jetbrains.kotlin.gradle.plugin.mpp.apple.XCFramework
 
 plugins {
     alias(libs.plugins.kotlin.multiplatform)
@@ -257,7 +258,14 @@ kotlin {
     iosSimulatorArm64()
     macosArm64()
 
+    // Static framework for Swift consumers: assembleSqiSignXCFramework -> build/XCFrameworks/<buildType>/SqiSign.xcframework
+    val xcframework = XCFramework("SqiSign")
     targets.withType<KotlinNativeTarget>().configureEach {
+        binaries.framework {
+            baseName = "SqiSign"
+            isStatic = true
+            xcframework.add(this)
+        }
         val cmakeTask = buildAppleNative.getValue(name)
         val libDir = cmakeInstallDir(appleCMakeTaskNames.getValue(name)).get().dir("lib").asFile.path
         compilations.getByName("main").cinterops.create("sqisign") {

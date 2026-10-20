@@ -1,7 +1,10 @@
 package org.sqisign
 
 /** An encoded SQIsign public key. Instances are immutable; [encoded] returns a copy. */
-public class SqiSignPublicKey(public val parameterSet: ParameterSet, encoded: ByteArray) {
+public class SqiSignPublicKey @Throws(IllegalArgumentException::class) constructor(
+    public val parameterSet: ParameterSet,
+    encoded: ByteArray,
+) {
     private val bytes: ByteArray = encoded.copyOf()
 
     init {
@@ -28,7 +31,10 @@ public class SqiSignPublicKey(public val parameterSet: ParameterSet, encoded: By
  * [close] overwrites the key material held by this instance. Copies returned by [encoded], and copies the runtime may
  * have made (garbage collector moves, JNI copies on the managed heap), cannot be reliably wiped.
  */
-public class SqiSignSecretKey(public val parameterSet: ParameterSet, encoded: ByteArray) : AutoCloseable {
+public class SqiSignSecretKey @Throws(IllegalArgumentException::class) constructor(
+    public val parameterSet: ParameterSet,
+    encoded: ByteArray,
+) : AutoCloseable {
     private val bytes: ByteArray = encoded.copyOf()
     private var closed = false
 
@@ -57,7 +63,10 @@ public class SqiSignSecretKey(public val parameterSet: ParameterSet, encoded: By
     override fun toString(): String = "SqiSignSecretKey(${parameterSet.algorithmName}, <redacted>)"
 }
 
-public class SqiSignKeyPair(public val publicKey: SqiSignPublicKey, public val secretKey: SqiSignSecretKey) {
+public class SqiSignKeyPair @Throws(IllegalArgumentException::class) constructor(
+    public val publicKey: SqiSignPublicKey,
+    public val secretKey: SqiSignSecretKey,
+) {
     init {
         require(publicKey.parameterSet == secretKey.parameterSet) { "Key parameter sets differ" }
     }

@@ -95,7 +95,16 @@ target_compile_options(sqisign_kmp PRIVATE ${SQISIGN_C_FLAGS})
 foreach(V ${SQISIGN_KMP_VARIANTS})
     # LINK_ONLY: each nistapi target carries a conflicting SQISIGN_VARIANT definition as a usage requirement.
     target_link_libraries(sqisign_kmp INTERFACE $<LINK_ONLY:sqisign_${V}_nistapi>)
+    # The upstream component libraries use SHAKE/randombytes from sqisign_common_sys without declaring it, so
+    # order-sensitive linkers (GNU ld) see it before its users. Declaring the edge makes CMake place it after them.
+    foreach(C signature verification id2iso quaternion hd ec gf mp precomp)
+        if(TARGET sqisign_${C}_${V})
+            target_link_libraries(sqisign_${C}_${V} sqisign_common_sys)
+        endif()
+    endforeach()
 endforeach()
+# prng.c in this archive uses SHAKE as well.
+target_link_libraries(sqisign_kmp INTERFACE $<LINK_ONLY:sqisign_common_sys>)
 
 if(SQISIGN_KMP_OUTPUT STREQUAL "jni")
     if(NOT ANDROID)

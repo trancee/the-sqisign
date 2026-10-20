@@ -176,7 +176,8 @@ jobs:
         run: |
           ndk=$(grep '^sqisign.ndkVersion=' gradle.properties | cut -d= -f2)
           cmake=$(grep '^sqisign.cmakeVersion=' gradle.properties | cut -d= -f2)
-          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --install "ndk;$ndk" "cmake;$cmake" > /dev/null
+          # yes gets SIGPIPE once sdkmanager exits; pipefail must not treat that as failure.
+          (yes || true) | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --install "ndk;$ndk" "cmake;$cmake" > /dev/null
       - name: Build AAR
         run: |
           ./gradlew bundleAndroidMainAar assembleAndroidDeviceTest
@@ -201,3 +202,30 @@ jobs:
             kotlin/build/reports/
             kotlin/build/outputs/androidTest-results/
           if-no-files-found: ignore
+
+  # Kotlin/Native tests plus the Swift consumer tests against the static XCFramework.
+  apple:
+    name: Apple (macOS, iOS Simulator, Swift)
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: 21
+      - uses: gradle/actions/setup-gradle@v6
+      - name: Kotlin/Native tests and XCFramework
+        run: ./gradlew macosArm64Test iosSimulatorArm64Test compileKotlinIosArm64 assembleSqiSignReleaseXCFramework
+      - name: Swift tests (macOS)
+        working-directory: kotlin/swift
+        run: swift test
+      - name: Swift tests (iOS Simulator)
+        working-directory: kotlin/swift
+        run: |
+          udid=$(xcrun simctl list devices available -j | python3 -c 'import json,sys; print(next(d["udid"] for r, ds in json.load(sys.stdin)["devices"].items() if "iOS" in r for d in ds if d["name"].startswith("iPhone")))')
+          xcodebuild test -scheme SqiSignSwiftTests-Package -destination "id=$udid" -derivedDataPath ../build/swift-dd
+      - uses: actions/upload-artifact@v7
+        with:
+          name: SqiSign.xcframework
+          path: kotlin/build/XCFrameworks/release/SqiSign.xcframework
+          if-no-files-found: error
