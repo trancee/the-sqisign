@@ -1,0 +1,11 @@
+[versions]
+# Supported tuple per the Kotlin Gradle plugin compatibility table: KGP 2.4.20+ with Gradle <= 9.7.0 and AGP <= 9.3.1; AGP 9.3 needs Gradle >= 9.5.0.
+kotlin = "2.4.21"
+agp = "9.3.1"
+
+[plugins]
+kotlin-multiplatform = { id = "org.jetbrains.kotlin.multiplatform", version.ref = "kotlin" }
+android-kotlin-multiplatform-library = { id = "com.android.kotlin.multiplatform.library", version.ref = "agp" }
+
+[libraries]
+androidx-test-runner = { module = "androidx.test:runner", version = "1.7.0" }
