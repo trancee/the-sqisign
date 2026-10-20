@@ -63,7 +63,11 @@ integer and modular square roots, modular powers and Baillie-PSW primality)
 follows C's result bit lengths and random-byte consumption, and rejects the
 inputs on which C asserts or loops;
 [`adr/0021-quaternion-number-theory.md`](adr/0021-quaternion-number-theory.md)
-records the details.
+records the details. The fixed-point layer of the lattice
+reduction (signed shifts, wide scaled products, Newton reciprocals and rounded
+word shifts) computes exact values narrowed as C does;
+[`adr/0022-fixed-point-lattice-integers.md`](adr/0022-fixed-point-lattice-integers.md)
+records the mapping.
 The internal field package implements canonical prime fields for all three
 parameter sets: `Fp324` (`p324_3`), `Fp500P27` (`p500_27`), and `Fp664P17`
 (`p664_17`). Each rejects noncanonical little-endian encodings and supports
@@ -464,6 +468,13 @@ Kotlin must drain. `checkIbzReference` checks them against the same pinned C,
 and retained `IbzNumberTheoryBenchmark` workloads are checked against
 `BigInteger`.
 
+A further 422 fixed-point records from `tools/generate_fixed_point_vectors.py`
+model the lattice-reduction layer (`ibz_ct_shift`, `ibz_ct_highmul_p`/`_s`,
+`ibz_ct_fp_recip`, `ibz_ct_round_shift_limb` and `ibz_ct_lt_mask`) exactly on
+Python integers at each level's `FP_P_BITS` precision. `checkIbzReference`
+checks them against the same pinned C, and retained `IbzFixedPointBenchmark`
+workloads are checked against `BigInteger`. The Kotlin port is variable-time.
+
 ## JVM benchmarks
 
 The explicitly accepted Alpha [`kotlinx-benchmark 0.5.0`](https://github.com/Kotlin/kotlinx-benchmark/releases/tag/v0.5.0)
@@ -501,6 +512,7 @@ Input preparation and parameter-name resolution occur outside timing.
 | `UInt328ModInverseBenchmark.modInverse` | Five invertible shapes below | Complete residue-coefficient Euclidean loop, exact wide products/reductions and allocations; no fixture preparation or output encoding |
 | `IbzBenchmark.add`, `multiply`, `divideAndRemainder` | All parameter sets; `WORD`, `HALF_CAPACITY` | Checked signed sum, exact product or truncating quotient/remainder, including bit-length derivation and result allocation; parsing outside timing |
 | `IbzNumberTheoryBenchmark.gcd`, `inverseMod`, `powMod`, `probablePrime` | All parameter sets | Euclid gcd, Bezout inverse, full-width modular power or Baillie-PSW without extra rounds over a deterministic `capacity / 8`-bit prime, including result allocation; prime search and parsing outside timing |
+| `IbzFixedPointBenchmark.highProduct`, `reciprocal` | All parameter sets | `floor(a * b / 2^P)` at `P + 4` bits, or five Newton rounds of the reciprocal, at the level's `FP_P_BITS` precision `P` over `P`-bit operands, including result allocation; parsing outside timing |
 | `MontgomeryBenchmark.coefficient` | All parameter sets; `SHORT`, `FULL_WIDTH` | `A/C`, including inversion and canonical field result allocation |
 | `MontgomeryBenchmark.doublePoint` / `differentialAdd` | All parameter sets; `SHORT`, `FULL_WIDTH` | Complete x-only operation and projective result allocation, without affine normalization |
 | `MontgomeryBenchmark.multiply` | All parameter sets; `SHORT`, `FULL_WIDTH` | Encoded-scalar ladder and all intermediate/result allocations; no setup or affine normalization |
@@ -607,13 +619,13 @@ The public library API is unchanged; internal wide results are not exposed by it
 
 ```sh
 ./gradlew jvmTest                       # Check workload correctness before timing
-./gradlew jvmBenchmarkSmokeBenchmark    # Discovery/execution only: 316 cases
+./gradlew jvmBenchmarkSmokeBenchmark    # Discovery/execution only: 322 cases
 ./gradlew jvmBenchmarkBenchmarkJar      # Build the JMH harness before measurement
 ./gradlew jvmBenchmarkBenchmark         # Opt-in full profile on a controlled host
 ```
 
 The `smoke` profile uses one fork, one 50 ms warmup, and one 50 ms measurement
-per case. Linux CI requires the complete 316-case parameter matrix, the expected
+per case. Linux CI requires the complete 322-case parameter matrix, the expected
 mode/unit/profile, and finite positive samples. It uploads JSON reports,
 execution logs, and commit/host/JDK/Gradle metadata with the other Kotlin reports.
 The `main` measurement profile uses three forks, three 1 s warmups, and five 1 s

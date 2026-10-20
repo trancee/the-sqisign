@@ -387,6 +387,44 @@ number_theory(const char *op, char **arguments)
     return 1;
 }
 
+static int
+fixed_point(const char *op, char **arguments)
+{
+    ibz_t a, b, r;
+    if (strcmp(op, "cshift") == 0) {
+        decode(&a, arguments[0]);
+        ibz_ct_shift(&r, &a, (int32_t)number(arguments[1]), (int32_t)number(arguments[2]), (int)number(arguments[3]));
+    } else if (strcmp(op, "highp") == 0) {
+        decode(&a, arguments[0]);
+        decode(&b, arguments[1]);
+        ibz_ct_highmul_p(&r, &a, &b, (int)number(arguments[2]), (int)number(arguments[3]));
+    } else if (strcmp(op, "highs") == 0) {
+        decode(&a, arguments[0]);
+        decode(&b, arguments[1]);
+        ibz_ct_highmul_s(
+            &r, &a, &b, (int32_t)number(arguments[2]), (int32_t)number(arguments[3]), (int)number(arguments[4]));
+    } else if (strcmp(op, "recip") == 0) {
+        int32_t size;
+        decode(&a, arguments[0]);
+        ibz_ct_fp_recip(&r, &size, &a, (int)number(arguments[1]), (int)number(arguments[2]));
+        print_ibz(&r);
+        printf(" %" PRId32, size);
+        return 1;
+    } else if (strcmp(op, "rshift") == 0) {
+        decode(&a, arguments[0]);
+        ibz_ct_round_shift_limb(&r, &a, (int)number(arguments[1]), (int)number(arguments[2]));
+    } else if (strcmp(op, "ltmask") == 0) {
+        decode(&a, arguments[0]);
+        decode(&b, arguments[1]);
+        printf("%d", (int)(sdigit_t)ibz_ct_lt_mask(&a, &b));
+        return 1;
+    } else {
+        return 0;
+    }
+    print_ibz(&r);
+    return 1;
+}
+
 static void
 special(const char *op, char **arguments)
 {
@@ -416,7 +454,7 @@ special(const char *op, char **arguments)
             fail("random symmetric interval");
         finish_script();
     } else {
-        if (!number_theory(op, arguments))
+        if (!fixed_point(op, arguments) && !number_theory(op, arguments))
             unary(op, arguments);
         return;
     }

@@ -263,6 +263,10 @@ jobs:
               workloads[f"IbzNumberTheoryBenchmark.{operation}"] = {
                   "parameterSet": ("NIST_I", "NIST_III", "NIST_V"),
               }
+          for operation in ("highProduct", "reciprocal"):
+              workloads[f"IbzFixedPointBenchmark.{operation}"] = {
+                  "parameterSet": ("NIST_I", "NIST_III", "NIST_V"),
+              }
           for operation in ("coefficient", "doublePoint", "differentialAdd", "multiply",
                             "threePointMultiply", "biscalarMultiply", "deterministicDifference",
                             "referenceSquareRoot", "sharedDifference"):

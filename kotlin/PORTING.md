@@ -1231,3 +1231,27 @@ the pinned `modqx.c`. Precondition and composite tests bring coverage to
 Remaining milestone 6 slices: integer-only LLL, quaternion algebra elements
 and lattices, then ideals. Everything remains variable-time and without
 expert review. No public ABI, wire format, dependency or toolchain changes.
+
+## Quaternion decision 2026-10-19: fixed-point lattice integers
+
+[`ADR 0022`](adr/0022-fixed-point-lattice-integers.md) starts the LLL slice
+with the `ibz_ct_*` fixed-point layer of the pinned `mp.c`. Internal `Ibz`
+extensions `shiftSigned`, `highProduct`, `scaledProduct`,
+`fixedPointReciprocal` and `roundShiftWords` port `ibz_ct_shift`/`_shl`,
+`ibz_ct_highmul_p`/`_s`, `ibz_ct_fp_recip` and `ibz_ct_round_shift_limb`. Each
+computes the exact value from unbounded words and then narrows as C does. The
+mask helpers (`ibz_ct_lt_mask`, `ibz_cneg`, `ibz_cswap`, `ibz_set_bound_ct`,
+`ibz_bitsize_ct`, `ibz_mul_by_int_and_set_bound`, `ibz_cmp_int32`) map to
+existing operations.
+
+`tools/generate_fixed_point_vectors.py` independently models 422 records at
+each level's `FP_P_BITS` (640, 832 and 1152), and `checkIbzReference` now
+checks 2077 records against pinned C. Precondition tests bring coverage to
+100%. Six retained `IbzFixedPointBenchmark` cases are checked against
+`BigInteger`, so the smoke inventory changes from 316 to 322.
+
+Remaining milestone 6 work: the dimension-2, dimension-4 and Gaussian lattice
+reductions, quaternion algebra elements and lattices, then ideals. Everything
+remains variable-time and without expert review. No public ABI, wire format,
+dependency or toolchain changes.
+
