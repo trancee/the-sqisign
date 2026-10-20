@@ -22,7 +22,7 @@ permissions:
 jobs:
   coverage:
     name: ${{ matrix.config }} (${{ matrix.platform }})
-    runs-on: [self-hosted, "${{ matrix.platform }}"]
+    runs-on: ${{ matrix.platform == 'arm64' && 'ubuntu-24.04-arm' || 'ubuntu-24.04' }}
     strategy:
       fail-fast: false
       matrix:
@@ -38,6 +38,11 @@ jobs:
           # An empty ref means the ref that triggered the run, so this covers both the unset and the set case. A SHA
           # here must be the full 40 characters.
           ref: ${{ inputs.commit_sha }}
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq --no-install-recommends ninja-build gcovr
 
       - name: Report the gcovr version in use
         # Recorded explicitly because it is not pinned. gcov must come from the same toolchain as the compiler, so it

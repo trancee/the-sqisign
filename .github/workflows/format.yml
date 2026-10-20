@@ -1,15 +1,15 @@
 name: Formatting (clang-format)
 
-# Verifies that every C source in scope is formatted exactly as clang-format would write it, on a self-hosted x64 runner
-# (directly, not in Docker). Mirrors scripts/format.sh --check, which is the same thing `make check-format` and the
-# pre-commit hook run locally.
+# Verifies that every C source in scope is formatted exactly as clang-format would write it, on a GitHub-hosted
+# ubuntu-24.04 runner (directly, not in Docker). Mirrors scripts/format.sh --check, which is the same thing
+# `make check-format` and the pre-commit hook run locally.
 #
 # The clang-format version and the list of excluded (vendored or generated) files are read from .pre-commit-config.yaml
 # by scripts/format.sh, so this workflow hardcodes neither: bumping the pin in that one file updates the hook, the CMake
 # targets and this job together.
 #
-# The pinned clang-format is installed into a version-keyed directory under $HOME. The runners are not containerized, so
-# that install persists and only the very first run downloads anything.
+# The pinned clang-format is installed into a version-keyed directory under $HOME, which actions/cache restores between
+# runs (keyed on .pre-commit-config.yaml), so only the first run after a pin bump downloads anything.
 
 on:
   push:
@@ -28,10 +28,16 @@ permissions:
 jobs:
   format:
     name: clang-format
-    runs-on: [self-hosted, x64]
+    runs-on: ubuntu-24.04
 
     steps:
       - uses: actions/checkout@v4
+
+      - name: Restore the cached clang-format
+        uses: actions/cache@v4
+        with:
+          path: ~/.local/share/sqisign-clang-format
+          key: clang-format-${{ runner.os }}-${{ hashFiles('.pre-commit-config.yaml') }}
 
       - name: Provision the pinned clang-format
         run: |
@@ -45,7 +51,7 @@ jobs:
           echo "Pinned version: clang-format $PINNED"
 
           # Keyed on the version, so bumping the pin provisions afresh rather than silently reusing a stale binary.
-          # Lives in $HOME, never the workspace, so it cannot dirty the checkout and survives between runs.
+          # Lives in $HOME, never the workspace, so it cannot dirty the checkout; actions/cache carries it between runs.
           VENV="$HOME/.local/share/sqisign-clang-format/$PINNED"
           if [ -x "$VENV/bin/clang-format" ]; then
             echo "Reusing the copy already installed in $VENV"

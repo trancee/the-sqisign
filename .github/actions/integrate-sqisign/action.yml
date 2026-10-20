@@ -16,7 +16,7 @@ inputs:
 runs:
   using: composite
   steps:
-    - name: Preflight (self-hosted runners are provisioned by hand)
+    - name: Preflight (required tools are on PATH)
       shell: bash
       run: |
         set -eu
@@ -64,7 +64,7 @@ runs:
       # Apply the core patch, point the-sqisign upstream at this checkout, and copy.
       # copy_from_upstream `git commit`s the patched upstream repos, which needs a
       # git identity. Provide it via env vars (process-scoped) rather than
-      # `git config --global` so we don't mutate the shared self-hosted runner.
+      # `git config --global` so the runner's global git config stays untouched.
       shell: bash
       env:
         GIT_AUTHOR_NAME: sqisign-ci
