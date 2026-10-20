@@ -128,10 +128,21 @@ if(SQISIGN_KMP_OUTPUT STREQUAL "jni")
             target_link_options(sqisign_jni PRIVATE -static -Wl,--gc-sections)
         endif()
     else()
-        target_link_options(sqisign_jni PRIVATE -Wl,--gc-sections -Wl,--exclude-libs,ALL
+        # The version script hides everything else. (--exclude-libs is avoided: with GCC's LTO plugin it breaks
+        # resolution of LTO archive symbols referenced from regular objects.)
+        target_link_options(sqisign_jni PRIVATE -Wl,--gc-sections
             -Wl,--version-script=${CMAKE_CURRENT_LIST_DIR}/src/sqisign_jni.map)
     endif()
     install(TARGETS sqisign_jni LIBRARY DESTINATION . RUNTIME DESTINATION .)
+    get_directory_property(SQISIGN_UPSTREAM_IPO DIRECTORY ${SQISIGN_ROOT} DEFINITION CMAKE_INTERPROCEDURAL_OPTIMIZATION)
+    if(SQISIGN_KMP_IPO AND SQISIGN_UPSTREAM_IPO)
+        # Match the upstream libraries (IPO is a directory-scoped default there), so the whole link is LTO.
+        set(SQISIGN_KMP_OWN_TARGETS sqisign_kmp sqisign_jni)
+        foreach(V ${SQISIGN_KMP_VARIANTS})
+            list(APPEND SQISIGN_KMP_OWN_TARGETS sqisign_kmp_common_${V} sqisign_kmp_variant_${V})
+        endforeach()
+        set_target_properties(${SQISIGN_KMP_OWN_TARGETS} PROPERTIES INTERPROCEDURAL_OPTIMIZATION ON)
+    endif()
 elseif(SQISIGN_KMP_OUTPUT STREQUAL "static")
     if(NOT APPLE)
         message(FATAL_ERROR "SQISIGN_KMP_OUTPUT=static is only supported for Apple targets")
