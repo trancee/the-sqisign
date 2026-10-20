@@ -17,10 +17,11 @@ set_property(CACHE SQISIGN_KMP_OUTPUT PROPERTY STRINGS jni static)
 get_filename_component(SQISIGN_ROOT "${CMAKE_CURRENT_LIST_DIR}/../.." ABSOLUTE)
 set(SQISIGN_KMP_VARIANTS p324_3 p500_27 p664_17)
 
-# Upstream enables LTO for release builds. Keep it only for desktop JNI builds: on Android below API 29, lld's LTO
-# codegen emits native ELF TLS while regular objects use emulated TLS (undefined __tls_get_addr), and LLVM bitcode in
-# the Apple static archive would be consumed by a different linker toolchain inside Kotlin/Native.
-if(SQISIGN_KMP_OUTPUT STREQUAL "jni" AND NOT ANDROID)
+# Upstream enables LTO for release builds. Keep it only for desktop JNI builds with Clang: on Android below API 29,
+# lld's LTO codegen emits native ELF TLS while regular objects use emulated TLS (undefined __tls_get_addr); GCC's LTO
+# drops the thread-local PRNG state referenced across archives; and LLVM bitcode in the Apple static archive would be
+# consumed by a different linker toolchain inside Kotlin/Native.
+if(SQISIGN_KMP_OUTPUT STREQUAL "jni" AND NOT ANDROID AND CMAKE_C_COMPILER_ID MATCHES "Clang")
     set(SQISIGN_KMP_IPO_DEFAULT ON)
 else()
     set(SQISIGN_KMP_IPO_DEFAULT OFF)
@@ -130,7 +131,7 @@ if(SQISIGN_KMP_OUTPUT STREQUAL "jni")
     else()
         # The version script hides everything else. (--exclude-libs is avoided: with GCC's LTO plugin it breaks
         # resolution of LTO archive symbols referenced from regular objects.)
-        target_link_options(sqisign_jni PRIVATE -Wl,--gc-sections
+        target_link_options(sqisign_jni PRIVATE -Wl,--gc-sections -Wl,-z,defs
             -Wl,--version-script=${CMAKE_CURRENT_LIST_DIR}/src/sqisign_jni.map)
     endif()
     install(TARGETS sqisign_jni LIBRARY DESTINATION . RUNTIME DESTINATION .)
