@@ -24,16 +24,16 @@ jobs:
         sqisign_build_type: [ref]
         gf_radix: [AUTO, 32]
 
-    runs-on: [self-hosted, "${{ matrix.platform }}"]
+    runs-on: ubuntu-24.04
 
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7.0.1
         with:
           ref: ${{ github.event.inputs.commit_sha }}
 
-      ##    - name: Install dependencies Valgrind, Doxygen, TeX, gcc-multilib
-      ##      run: |
-      ##          sudo apt update && sudo apt --fix-missing install valgrind doxygen texlive-xetex gcc-multilib
+      - uses: ./.github/actions/setup-c-runner
+        with:
+          multilib: ${{ matrix.toolchain != '' }}
 
       - name: Configure CMake
         # Configure CMake in a 'build' subdirectory. `CMAKE_BUILD_TYPE` is only required if you are using a single-configuration generator such as make.
@@ -66,14 +66,14 @@ jobs:
         sqisign_build_type: [broadwell]
         gf_radix: [AUTO]
   
-    runs-on: [self-hosted, "${{ matrix.platform }}"]
+    runs-on: ubuntu-24.04
   
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7.0.1
+        with:
+          ref: ${{ inputs.commit_sha }}
   
-      ##    - name: Install dependencies Valgrind, Doxygen, TeX, gcc-multilib
-      ##      run: |
-      ##          sudo apt update && sudo apt --fix-missing install valgrind doxygen texlive-xetex gcc-multilib
+      - uses: ./.github/actions/setup-c-runner
   
       - name: Configure CMake
         # Configure CMake in a 'build' subdirectory. `CMAKE_BUILD_TYPE` is only required if you are using a single-configuration generator such as make.
@@ -106,14 +106,14 @@ jobs:
         sqisign_build_type: [ref]
         gf_radix: [AUTO]
   
-    runs-on: [self-hosted, "${{ matrix.platform }}"]
+    runs-on: ubuntu-24.04-arm
   
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7.0.1
+        with:
+          ref: ${{ inputs.commit_sha }}
   
-      ##    - name: Install dependencies Valgrind, Doxygen, TeX, gcc-multilib
-      ##      run: |
-      ##          sudo apt update && sudo apt --fix-missing install valgrind doxygen texlive-xetex gcc-multilib
+      - uses: ./.github/actions/setup-c-runner
   
       - name: Configure CMake
         # Configure CMake in a 'build' subdirectory. `CMAKE_BUILD_TYPE` is only required if you are using a single-configuration generator such as make.
@@ -146,14 +146,14 @@ jobs:
         sqisign_build_type: [ref, broadwell]
         gf_radix: [AUTO]
   
-    runs-on: [self-hosted, "${{ matrix.platform }}"]
+    runs-on: ubuntu-24.04
   
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7.0.1
+        with:
+          ref: ${{ inputs.commit_sha }}
   
-      ##    - name: Install dependencies Valgrind, Doxygen, TeX, gcc-multilib
-      ##      run: |
-      ##          sudo apt update && sudo apt --fix-missing install valgrind doxygen texlive-xetex gcc-multilib
+      - uses: ./.github/actions/setup-c-runner
   
       - name: Configure CMake
         # Configure CMake in a 'build' subdirectory. `CMAKE_BUILD_TYPE` is only required if you are using a single-configuration generator such as make.

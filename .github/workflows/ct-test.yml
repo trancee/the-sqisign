@@ -39,15 +39,19 @@ jobs:
           - platform: arm64
             sqisign_build_type: arm64
 
-    runs-on: [self-hosted, "${{ matrix.platform }}"]
+    runs-on: ${{ fromJSON('{"x64":"ubuntu-24.04","arm64":"ubuntu-24.04-arm"}')[matrix.platform] }}
 
     steps:
-    - uses: actions/checkout@v5
+    - uses: actions/checkout@v7.0.1
       with:
         # An empty ref means the ref that triggered the run, so this covers both the unset and the set case. The
         # `inputs` context, not `github.event.inputs`: the latter is empty when this workflow is called rather than
         # dispatched. A SHA here must be the full 40 characters.
         ref: ${{ inputs.commit_sha }}
+
+    - uses: ./.github/actions/setup-c-runner
+      with:
+        packages: valgrind
 
     - name: Configure CMake
       run: cmake -B ${{github.workspace}}/build -DENABLE_CT_TESTING=ON -DCMAKE_BUILD_TYPE=RelWithDebInfo -DSQISIGN_TEST_REPS=1 -DSQISIGN_BUILD_TYPE=${{ matrix.sqisign_build_type }} -G Ninja

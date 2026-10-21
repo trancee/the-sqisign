@@ -13,18 +13,18 @@ on:
 
 jobs:
   checks:
-    runs-on: [self-hosted, x64]
+    runs-on: ubuntu-24.04
     steps:
     - name: Checkout repository
-      uses: actions/checkout@v5
+      uses: actions/checkout@v7.0.1
       with:
         # An empty ref means the ref that triggered the run, so this covers both the unset and the set case. A SHA
         # here must be the full 40 characters.
         ref: ${{ inputs.commit_sha }}
 
-    #- name: Install dependencies
-    #  run: |
-    #    sudo apt -y update && sudo apt -y install gcc cmake scala
+    - uses: ./.github/actions/setup-c-runner
+      with:
+        packages: scala default-jre-headless
 
     - name: Check namespace
       id: check_namespace
@@ -33,7 +33,7 @@ jobs:
 
     - name: Upload regenerated sqisign_namespace.h
       if: always()
-      uses: actions/upload-artifact@v5
+      uses: actions/upload-artifact@v7.0.2
       with:
         name: sqisign_namespace.h
         path: build/sqisign_namespace.h

@@ -44,15 +44,27 @@ jobs:
             sqisign_build_type: ref
             sqisign_test_reps: 10
 
-    runs-on: [self-hosted, "${{ matrix.platform }}"]
+    runs-on: ${{ fromJSON('{"x64":"ubuntu-24.04","arm64":"ubuntu-24.04-arm"}')[matrix.platform] }}
 
     steps:
-    - uses: actions/checkout@v5
+    - uses: actions/checkout@v7.0.1
       with:
         # An empty ref means the ref that triggered the run, so this covers both the unset and the set case. The
         # `inputs` context, not `github.event.inputs`: the latter is empty when this workflow is called rather than
         # dispatched. A SHA here must be the full 40 characters.
         ref: ${{ inputs.commit_sha }}
+
+    - uses: ./.github/actions/setup-c-runner
+      with:
+        multilib: ${{ matrix.toolchain != '' }}
+
+    - name: Record benchmark environment
+      run: |
+        echo "::notice::Shared-runner benchmark timings are not comparable to dedicated-runner baselines."
+        git rev-parse HEAD
+        uname -a
+        lscpu
+        cc --version
 
     - name: Configure CMake
       # Configure CMake in a 'build' subdirectory. `CMAKE_BUILD_TYPE` is only required if you are using a single-configuration generator such as make.

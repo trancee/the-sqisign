@@ -1,0 +1,115 @@
+// Klib ABI Dump
+// Targets: [js, linuxX64, macosArm64]
+// Rendering settings:
+// - Signature version: 2
+// - Show manifest properties: true
+// - Show declarations: true
+
+// Library unique name: <ch.trancee.sqisign:sqisign-kotlin>
+final enum class ch.trancee.sqisign/ParameterSet : kotlin/Enum<ch.trancee.sqisign/ParameterSet> { // ch.trancee.sqisign/ParameterSet|null[0]
+    enum entry NIST_I // ch.trancee.sqisign/ParameterSet.NIST_I|null[0]
+    enum entry NIST_III // ch.trancee.sqisign/ParameterSet.NIST_III|null[0]
+    enum entry NIST_V // ch.trancee.sqisign/ParameterSet.NIST_V|null[0]
+
+    final val challengeBytes // ch.trancee.sqisign/ParameterSet.challengeBytes|{}challengeBytes[0]
+        final fun <get-challengeBytes>(): kotlin/Int // ch.trancee.sqisign/ParameterSet.challengeBytes.<get-challengeBytes>|<get-challengeBytes>(){}[0]
+    final val cofactor // ch.trancee.sqisign/ParameterSet.cofactor|{}cofactor[0]
+        final fun <get-cofactor>(): kotlin/Int // ch.trancee.sqisign/ParameterSet.cofactor.<get-cofactor>|<get-cofactor>(){}[0]
+    final val entries // ch.trancee.sqisign/ParameterSet.entries|#static{}entries[0]
+        final fun <get-entries>(): kotlin.enums/EnumEntries<ch.trancee.sqisign/ParameterSet> // ch.trancee.sqisign/ParameterSet.entries.<get-entries>|<get-entries>#static(){}[0]
+    final val extensionFieldBytes // ch.trancee.sqisign/ParameterSet.extensionFieldBytes|{}extensionFieldBytes[0]
+        final fun <get-extensionFieldBytes>(): kotlin/Int // ch.trancee.sqisign/ParameterSet.extensionFieldBytes.<get-extensionFieldBytes>|<get-extensionFieldBytes>(){}[0]
+    final val fieldBytes // ch.trancee.sqisign/ParameterSet.fieldBytes|{}fieldBytes[0]
+        final fun <get-fieldBytes>(): kotlin/Int // ch.trancee.sqisign/ParameterSet.fieldBytes.<get-fieldBytes>|<get-fieldBytes>(){}[0]
+    final val identifier // ch.trancee.sqisign/ParameterSet.identifier|{}identifier[0]
+        final fun <get-identifier>(): kotlin/String // ch.trancee.sqisign/ParameterSet.identifier.<get-identifier>|<get-identifier>(){}[0]
+    final val publicKeyBytes // ch.trancee.sqisign/ParameterSet.publicKeyBytes|{}publicKeyBytes[0]
+        final fun <get-publicKeyBytes>(): kotlin/Int // ch.trancee.sqisign/ParameterSet.publicKeyBytes.<get-publicKeyBytes>|<get-publicKeyBytes>(){}[0]
+    final val responseBits // ch.trancee.sqisign/ParameterSet.responseBits|{}responseBits[0]
+        final fun <get-responseBits>(): kotlin/Int // ch.trancee.sqisign/ParameterSet.responseBits.<get-responseBits>|<get-responseBits>(){}[0]
+    final val responseBytes // ch.trancee.sqisign/ParameterSet.responseBytes|{}responseBytes[0]
+        final fun <get-responseBytes>(): kotlin/Int // ch.trancee.sqisign/ParameterSet.responseBytes.<get-responseBytes>|<get-responseBytes>(){}[0]
+    final val secretKeyBytes // ch.trancee.sqisign/ParameterSet.secretKeyBytes|{}secretKeyBytes[0]
+        final fun <get-secretKeyBytes>(): kotlin/Int // ch.trancee.sqisign/ParameterSet.secretKeyBytes.<get-secretKeyBytes>|<get-secretKeyBytes>(){}[0]
+    final val securityBits // ch.trancee.sqisign/ParameterSet.securityBits|{}securityBits[0]
+        final fun <get-securityBits>(): kotlin/Int // ch.trancee.sqisign/ParameterSet.securityBits.<get-securityBits>|<get-securityBits>(){}[0]
+    final val signatureBytes // ch.trancee.sqisign/ParameterSet.signatureBytes|{}signatureBytes[0]
+        final fun <get-signatureBytes>(): kotlin/Int // ch.trancee.sqisign/ParameterSet.signatureBytes.<get-signatureBytes>|<get-signatureBytes>(){}[0]
+    final val torsionExponent // ch.trancee.sqisign/ParameterSet.torsionExponent|{}torsionExponent[0]
+        final fun <get-torsionExponent>(): kotlin/Int // ch.trancee.sqisign/ParameterSet.torsionExponent.<get-torsionExponent>|<get-torsionExponent>(){}[0]
+
+    final fun primeBytes(): kotlin/ByteArray // ch.trancee.sqisign/ParameterSet.primeBytes|primeBytes(){}[0]
+    final fun valueOf(kotlin/String): ch.trancee.sqisign/ParameterSet // ch.trancee.sqisign/ParameterSet.valueOf|valueOf#static(kotlin.String){}[0]
+    final fun values(): kotlin/Array<ch.trancee.sqisign/ParameterSet> // ch.trancee.sqisign/ParameterSet.values|values#static(){}[0]
+}
+
+final enum class ch.trancee.sqisign/PrngDomain : kotlin/Enum<ch.trancee.sqisign/PrngDomain> { // ch.trancee.sqisign/PrngDomain|null[0]
+    enum entry COMMITMENT // ch.trancee.sqisign/PrngDomain.COMMITMENT|null[0]
+    enum entry DEFAULT // ch.trancee.sqisign/PrngDomain.DEFAULT|null[0]
+    enum entry KEY_GENERATION // ch.trancee.sqisign/PrngDomain.KEY_GENERATION|null[0]
+    enum entry RESPONSE // ch.trancee.sqisign/PrngDomain.RESPONSE|null[0]
+
+    final val entries // ch.trancee.sqisign/PrngDomain.entries|#static{}entries[0]
+        final fun <get-entries>(): kotlin.enums/EnumEntries<ch.trancee.sqisign/PrngDomain> // ch.trancee.sqisign/PrngDomain.entries.<get-entries>|<get-entries>#static(){}[0]
+
+    final fun valueOf(kotlin/String): ch.trancee.sqisign/PrngDomain // ch.trancee.sqisign/PrngDomain.valueOf|valueOf#static(kotlin.String){}[0]
+    final fun values(): kotlin/Array<ch.trancee.sqisign/PrngDomain> // ch.trancee.sqisign/PrngDomain.values|values#static(){}[0]
+}
+
+final class ch.trancee.sqisign/EncodedPublicKey { // ch.trancee.sqisign/EncodedPublicKey|null[0]
+    final val hint // ch.trancee.sqisign/EncodedPublicKey.hint|{}hint[0]
+        final fun <get-hint>(): kotlin/Int // ch.trancee.sqisign/EncodedPublicKey.hint.<get-hint>|<get-hint>(){}[0]
+    final val parameters // ch.trancee.sqisign/EncodedPublicKey.parameters|{}parameters[0]
+        final fun <get-parameters>(): ch.trancee.sqisign/ParameterSet // ch.trancee.sqisign/EncodedPublicKey.parameters.<get-parameters>|<get-parameters>(){}[0]
+
+    final fun montgomeryCoefficient(): kotlin/ByteArray // ch.trancee.sqisign/EncodedPublicKey.montgomeryCoefficient|montgomeryCoefficient(){}[0]
+    final fun toByteArray(): kotlin/ByteArray // ch.trancee.sqisign/EncodedPublicKey.toByteArray|toByteArray(){}[0]
+}
+
+final class ch.trancee.sqisign/EncodedSignature { // ch.trancee.sqisign/EncodedSignature|null[0]
+    final val auxiliaryHint // ch.trancee.sqisign/EncodedSignature.auxiliaryHint|{}auxiliaryHint[0]
+        final fun <get-auxiliaryHint>(): kotlin/Int // ch.trancee.sqisign/EncodedSignature.auxiliaryHint.<get-auxiliaryHint>|<get-auxiliaryHint>(){}[0]
+    final val challengeHint // ch.trancee.sqisign/EncodedSignature.challengeHint|{}challengeHint[0]
+        final fun <get-challengeHint>(): kotlin/Int // ch.trancee.sqisign/EncodedSignature.challengeHint.<get-challengeHint>|<get-challengeHint>(){}[0]
+    final val parameters // ch.trancee.sqisign/EncodedSignature.parameters|{}parameters[0]
+        final fun <get-parameters>(): ch.trancee.sqisign/ParameterSet // ch.trancee.sqisign/EncodedSignature.parameters.<get-parameters>|<get-parameters>(){}[0]
+
+    final fun auxiliaryMontgomeryCoefficient(): kotlin/ByteArray // ch.trancee.sqisign/EncodedSignature.auxiliaryMontgomeryCoefficient|auxiliaryMontgomeryCoefficient(){}[0]
+    final fun challenge(): kotlin/ByteArray // ch.trancee.sqisign/EncodedSignature.challenge|challenge(){}[0]
+    final fun responseEntry(kotlin/Int, kotlin/Int): kotlin/ByteArray // ch.trancee.sqisign/EncodedSignature.responseEntry|responseEntry(kotlin.Int;kotlin.Int){}[0]
+    final fun toByteArray(): kotlin/ByteArray // ch.trancee.sqisign/EncodedSignature.toByteArray|toByteArray(){}[0]
+}
+
+final class ch.trancee.sqisign/Shake256 { // ch.trancee.sqisign/Shake256|null[0]
+    constructor <init>() // ch.trancee.sqisign/Shake256.<init>|<init>(){}[0]
+
+    final fun absorb(kotlin/ByteArray, kotlin/Int = ..., kotlin/Int = ...): ch.trancee.sqisign/Shake256 // ch.trancee.sqisign/Shake256.absorb|absorb(kotlin.ByteArray;kotlin.Int;kotlin.Int){}[0]
+    final fun clear() // ch.trancee.sqisign/Shake256.clear|clear(){}[0]
+    final fun squeeze(kotlin/Int): kotlin/ByteArray // ch.trancee.sqisign/Shake256.squeeze|squeeze(kotlin.Int){}[0]
+    final fun squeezeInto(kotlin/ByteArray, kotlin/Int = ..., kotlin/Int = ...) // ch.trancee.sqisign/Shake256.squeezeInto|squeezeInto(kotlin.ByteArray;kotlin.Int;kotlin.Int){}[0]
+
+    final object Companion { // ch.trancee.sqisign/Shake256.Companion|null[0]
+        final fun digest(kotlin/ByteArray, kotlin/Int): kotlin/ByteArray // ch.trancee.sqisign/Shake256.Companion.digest|digest(kotlin.ByteArray;kotlin.Int){}[0]
+    }
+}
+
+final class ch.trancee.sqisign/SqiSignPrng { // ch.trancee.sqisign/SqiSignPrng|null[0]
+    constructor <init>(kotlin/ByteArray, ch.trancee.sqisign/PrngDomain) // ch.trancee.sqisign/SqiSignPrng.<init>|<init>(kotlin.ByteArray;ch.trancee.sqisign.PrngDomain){}[0]
+
+    final fun bytes(kotlin/Int): kotlin/ByteArray // ch.trancee.sqisign/SqiSignPrng.bytes|bytes(kotlin.Int){}[0]
+    final fun bytesInto(kotlin/ByteArray, kotlin/Int = ..., kotlin/Int = ...) // ch.trancee.sqisign/SqiSignPrng.bytesInto|bytesInto(kotlin.ByteArray;kotlin.Int;kotlin.Int){}[0]
+    final fun clear() // ch.trancee.sqisign/SqiSignPrng.clear|clear(){}[0]
+}
+
+final object ch.trancee.sqisign/ChallengeHash { // ch.trancee.sqisign/ChallengeHash|null[0]
+    final fun compute(ch.trancee.sqisign/EncodedPublicKey, kotlin/ByteArray, kotlin/ByteArray): kotlin/ByteArray // ch.trancee.sqisign/ChallengeHash.compute|compute(ch.trancee.sqisign.EncodedPublicKey;kotlin.ByteArray;kotlin.ByteArray){}[0]
+}
+
+final object ch.trancee.sqisign/SqiSign { // ch.trancee.sqisign/SqiSign|null[0]
+    final fun verify(ch.trancee.sqisign/EncodedPublicKey, kotlin/ByteArray, ch.trancee.sqisign/EncodedSignature): kotlin/Boolean // ch.trancee.sqisign/SqiSign.verify|verify(ch.trancee.sqisign.EncodedPublicKey;kotlin.ByteArray;ch.trancee.sqisign.EncodedSignature){}[0]
+}
+
+final object ch.trancee.sqisign/WireFormat { // ch.trancee.sqisign/WireFormat|null[0]
+    final fun publicKey(ch.trancee.sqisign/ParameterSet, kotlin/ByteArray): ch.trancee.sqisign/EncodedPublicKey // ch.trancee.sqisign/WireFormat.publicKey|publicKey(ch.trancee.sqisign.ParameterSet;kotlin.ByteArray){}[0]
+    final fun signature(ch.trancee.sqisign/ParameterSet, kotlin/ByteArray): ch.trancee.sqisign/EncodedSignature // ch.trancee.sqisign/WireFormat.signature|signature(ch.trancee.sqisign.ParameterSet;kotlin.ByteArray){}[0]
+}

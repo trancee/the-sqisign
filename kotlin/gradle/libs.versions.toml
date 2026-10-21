@@ -1,0 +1,8 @@
+[versions]
+kotlinx-benchmark = "0.5.0"
+
+[libraries]
+kotlinx-benchmark-runtime = { module = "org.jetbrains.kotlinx:kotlinx-benchmark-runtime", version.ref = "kotlinx-benchmark" }
+
+[plugins]
+kotlinx-benchmark = { id = "org.jetbrains.kotlinx.benchmark", version.ref = "kotlinx-benchmark" }

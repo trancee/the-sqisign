@@ -3,6 +3,16 @@ name: CMake
 on:
   push:
     branches: ["**"]
+    paths:
+      - 'CMakeLists.txt'
+      - '.cmake/**'
+      - 'src/**'
+      - 'include/**'
+      - 'apps/**'
+      - 'test/**'
+      - 'scripts/**'
+      - '.github/workflows/cmake.yml'
+      - '.github/actions/setup-c-runner/**'
 #  pull_request:
 #    branches: [ "main" ]
 
@@ -47,17 +57,15 @@ jobs:
             gf_radix: AUTO
             enable_sign: OFF
 
-    runs-on: [self-hosted, "${{ matrix.platform }}"]
+    runs-on: ${{ fromJSON('{"x64":"ubuntu-24.04","arm64":"ubuntu-24.04-arm"}')[matrix.platform] }}
 
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7.0.1
 
-      ##    - name: Install dependencies Valgrind, Doxygen, TeX, gcc-multilib
-      ##      run: |
-      ##          sudo apt update && sudo apt --fix-missing install valgrind doxygen texlive-xetex gcc-multilib
-
-      - name: Set up environment for ccache
-        run: echo "PATH=/usr/lib/ccache:$PATH" >> $GITHUB_ENV
+      - uses: ./.github/actions/setup-c-runner
+        with:
+          packages: valgrind
+          multilib: ${{ matrix.toolchain != '' }}
 
       - name: Configure CMake
         # Configure CMake in a 'build' subdirectory. `CMAKE_BUILD_TYPE` is only required if you are using a single-configuration generator such as make.
@@ -76,7 +84,7 @@ jobs:
 
       ## - name: Upload latex documentation
       ##  if: ${{ ((matrix.gf_radix != 32) && (matrix.enable_sign == 'ON')) }}
-      ##  uses: actions/upload-artifact@v5
+      ##  uses: actions/upload-artifact@v7.0.2
       ##  with:
       ##    name: docs-${{ matrix.platform }}-${{ matrix.sqisign_build_type }}
       ##    path: latex/refman.pdf
@@ -150,17 +158,30 @@ jobs:
 
   pqm4:
     # The CMake configure and build commands are platform agnostic and should work equally well on Windows or Mac.
-    runs-on: [self-hosted, x64]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
 
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7.0.1
 
-      ##    - name: Install dependencies Valgrind, Doxygen, TeX, gcc-multilib
-      ##      run: |
-      ##          sudo apt update && sudo apt --fix-missing install valgrind doxygen texlive-xetex gcc-multilib
+      - uses: ./.github/actions/setup-c-runner
+        with:
+          packages: gcc-arm-none-eabi libnewlib-arm-none-eabi qemu-system-arm
 
-      - name: Set up environment for ccache
-        run: echo "PATH=/usr/lib/ccache:$PATH" >> $GITHUB_ENV
+      - name: Checkout pqm4 framework
+        uses: actions/checkout@v7.0.1
+        with:
+          repository: SQISign/the-sqisign-pqm4
+          ref: 5dceca0448b3dec6cfa64929bcb89c03a2dd5293
+          path: the-sqisign-pqm4
+          submodules: recursive
+          persist-credentials: false
+
+      - name: Install pqm4 Python dependencies
+        run: |
+          python3 -m venv "$RUNNER_TEMP/pqm4-venv"
+          "$RUNNER_TEMP/pqm4-venv/bin/python" -m pip install -r the-sqisign-pqm4/requirements.txt
+          echo "$RUNNER_TEMP/pqm4-venv/bin" >> "$GITHUB_PATH"
 
       - name: Configure CMake
         # Configure CMake in a 'build' subdirectory. `CMAKE_BUILD_TYPE` is only required if you are using a single-configuration generator such as make.
@@ -178,7 +199,6 @@ jobs:
         # See https://cmake.org/cmake/help/latest/manual/ctest.1.html for more detail
         run: |
           ./scripts/gen_pqm4_sources.sh all
-          rsync -ac ~/the-sqisign-pqm4 .
           rm -rf ./the-sqisign-pqm4/crypto_sign/sqisign_{p324_3,p500_27,p664_17}
           cp -r src/pqm4/sqisign_{p324_3,p500_27,p664_17} ./the-sqisign-pqm4/crypto_sign
 
@@ -188,7 +208,7 @@ jobs:
         run: |
           cd ./the-sqisign-pqm4
           make PLATFORM=mps2-an386 clean
-          make PLATFORM=mps2-an386 -j$(nproc) \
+          make PLATFORM=mps2-an386 -j"$(nproc)" \
             bin/crypto_sign_sqisign_{p324_3,p500_27,p664_17}_{ref,m4f}_{test,stack,speed,hashing}.bin \
             obj/libcrypto_sign_sqisign_{p324_3,p500_27,p664_17}_{ref,m4f}.a
 

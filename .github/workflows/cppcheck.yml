@@ -26,7 +26,7 @@ permissions:
 jobs:
   cppcheck:
     name: ${{ matrix.config }} (${{ matrix.platform }})
-    runs-on: [self-hosted, "${{ matrix.platform }}"]
+    runs-on: ${{ fromJSON('{"x64":"ubuntu-24.04","arm64":"ubuntu-24.04-arm"}')[matrix.platform] }}
     strategy:
       fail-fast: false
       matrix:
@@ -39,12 +39,16 @@ jobs:
             config: arm64
 
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7.0.1
         with:
           # An empty ref means the ref that triggered the run, so this covers both the unset and the set case. The
           # `inputs` context, not `github.event.inputs`: the latter is empty when this workflow is called rather than
           # dispatched. A SHA here must be the full 40 characters.
           ref: ${{ inputs.commit_sha }}
+
+      - uses: ./.github/actions/setup-c-runner
+        with:
+          packages: cppcheck
 
       - name: Report the cppcheck version in use
         # Recorded explicitly because it is not pinned: when a finding appears or disappears without a code change, this
@@ -62,7 +66,7 @@ jobs:
         # Always upload: an empty findings file is the evidence that the run was clean, and configure.log is what you
         # need when a configure fails on a runner you cannot log into.
         if: always()
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v7.0.2
         with:
           name: cppcheck-${{ matrix.platform }}-${{ matrix.config }}
           path: |

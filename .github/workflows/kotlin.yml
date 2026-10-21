@@ -1,0 +1,393 @@
+name: Kotlin checks
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'kotlin/**'
+      - '!kotlin/**/*.md'
+      - 'KAT/**'
+      - 'src/mp/ref/**'
+      - 'src/quaternion/ref/lvlx/dim2.c'
+      - 'src/quaternion/ref/include/quaternion.h'
+      - 'src/quaternion/ref/lvlx/internal_quaternion_headers/internal.h'
+      - 'src/common/generic/include/**'
+      - 'src/precomp/ref/p324_3/include/**'
+      - 'src/precomp/ref/p500_27/include/**'
+      - 'src/precomp/ref/p664_17/include/**'
+      - 'src/precomp/ref/p324_3/e0_basis.c'
+      - 'src/precomp/ref/p500_27/e0_basis.c'
+      - 'src/precomp/ref/p664_17/e0_basis.c'
+      - 'src/precomp/ref/p324_3/ec_params.c'
+      - 'src/precomp/ref/p500_27/ec_params.c'
+      - 'src/precomp/ref/p664_17/ec_params.c'
+      - 'src/gf/ref/p324_3/**'
+      - 'src/gf/ref/p500_27/**'
+      - 'src/gf/ref/p664_17/**'
+      - 'src/gf/ref/include/fp.h'
+      - 'src/gf/ref/include/fp2.h'
+      - 'src/gf/ref/lvlx/fp.c'
+      - 'src/gf/ref/lvlx/fp2.c'
+      - 'src/ec/ref/lvlx/ec.c'
+      - 'src/ec/ref/lvlx/basis.c'
+      - 'src/ec/ref/lvlx/biextension.c'
+      - 'src/ec/ref/include/ec.h'
+      - 'src/ec/ref/include/biextension.h'
+      - 'src/ec/ref/lvlx/isog.c'
+      - 'src/ec/ref/lvlx/normalize.c'
+      - 'src/ec/ref/include/isog.h'
+      - 'src/hd/ref/**'
+      - 'src/verification/ref/**'
+      - 'src/common/generic/fips202.c'
+      - 'include/ct_testing.h'
+      - 'scripts/add_parameter_set.py'
+      - 'scripts/precomp/torsion_basis.py'
+      - 'include/sqisign_namespace.h'
+      - '.github/workflows/kotlin.yml'
+  pull_request:
+    paths:
+      - 'kotlin/**'
+      - '!kotlin/**/*.md'
+      - 'KAT/**'
+      - 'src/mp/ref/**'
+      - 'src/quaternion/ref/lvlx/dim2.c'
+      - 'src/quaternion/ref/include/quaternion.h'
+      - 'src/quaternion/ref/lvlx/internal_quaternion_headers/internal.h'
+      - 'src/common/generic/include/**'
+      - 'src/precomp/ref/p324_3/include/**'
+      - 'src/precomp/ref/p500_27/include/**'
+      - 'src/precomp/ref/p664_17/include/**'
+      - 'src/precomp/ref/p324_3/e0_basis.c'
+      - 'src/precomp/ref/p500_27/e0_basis.c'
+      - 'src/precomp/ref/p664_17/e0_basis.c'
+      - 'src/precomp/ref/p324_3/ec_params.c'
+      - 'src/precomp/ref/p500_27/ec_params.c'
+      - 'src/precomp/ref/p664_17/ec_params.c'
+      - 'src/gf/ref/p324_3/**'
+      - 'src/gf/ref/p500_27/**'
+      - 'src/gf/ref/p664_17/**'
+      - 'src/gf/ref/include/fp.h'
+      - 'src/gf/ref/include/fp2.h'
+      - 'src/gf/ref/lvlx/fp.c'
+      - 'src/gf/ref/lvlx/fp2.c'
+      - 'src/ec/ref/lvlx/ec.c'
+      - 'src/ec/ref/lvlx/basis.c'
+      - 'src/ec/ref/lvlx/biextension.c'
+      - 'src/ec/ref/include/ec.h'
+      - 'src/ec/ref/include/biextension.h'
+      - 'src/ec/ref/lvlx/isog.c'
+      - 'src/ec/ref/lvlx/normalize.c'
+      - 'src/ec/ref/include/isog.h'
+      - 'src/hd/ref/**'
+      - 'src/verification/ref/**'
+      - 'src/common/generic/fips202.c'
+      - 'include/ct_testing.h'
+      - 'scripts/add_parameter_set.py'
+      - 'scripts/precomp/torsion_basis.py'
+      - 'include/sqisign_namespace.h'
+      - '.github/workflows/kotlin.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: kotlin-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  checks:
+    # Shards partition `check` so both hosts still run every task, in parallel.
+    name: Kotlin (${{ matrix.host.target }}, ${{ matrix.shard }})
+    strategy:
+      fail-fast: false
+      matrix:
+        host:
+          - os: ubuntu-24.04
+            architecture: x86_64
+            target: linuxX64
+          - os: macos-15
+            architecture: arm64
+            target: macosArm64
+        shard: [jvm, kat-p664, kat-other, js-p664, js-other, native, reference]
+    runs-on: ${{ matrix.host.os }}
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: kotlin
+        shell: bash
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+      - name: Verify native host
+        env:
+          EXPECTED_ARCHITECTURE: ${{ matrix.host.architecture }}
+        run: test "$(uname -m)" = "$EXPECTED_ARCHITECTURE"
+      - uses: actions/setup-java@v6.1.0
+        with:
+          distribution: temurin
+          java-version: '26.0.2+101'
+      - uses: actions/setup-python@v7.0.0
+        with:
+          python-version: '3.14.0'
+      - uses: gradle/actions/setup-gradle@v6.4.0
+      - name: Run clean ${{ matrix.shard }} checks
+        env:
+          SHARD: ${{ matrix.shard }}
+          NATIVE_TARGET: ${{ matrix.host.target }}
+        run: |
+          reference_tasks=(checkTestVectors checkUnsignedReference checkCurveReference checkTorsionRingReference checkIbzReference checkHdReference checkVerifyReference)
+          case "$SHARD" in
+            jvm)
+              tasks=(check -x jsNodeTest -x linuxX64Test -x macosArm64Test -x jvmKatTest)
+              for task in "${reference_tasks[@]}"; do tasks+=(-x "$task"); done
+              ;;
+            kat-p664) tasks=(jvmKatTest -PkatTestShard=p664) ;;
+            kat-other) tasks=(jvmKatTest -PkatTestShard=other) ;;
+            js-p664) tasks=(jsNodeTest -PjsTestShard=p664) ;;
+            js-other) tasks=(jsNodeTest -PjsTestShard=other) ;;
+            # The other host builds and runs its own target; linking it here cannot execute.
+            native) tasks=("${NATIVE_TARGET}Test") ;;
+            reference) tasks=("${reference_tasks[@]}") ;;
+            *) echo "Unknown shard $SHARD" >&2; exit 1 ;;
+          esac
+          ./gradlew clean "${tasks[@]}" --no-build-cache --rerun-tasks --console=plain
+      - name: Require native runtime results
+        if: matrix.shard == 'native'
+        env:
+          NATIVE_TARGET: ${{ matrix.host.target }}
+        run: |
+          python3 - <<'PY'
+          import os
+          from pathlib import Path
+          import xml.etree.ElementTree as ET
+
+          target = os.environ["NATIVE_TARGET"]
+          reports = list(Path(f"build/test-results/{target}Test").glob("TEST-*.xml"))
+          suites = [ET.parse(report).getroot() for report in reports]
+          executed = sum(int(suite.get("tests", "0")) - int(suite.get("skipped", "0")) for suite in suites)
+          if executed == 0:
+              raise SystemExit(f"No native runtime tests executed for {target}")
+          PY
+      - uses: actions/upload-artifact@v7.0.2
+        if: always()
+        with:
+          name: kotlin-reports-${{ matrix.host.target }}-${{ matrix.shard }}
+          path: |
+            kotlin/build/reports/
+            kotlin/build/test-results/
+          if-no-files-found: ignore
+
+  smoke:
+    name: Kotlin JVM benchmark smoke
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: kotlin
+        shell: bash
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@v6.1.0
+        with:
+          distribution: temurin
+          java-version: '26.0.2+101'
+      - uses: actions/setup-python@v7.0.0
+        with:
+          python-version: '3.14.0'
+      - uses: gradle/actions/setup-gradle@v6.4.0
+      - name: Run JVM benchmark smoke
+        run: |
+          mkdir -p build
+          {
+            git rev-parse HEAD
+            uname -a
+            lscpu
+            java -version
+            ./gradlew --version
+          } > build/benchmark-environment.txt 2>&1
+          ./gradlew jvmBenchmarkSmokeBenchmark --console=plain | tee build/benchmark-smoke.log
+      - name: Require complete JVM smoke results
+        run: |
+          python3 - <<'PY'
+          import itertools
+          import json
+          import math
+          from pathlib import Path
+
+          reports = list(Path("build/reports/benchmarks/smoke").glob("*/jvmBenchmark.json"))
+          if len(reports) != 1:
+              raise SystemExit(f"Expected one fresh JVM smoke report, found {len(reports)}")
+          rows = json.loads(reports[0].read_text())
+          workloads = {
+              "Shake256Benchmark.digest": {"inputBytes": ("0", "136", "4096")},
+              "PrngBenchmark.expand": {"outputBytes": ("64", "4096")},
+              "ChallengeHashBenchmark.compute": {
+                  "messageBytes": ("32", "4096"),
+                  "parameterSet": ("NIST_I", "NIST_III", "NIST_V"),
+              },
+              "WireFormatBenchmark.parsePublicKey": {"parameterSet": ("NIST_I", "NIST_III", "NIST_V")},
+              "WireFormatBenchmark.parseSignature": {"parameterSet": ("NIST_I", "NIST_III", "NIST_V")},
+          }
+          for operation in ("decode", "encode", "compare", "add", "subtract", "multiply"):
+              workloads[f"UInt328Benchmark.{operation}"] = {
+                  "operandShape": ("ZERO_EQUAL", "MAX_EQUAL", "CARRY_CHAIN", "BORROW_CHAIN", "FULL_WIDTH"),
+              }
+          workloads["UInt328DivisionBenchmark.divideAndRemainder"] = {
+              "operandShape": ("ZERO_DIVIDEND", "MAX_BY_ONE", "MAX_EQUAL", "SMALL_DIVISOR", "FULL_WIDTH", "LARGER_DIVISOR"),
+          }
+          workloads["UInt656DivisionBenchmark.divideAndRemainder"] = {
+              "operandShape": ("ZERO_DIVIDEND", "MAX_BY_ONE", "MAX_BY_MAX", "SMALL_DIVISOR",
+                               "HIGH_BIT_DIVISOR", "LARGER_DIVISOR", "PRODUCT_BY_FACTOR"),
+          }
+          workloads["UInt328GcdBenchmark.gcd"] = {
+              "operandShape": ("ZERO_EQUAL", "ZERO_MAX", "MAX_ZERO", "MAX_EQUAL",
+                               "SHARED_FACTOR", "COPRIME", "FIBONACCI"),
+          }
+          workloads["UInt328SqrtBenchmark.sqrtFloor"] = {
+              "operandShape": ("ZERO", "ONE", "MAXIMUM", "PERFECT_SQUARE",
+                               "BELOW_SQUARE", "ABOVE_SQUARE", "FULL_WIDTH"),
+          }
+          workloads["UInt328ModInverseBenchmark.modInverse"] = {
+              "operandShape": ("ONE", "MAX_MINUS_ONE", "EVEN_MODULUS", "COMPOSITE", "FULL_WIDTH"),
+          }
+          for operation in ("add", "multiply", "divideAndRemainder"):
+              workloads[f"IbzBenchmark.{operation}"] = {
+                  "parameterSet": ("NIST_I", "NIST_III", "NIST_V"),
+                  "operandShape": ("WORD", "HALF_CAPACITY"),
+              }
+          for operation in ("gcd", "inverseMod", "powMod", "probablePrime"):
+              workloads[f"IbzNumberTheoryBenchmark.{operation}"] = {
+                  "parameterSet": ("NIST_I", "NIST_III", "NIST_V"),
+              }
+          for operation in ("highProduct", "reciprocal"):
+              workloads[f"IbzFixedPointBenchmark.{operation}"] = {
+                  "parameterSet": ("NIST_I", "NIST_III", "NIST_V"),
+              }
+          for operation in ("twoSquares", "latticeReduction"):
+              workloads[f"CornacchiaBenchmark.{operation}"] = {
+                  "parameterSet": ("NIST_I", "NIST_III", "NIST_V"),
+              }
+          for operation in ("materialiseBlock", "lagrangeGauss"):
+              workloads[f"GramBenchmark.{operation}"] = {
+                  "parameterSet": ("NIST_I", "NIST_III", "NIST_V"),
+              }
+          workloads["DualBenchmark.dualReduceIdeal"] = {
+              "parameterSet": ("NIST_I", "NIST_III", "NIST_V"),
+          }
+          workloads["GaussianBenchmark.reduceO0Ideal"] = {
+              "parameterSet": ("NIST_I", "NIST_III", "NIST_V"),
+          }
+          for operation in ("multiply", "norm", "quadraticForm"):
+              workloads[f"QuaternionAlgebraBenchmark.{operation}"] = {
+                  "parameterSet": ("NIST_I", "NIST_III", "NIST_V"),
+              }
+          for operation in ("coefficient", "doublePoint", "differentialAdd", "multiply",
+                            "threePointMultiply", "biscalarMultiply", "deterministicDifference",
+                            "referenceSquareRoot", "sharedDifference"):
+              workloads[f"MontgomeryBenchmark.{operation}"] = {
+                  "parameterSet": ("NIST_I", "NIST_III", "NIST_V"),
+                  "scalarShape": ("SHORT", "FULL_WIDTH"),
+              }
+          workloads["TorsionBasisBenchmark.canonicalE0"] = {
+              "parameterSet": ("NIST_I", "NIST_III", "NIST_V"),
+              "torsionShape": ("TWO_TORSION", "FULL_TORSION"),
+          }
+          for operation in ("canonical", "canonicalForReconstruction", "fromHint"):
+              workloads[f"CanonicalBasisBenchmark.{operation}"] = {
+                  "parameterSet": ("NIST_I", "NIST_III", "NIST_V"),
+                  "coefficientShape": ("SQUARE", "NONSQUARE"),
+                  "torsionShape": ("TWO_TORSION", "FULL_TORSION"),
+              }
+          for operation in ("add", "subtract", "multiply", "inverse", "normalizeMatrix", "invertMatrix"):
+              workloads[f"TorsionRingBenchmark.{operation}"] = {
+                  "parameterSet": ("NIST_I", "NIST_III", "NIST_V"),
+                  "torsionShape": ("TWO_TORSION", "FULL_TORSION"),
+              }
+          for operation in ("solve", "prepareAndSolve"):
+              workloads[f"DiscreteLogBenchmark.{operation}"] = {
+                  "parameterSet": ("NIST_I", "NIST_III", "NIST_V"),
+                  "torsionShape": ("TWO_TORSION", "FULL_TORSION"),
+                  "valueShape": ("ZERO", "MAXIMUM"),
+              }
+          for operation in ("evaluate", "prepareAndEvaluate"):
+              workloads[f"TatePairingBenchmark.{operation}"] = {
+                  "parameterSet": ("NIST_I", "NIST_III", "NIST_V"),
+                  "torsionShape": ("TWO_TORSION", "FULL_TORSION"),
+              }
+          for operation in ("applyMatrix", "between", "prepareAndBetween"):
+              workloads[f"BasisTransformBenchmark.{operation}"] = {
+                  "parameterSet": ("NIST_I", "NIST_III", "NIST_V"),
+                  "torsionShape": ("TWO_TORSION", "FULL_TORSION"),
+              }
+          workloads["BasisCorrespondenceBenchmark.setChangeOfBasisMatrix"] = {
+              "parameterSet": ("NIST_I", "NIST_III", "NIST_V"),
+              "torsionShape": ("TWO_TORSION", "FULL_TORSION"),
+          }
+          for operation in ("normalize", "fourIsogeny", "chain"):
+              workloads[f"IsogenyBenchmark.{operation}"] = {
+                  "parameterSet": ("NIST_I", "NIST_III", "NIST_V"),
+              }
+          workloads["ThetaChainBenchmark.verify"] = {
+              "parameterSet": ("NIST_I", "NIST_III", "NIST_V"),
+          }
+          workloads["VerifyBenchmark.verify"] = {
+              "parameterSet": ("NIST_I", "NIST_III", "NIST_V"),
+          }
+          expected = {
+              (f"ch.trancee.sqisign.benchmarks.{name}", tuple(sorted(zip(parameters, values))))
+              for name, parameters in workloads.items()
+              for values in itertools.product(*parameters.values())
+          }
+          actual = {(row["benchmark"], tuple(sorted(row["params"].items()))) for row in rows}
+          if actual != expected or len(rows) != len(expected):
+              raise SystemExit("JVM smoke benchmark/parameter matrix is incomplete or duplicated")
+          for row in rows:
+              metric = row["primaryMetric"]
+              if (row["mode"], metric["scoreUnit"], row["forks"], row["threads"]) != ("avgt", "ns/op", 1, 1):
+                  raise SystemExit(f"Unexpected smoke measurement configuration: {row['benchmark']}")
+              if (row["warmupIterations"], row["measurementIterations"],
+                  row["warmupTime"], row["measurementTime"]) != (1, 1, "50 ms", "50 ms"):
+                  raise SystemExit(f"Unexpected smoke iteration configuration: {row['benchmark']}")
+              score = metric["score"]
+              if not math.isfinite(score) or score <= 0 or metric["rawData"] != [[score]]:
+                  raise SystemExit(f"Missing or invalid smoke sample: {row['benchmark']}")
+          print(f"Validated {len(rows)} JVM smoke cases; scores are not regression baselines")
+          PY
+      - uses: actions/upload-artifact@v7.0.2
+        if: always()
+        with:
+          name: kotlin-benchmark-smoke
+          path: |
+            kotlin/build/reports/benchmarks/
+            kotlin/build/benchmark-environment.txt
+            kotlin/build/benchmark-smoke.log
+          if-no-files-found: error
+
+  secrets:
+    name: Kotlin secret scan
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Install verified Gitleaks
+        working-directory: ${{ runner.temp }}
+        run: |
+          curl --fail --silent --show-error --location \
+            https://github.com/gitleaks/gitleaks/releases/download/v8.30.1/gitleaks_8.30.1_linux_x64.tar.gz \
+            --output gitleaks.tar.gz
+          echo '551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb  gitleaks.tar.gz' \
+            | sha256sum --check
+          tar -xzf gitleaks.tar.gz gitleaks
+      - name: Scan Kotlin history and current files
+        env:
+          GITLEAKS: ${{ runner.temp }}/gitleaks
+        run: |
+          "$GITLEAKS" git --redact --log-opts="--all -- kotlin"
+          "$GITLEAKS" dir --redact kotlin
