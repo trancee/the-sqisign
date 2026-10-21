@@ -1340,3 +1340,36 @@ Remaining milestone 6 work: the Gaussian reduction and the `O0`-ideal
 reduction built on it, quaternion algebra elements and lattices, then ideals.
 Everything remains variable-time and without expert review. No public ABI,
 wire format, dependency or toolchain changes.
+
+## Quaternion decision 2026-10-22: Gaussian `O0`-ideal reduction
+
+[`ADR 0026`](adr/0026-gaussian-o0-ideal-reduction.md) ports the pinned
+`gaussian_xgcd.c`, the Lagrange-Gauss reduction over `Z[i]` behind
+`quat_ideal_reduce_basis`:
+
+- `LG_gaussian_inner` accumulates an `int32` complex transform from signed
+  64-bit windows;
+- `lehmer_gaussian` applies the transforms to the scaled pair for
+  `DIM2I_OUTER_ITS` passes;
+- `orient_canonical` moves `v1` and the exact Hermitian product
+  `H(v1, v2)` into the closed first quadrant;
+- `quat_lll_reduce_O0_ideal` returns the columns `v1, i v1, v2, i v2`.
+
+`LllConfig` exposes its parameter set and `QUAT_PRIME_BITS`; the level
+constants `floor(sqrt(p))` are copied from `QUAT_SQRT_P_HEX`. Only the input
+checks are ported; C's debug-only assertions are asserted by the model on
+every record. The windows reduce the second vector only to about `2^-64`
+relative precision, as in C.
+
+`tools/generate_gaussian_vectors.py` independently models 33 records over
+ten honest inert left `O0`-ideals and checks unimodularity, the exact first
+minimum, the second norm within `2^-64` relative and the orientation.
+`checkIbzReference` now checks 2602 records against pinned C, adding the
+pinned `gaussian_xgcd.c`. Precondition and orientation tests bring coverage
+to 100%. Three retained `GaussianBenchmark` cases are checked against
+`BigInteger`, so the smoke inventory changes from 337 to 340.
+
+Remaining milestone 6 work: quaternion algebra elements and lattices, then
+ideals and the `lll_applications.c` reductions built on both lattice
+reductions. Everything remains variable-time and without expert review. No
+public ABI, wire-format, dependency or toolchain changes.

@@ -12,6 +12,7 @@
 #include "../../src/quaternion/ref/lvlx/integers.c"
 #include "../../src/quaternion/ref/lvlx/lll/lll_lg2.c"
 #include "../../src/quaternion/ref/lvlx/lll/lll_dim4.c"
+#include "../../src/quaternion/ref/lvlx/lll/gaussian_xgcd.c"
 
 enum
 {
@@ -581,6 +582,59 @@ dual(const char *op, char **arguments)
     return 1;
 }
 
+static int64_t
+signed_word(const char *text)
+{
+    char *end = NULL;
+    uint64_t value = strtoull(required(text), &end, 16);
+    if (*end != '\0')
+        fail("word");
+    return (int64_t)value;
+}
+
+static int
+gaussian(const char *op, char **arguments)
+{
+    if (strcmp(op, "ginner") == 0) {
+        i64_complex_t words[4];
+        for (int i = 0; i < 4; i++)
+            words[i] = (i64_complex_t){ signed_word(arguments[2 * i]), signed_word(arguments[2 * i + 1]) };
+        i32_complex_t matrix[2][2];
+        (void)LG_gaussian_inner(words[0],
+                                words[1],
+                                words[2],
+                                words[3],
+                                matrix,
+                                (uint64_t)number(arguments[8]),
+                                (int32_t)number(arguments[9]),
+                                (int32_t)number(arguments[10]));
+        for (int i = 0; i < 4; i++)
+            printf(
+                i ? " %" PRId32 " %" PRId32 : "%" PRId32 " %" PRId32, matrix[i / 2][i % 2].re, matrix[i / 2][i % 2].im);
+        return 1;
+    }
+    if (strcmp(op, "gauss") != 0)
+        return 0;
+    quat_lattice_t hnf, reduced;
+    quat_alg_t alg;
+    ibz_set(&hnf.denom, 2, 3);
+    for (int i = 0; i < 16; i++)
+        ibz_set(&hnf.basis.m[i / 4][i % 4], i % 5 == 0, 2);
+    decode(&hnf.basis.m[0][0], arguments[0]);
+    ibz_copy(&hnf.basis.m[1][1], &hnf.basis.m[0][0]);
+    decode(&hnf.basis.m[0][2], arguments[1]);
+    decode(&hnf.basis.m[0][3], arguments[2]);
+    decode(&hnf.basis.m[1][2], arguments[3]);
+    decode(&hnf.basis.m[1][3], arguments[4]);
+    decode(&alg.p, arguments[5]);
+    quat_lll_reduce_O0_ideal(&reduced, &hnf, &alg, (int)number(arguments[6]));
+    for (int i = 0; i < 16; i++) {
+        printf(i ? " " : "");
+        print_ibz(&reduced.basis.m[i / 4][i % 4]);
+    }
+    return 1;
+}
+
 static void
 special(const char *op, char **arguments)
 {
@@ -611,7 +665,7 @@ special(const char *op, char **arguments)
         finish_script();
     } else {
         if (!fixed_point(op, arguments) && !lattice(op, arguments) && !gram(op, arguments) && !dual(op, arguments) &&
-            !number_theory(op, arguments))
+            !gaussian(op, arguments) && !number_theory(op, arguments))
             unary(op, arguments);
         return;
     }
@@ -623,10 +677,10 @@ main(void)
 {
     static char line[LINE_BYTES];
     while (fgets(line, sizeof(line), stdin)) {
-        char *fields[9] = { NULL };
+        char *fields[17] = { NULL };
         int count = 0;
         for (char *token = strtok(line, " \n"); token; token = strtok(NULL, " \n")) {
-            if (count == 8)
+            if (count == 16)
                 fail("field count");
             fields[count++] = token;
         }

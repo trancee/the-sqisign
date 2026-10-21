@@ -125,6 +125,7 @@ spotless {
             "src/commonTest/kotlin/ch/trancee/sqisign/quaternion/LatticeVectors.kt",
             "src/commonTest/kotlin/ch/trancee/sqisign/quaternion/GramVectors.kt",
             "src/commonTest/kotlin/ch/trancee/sqisign/quaternion/DualVectors.kt",
+            "src/commonTest/kotlin/ch/trancee/sqisign/quaternion/GaussianVectors.kt",
             "src/commonTest/kotlin/ch/trancee/sqisign/ec/PairingVectors.kt",
             "src/commonTest/kotlin/ch/trancee/sqisign/ec/BasisChangeVectors.kt",
             "src/commonTest/kotlin/ch/trancee/sqisign/ec/IsogenyVectors.kt",
@@ -141,6 +142,7 @@ spotless {
             "src/jvmBenchmark/kotlin/ch/trancee/sqisign/benchmarks/ThetaChainInputs.kt",
             "src/jvmBenchmark/kotlin/ch/trancee/sqisign/benchmarks/VerifyInputs.kt",
             "src/jvmBenchmark/kotlin/ch/trancee/sqisign/benchmarks/DualInputs.kt",
+            "src/jvmBenchmark/kotlin/ch/trancee/sqisign/benchmarks/GaussianInputs.kt",
         )
         ktfmt("0.65").kotlinlangStyle()
     }
@@ -174,6 +176,7 @@ tasks.withType<dev.detekt.gradle.Detekt>().configureEach {
     exclude("**/LatticeVectors.kt")
     exclude("**/GramVectors.kt")
     exclude("**/DualVectors.kt")
+    exclude("**/GaussianVectors.kt")
     exclude("**/PairingVectors.kt")
     exclude("**/BasisChangeVectors.kt")
     exclude("**/IsogenyVectors.kt")
@@ -190,6 +193,7 @@ tasks.withType<dev.detekt.gradle.Detekt>().configureEach {
     exclude("**/ThetaChainInputs.kt")
     exclude("**/VerifyInputs.kt")
     exclude("**/DualInputs.kt")
+    exclude("**/GaussianInputs.kt")
 }
 
 jacoco {

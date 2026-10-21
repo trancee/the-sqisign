@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: Apache-2.0
-"""Cross-check the independent ibz, number theory, fixed-point, lattice, Gram and dual reduction fixtures against pinned C at every level."""
+"""Cross-check the independent ibz, number theory, fixed-point, lattice, Gram, dual and Gaussian reduction fixtures against pinned C at every level."""
 
 import hashlib
 from pathlib import Path
@@ -12,6 +12,7 @@ from check_unsigned_reference import REFERENCE_COMMIT, REFERENCE_FILES
 from generate_ibz_vectors import CAPACITIES, ROOT, records
 from generate_fixed_point_vectors import OUTPUT as FIXED_POINT_OUTPUT
 from generate_dual_vectors import OUTPUT as DUAL_OUTPUT
+from generate_gaussian_vectors import OUTPUT as GAUSSIAN_OUTPUT
 from generate_gram_vectors import OUTPUT as GRAM_OUTPUT
 from generate_lattice_vectors import OUTPUT as LATTICE_OUTPUT
 from generate_number_theory_vectors import OUTPUT as NUMBER_THEORY_OUTPUT
@@ -55,12 +56,12 @@ def main():
             raise SystemExit(f"{path} differs from pinned C reference {REFERENCE_COMMIT}")
     for generator in ("generate_ibz_vectors.py", "generate_number_theory_vectors.py",
                       "generate_fixed_point_vectors.py", "generate_lattice_vectors.py",
-                      "generate_gram_vectors.py", "generate_dual_vectors.py"):
+                      "generate_gram_vectors.py", "generate_dual_vectors.py", "generate_gaussian_vectors.py"):
         subprocess.run([sys.executable, "-B", str(ROOT / "tools" / generator), "--check"], check=True)
     grouped = {level: [] for level in CAPACITIES}
     for record in list(records()) + fixture_records(NUMBER_THEORY_OUTPUT) + fixture_records(FIXED_POINT_OUTPUT) + \
             fixture_records(LATTICE_OUTPUT) + fixture_records(GRAM_OUTPUT) + \
-            fixture_records(DUAL_OUTPUT):
+            fixture_records(DUAL_OUTPUT) + fixture_records(GAUSSIAN_OUTPUT):
         query, expected = record.split(" = ")
         op, level, *arguments = query.split(" ")
         grouped[level].append((" ".join((op, *arguments)), expected.removeprefix("! ")))
@@ -79,7 +80,7 @@ def main():
                     raise SystemExit(f"C/Python ibz mismatch at {level}: {query[:80]}\n  C: {observed[:200]}\n"
                                      f"  Python: {wanted[:200]}")
             check_invalid_inputs(binary)
-    print(f"Checked {sum(len(cases) for cases in grouped.values())} ibz, number theory, fixed-point, lattice, Gram and dual reduction records against pinned C")
+    print(f"Checked {sum(len(cases) for cases in grouped.values())} ibz, number theory, fixed-point, lattice, Gram, dual and Gaussian reduction records against pinned C")
 
 if __name__ == "__main__":
     main()

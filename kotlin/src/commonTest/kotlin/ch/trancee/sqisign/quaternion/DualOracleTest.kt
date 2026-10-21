@@ -2,8 +2,6 @@
 
 package ch.trancee.sqisign.quaternion
 
-import ch.trancee.sqisign.ParameterSet
-import ch.trancee.sqisign.arithmetic.Ibz
 import ch.trancee.sqisign.arithmetic.IbzRecord
 import ch.trancee.sqisign.arithmetic.IbzRecord.Companion.encode
 import kotlin.test.Test
@@ -11,12 +9,12 @@ import kotlin.test.Test
 class DualOracleTest {
     @Test
     fun dualLdlStartsFromTheClosedFormDecomposition() =
-        each("ldl") { fields(config(it).initDual(quadruple(it))) }
+        each("ldl") { fields(it.lllConfig().initDual(quadruple(it))) }
 
     @Test
     fun blockToursFollowTheReferencePath() =
         each("tour") {
-            val config = config(it)
+            val config = it.lllConfig()
             val state = config.initDual(quadruple(it))
             config.tours(state)
             fields(state)
@@ -25,7 +23,7 @@ class DualOracleTest {
     @Test
     fun idealReductionReturnsTheReferenceBasisNormsAndTransform() =
         each("dual") {
-            val reduction = config(it).dualReduceIdeal(hnf(it), it.ibz(P))
+            val reduction = it.lllConfig().dualReduceIdeal(it.idealHnf(), it.ibz(HNF_P))
             (reduction.basis.flatten() + reduction.gramDiagonal + reduction.transform.flatten())
                 .joinToString(" ") { value -> encode(value) }
         }
@@ -38,28 +36,13 @@ class DualOracleTest {
 
     private fun quadruple(record: IbzRecord): IdealQuadruple =
         IdealQuadruple(
-            record.ibz(TWO_N),
-            record.ibz(E),
-            record.ibz(DQ),
-            record.ibz(C),
-            record.ibz(B),
-            record.ibz(P),
+            record.ibz(HNF_TWO_N),
+            record.ibz(HNF_E),
+            record.ibz(HNF_DQ),
+            record.ibz(HNF_C),
+            record.ibz(HNF_B),
+            record.ibz(HNF_P),
         )
-
-    private fun hnf(record: IbzRecord): List<List<Ibz>> {
-        val zero = Ibz.zero(record.capacity)
-        val one = Ibz.one(record.capacity)
-        val twoN = record.ibz(TWO_N)
-        return listOf(
-            listOf(twoN, zero, record.ibz(E), record.ibz(DQ)),
-            listOf(zero, twoN, record.ibz(C), record.ibz(B)),
-            listOf(zero, zero, one, zero),
-            listOf(zero, zero, zero, one),
-        )
-    }
-
-    private fun config(record: IbzRecord): LllConfig =
-        LllConfig(ParameterSet.entries.single { it.identifier == record.level })
 
     private fun each(operation: String, compute: (IbzRecord) -> String) {
         for (record in IbzRecord.all(operation, DualVectors.records)) {
@@ -69,11 +52,5 @@ class DualOracleTest {
 
     private companion object {
         const val DIMENSION = 4
-        const val TWO_N = 0
-        const val E = 1
-        const val DQ = 2
-        const val C = 3
-        const val B = 4
-        const val P = 5
     }
 }

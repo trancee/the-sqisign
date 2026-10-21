@@ -44,9 +44,10 @@ private const val COEFFICIENT_HEADROOM = 16
  * The reference `lll_config.h` bit budgets of the dimension-4 reduction at one level, all public
  * functions of the security parameter and the prime size.
  */
-internal class LllConfig(parameters: ParameterSet) {
+internal class LllConfig(val parameters: ParameterSet) {
     private val lambda = parameters.securityBits
-    private val primeBits =
+    /** `QUAT_P_BITS`: the bit length of the prime. */
+    val primeBits: Int =
         parameters.torsionExponent + Int.SIZE_BITS - parameters.cofactor.countLeadingZeroBits()
     private val idealNormBits = primeBits + lambda
     private val gapBits = 2 * idealNormBits - primeBits

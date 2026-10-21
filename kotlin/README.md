@@ -79,6 +79,11 @@ records the mapping. The dimension-4 dual reduction of `O0`-ideals
 (`quat_lll_dual_reduce_ideal`) reproduces C's fixed-point LDL state, block
 tours and Minkowski selection, so it returns C's basis;
 [`adr/0025-dimension-four-dual-reduction.md`](adr/0025-dimension-four-dual-reduction.md)
+records the mapping. The Gaussian reduction of `O0`-ideals over `Z[i]`
+(`quat_lll_reduce_O0_ideal`) reproduces C's 64-bit windows, `int32` complex
+transforms and orientation, so it returns C's basis; its second vector is
+reduced only to C's window precision;
+[`adr/0026-gaussian-o0-ideal-reduction.md`](adr/0026-gaussian-o0-ideal-reduction.md)
 records the mapping.
 The internal field package implements canonical prime fields for all three
 parameter sets: `Fp324` (`p324_3`), `Fp500P27` (`p500_27`), and `Fp664P17`
@@ -510,6 +515,14 @@ diagonal within `2^-lambda`. `checkIbzReference` checks all 2569 records
 against the same pinned C, and retained `DualBenchmark` workloads are checked
 against `BigInteger`.
 
+Another 33 records from `tools/generate_gaussian_vectors.py` model the
+Gaussian reduction of `gaussian_xgcd.c` on honest inert left `O0`-ideals: 20
+`LG_gaussian_inner` transforms and 13 full `quat_lll_reduce_O0_ideal`
+results. Every reduction is checked to be unimodular, to reach the exact
+first minimum and to match the exact second norm within `2^-64` relative.
+`checkIbzReference` checks all 2602 records against the same pinned C, and
+retained `GaussianBenchmark` workloads are checked against `BigInteger`.
+
 ## JVM benchmarks
 
 The explicitly accepted Alpha [`kotlinx-benchmark 0.5.0`](https://github.com/Kotlin/kotlinx-benchmark/releases/tag/v0.5.0)
@@ -551,6 +564,7 @@ Input preparation and parameter-name resolution occur outside timing.
 | `CornacchiaBenchmark.twoSquares`, `latticeReduction` | All parameter sets | `ibz_cornacchia_prime` (square root of -1, Lehmer reduction and norm check), or the dimension-2 reduction alone from a precomputed root, over a deterministic `capacity / 4`-bit prime `1 mod 4`, including result allocation; prime and root search outside timing |
 | `GramBenchmark.materialiseBlock`, `lagrangeGauss` | All parameter sets | `quat_lll_materialise_block`, or `quat_lll_gram_lehmer` with the round-0 outer passes, on a deterministic Lovász-violating block (`D_k` at the diagonal bound, `D_{k+1}` at half of it, `mu` in `[1/4, 1/2)`), including result allocation; parsing and the input form outside timing |
 | `DualBenchmark.dualReduceIdeal` | All parameter sets | `quat_lll_dual_reduce_ideal` (dual LDL initialisation, block tours, Minkowski selection and basis product) on a deterministic product of two inert `O0`-ideals, including result allocation; ideal construction and parsing outside timing |
+| `GaussianBenchmark.reduceO0Ideal` | All parameter sets | `quat_lll_reduce_O0_ideal` (Lehmer Lagrange-Gauss passes over `Z[i]`, Hermitian key and orientation) on a deterministic inert left `O0`-ideal whose norm is a product of two inert primes, with bound `ibz_get_bound(N) + 2`, including result allocation; ideal construction and parsing outside timing |
 | `MontgomeryBenchmark.coefficient` | All parameter sets; `SHORT`, `FULL_WIDTH` | `A/C`, including inversion and canonical field result allocation |
 | `MontgomeryBenchmark.doublePoint` / `differentialAdd` | All parameter sets; `SHORT`, `FULL_WIDTH` | Complete x-only operation and projective result allocation, without affine normalization |
 | `MontgomeryBenchmark.multiply` | All parameter sets; `SHORT`, `FULL_WIDTH` | Encoded-scalar ladder and all intermediate/result allocations; no setup or affine normalization |
@@ -657,13 +671,13 @@ The public library API is unchanged; internal wide results are not exposed by it
 
 ```sh
 ./gradlew jvmTest                       # Check workload correctness before timing
-./gradlew jvmBenchmarkSmokeBenchmark    # Discovery/execution only: 337 cases
+./gradlew jvmBenchmarkSmokeBenchmark    # Discovery/execution only: 340 cases
 ./gradlew jvmBenchmarkBenchmarkJar      # Build the JMH harness before measurement
 ./gradlew jvmBenchmarkBenchmark         # Opt-in full profile on a controlled host
 ```
 
 The `smoke` profile uses one fork, one 50 ms warmup, and one 50 ms measurement
-per case. Linux CI requires the complete 337-case parameter matrix, the expected
+per case. Linux CI requires the complete 340-case parameter matrix, the expected
 mode/unit/profile, and finite positive samples. It uploads JSON reports,
 execution logs, and commit/host/JDK/Gradle metadata with the other Kotlin reports.
 The `main` measurement profile uses three forks, three 1 s warmups, and five 1 s
