@@ -45,6 +45,11 @@ fn main() {
             .define("SQISIGN_GF_IMPL_REF", None)
             .define("SQISIGN_NAMESPACE_GENERIC_AS_VARIANT", None)
             .define("SQISIGN_VARIANT", level)
+            // The only unprefixed per-level symbol (vendor `prng.c`).
+            .define(
+                "PRNG_default_domain",
+                format!("sqisign_{level}_ref_PRNG_default_domain").as_str(),
+            )
             .define("RADIX_64", None)
             .define("NDEBUG", None)
             .define(target, None)
@@ -60,7 +65,9 @@ fn main() {
     cc::Build::new()
         .out_dir(&common_out)
         .file(src.join("common/generic/fips202.c"))
+        .file(src.join("common/generic/randombytes_system.c"))
         .include(src.join("common/generic/include"))
+        .include(root.join("include"))
         .std("c11")
         .warnings(false)
         .compile("sqisign_ref_common");
@@ -68,6 +75,8 @@ fn main() {
 
 fn sources(src: &Path, level: &str) -> Vec<PathBuf> {
     let mut files = vec![
+        src.join("common/generic/mem.c"),
+        src.join("common/generic/prng.c"),
         src.join("gf/ref/lvlx/fp.c"),
         src.join("gf/ref/lvlx/fp2.c"),
         src.join(format!("gf/ref/{level}/fp_{level}.c")),

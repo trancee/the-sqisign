@@ -41,13 +41,14 @@ an expert review has accepted the Rust code, it must not replace the reviewed C 
    Rust API also rejects a public key of the wrong length.
 4. Correctness evidence, in this order:
    - differential tests of every ported module against the vendor C `ref` build, compiled from `src/` into a test-only
-     crate (`sqisign-reference`) and compared through the byte encodings;
+     crate (`sqisign-reference`) and compared through the byte encodings (integers: bound and significant limbs);
    - the 300 NIST KAT entries in `KAT/`: verification of every signature, and byte-exact key generation and signing
      with the NIST AES-256 CTR-DRBG in test-only code (the production API takes no seed, as in ADR 0002);
    - malformed, truncated and boundary inputs for every decoder, and every single-bit flip of a KAT signature (T10);
    - a targeted mutation check of the decision points of every ported module. Survivors are either killed by a new
      test or recorded with the reason they are not: equivalent mutants (for example a different split of the doubling
-     work in `hd` chain set-up, or comparing challenge words that are always zero in verification), or checks the tests
+     work in `hd` chain set-up, comparing challenge words that are always zero in verification, or the `mp`
+     multiplication carry guard, whose bound only has to keep writes inside the limb array), or checks the tests
      cannot reach but that mirror the C code (for example the `tt2.t` half of the `hd` gluing check, or rejecting the
      singular public keys `A = ±2`, which fail later in verification anyway).
 
@@ -61,6 +62,14 @@ an expert review has accepted the Rust code, it must not replace the reviewed C 
 7. SHAKE256 (Keccak-f[1600]) is ported in-crate rather than taken from a hashing crate, keeping the Rust core free of
    third-party dependencies (E3). It is tested against FIPS 202 vectors and against the vendor
    `src/common/generic/fips202.c`.
+8. Integers (`mp`) keep the C `ibz_t` model instead of an arbitrary-precision crate: a two's-complement value over a
+   fixed number of 64-bit limbs per parameter set (`IBZ_NLIMBS`: 30, 40, 55) with a bit bound that operations widen,
+   wrapping at the capacity exactly like C. This keeps results, bounds and constant-time behaviour identical to the
+   C code that signing is checked against. Where C has a variable-time and a constant-time function with identical
+   results (`ibz_set_bound`/`ibz_set_bound_ct`, `ibz_bitsize`/`ibz_bitsize_ct`), Rust has one constant-time function,
+   tested against both. Not ported: the `normalise` branch for `-2^(bitlen-1)`, which cannot execute; `ibz_swap`
+   (Rust moves); and the string functions (`ibz_print`, `ibz_convert_to_str`, `ibz_size_in_base`,
+   `ibz_set_from_str`), whose only non-debug use, parsing `QUAT_SQRT_P_HEX`, becomes a precomputed constant.
 
 ## Alternatives
 

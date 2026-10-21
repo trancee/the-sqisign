@@ -117,7 +117,10 @@ macro_rules! ext {
 }
 
 macro_rules! level {
-    ($module:ident, $lvl:literal, $words:literal, $bytes:literal, $order:literal) => {
+    (
+        $module:ident, $lvl:literal, $words:literal, $bytes:literal, $order:literal,
+        $nlimbs:literal
+    ) => {
         #[doc = concat!("C reference for `", $lvl, "`.")]
         pub mod $module {
             use core::ffi::c_int;
@@ -141,6 +144,7 @@ macro_rules! level {
             ec_api!($lvl, $order);
             hd_api!($lvl);
             verify_api!($lvl, $order);
+            mp_api!($lvl, $nlimbs);
 
             mod ffi {
                 use super::{c_int, Fp, Fp2};
