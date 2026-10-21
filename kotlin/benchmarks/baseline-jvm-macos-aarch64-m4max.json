@@ -1,0 +1,589 @@
+[
+    {
+        "jmhVersion" : "1.37",
+        "benchmark" : "org.sqisign.SqiSignBenchmark.keyGeneration",
+        "mode" : "avgt",
+        "threads" : 1,
+        "forks" : 2,
+        "jvm" : "/opt/homebrew/Cellar/openjdk@21/21.0.13/libexec/openjdk.jdk/Contents/Home/bin/java",
+        "jvmArgs" : [
+            "-Dfile.encoding=UTF-8",
+            "-Duser.country=US",
+            "-Duser.language=en",
+            "-Duser.variant"
+        ],
+        "jdkVersion" : "21.0.13",
+        "vmName" : "OpenJDK 64-Bit Server VM",
+        "vmVersion" : "21.0.13",
+        "warmupIterations" : 3,
+        "warmupTime" : "2 s",
+        "warmupBatchSize" : 1,
+        "measurementIterations" : 5,
+        "measurementTime" : "2 s",
+        "measurementBatchSize" : 1,
+        "params" : {
+            "parameterSet" : "P324_3"
+        },
+        "primaryMetric" : {
+            "score" : 5.351597048409509,
+            "scoreError" : 0.08575314896602772,
+            "scoreConfidence" : [
+                5.265843899443482,
+                5.437350197375537
+            ],
+            "scorePercentiles" : {
+                "0.0" : 5.280139692105263,
+                "50.0" : 5.342056721333334,
+                "90.0" : 5.475378801493527,
+                "95.0" : 5.483854278688525,
+                "99.0" : 5.483854278688525,
+                "99.9" : 5.483854278688525,
+                "99.99" : 5.483854278688525,
+                "99.999" : 5.483854278688525,
+                "99.9999" : 5.483854278688525,
+                "100.0" : 5.483854278688525
+            },
+            "scoreUnit" : "ms/op",
+            "rawData" : [
+                [
+                    5.399099506738544,
+                    5.341609442666667,
+                    5.332389183510639,
+                    5.483854278688525,
+                    5.363339572192514
+                ],
+                [
+                    5.301863425925926,
+                    5.280139692105263,
+                    5.321011824933687,
+                    5.342504,
+                    5.350159557333333
+                ]
+            ]
+        },
+        "secondaryMetrics" : {
+        }
+    },
+    {
+        "jmhVersion" : "1.37",
+        "benchmark" : "org.sqisign.SqiSignBenchmark.keyGeneration",
+        "mode" : "avgt",
+        "threads" : 1,
+        "forks" : 2,
+        "jvm" : "/opt/homebrew/Cellar/openjdk@21/21.0.13/libexec/openjdk.jdk/Contents/Home/bin/java",
+        "jvmArgs" : [
+            "-Dfile.encoding=UTF-8",
+            "-Duser.country=US",
+            "-Duser.language=en",
+            "-Duser.variant"
+        ],
+        "jdkVersion" : "21.0.13",
+        "vmName" : "OpenJDK 64-Bit Server VM",
+        "vmVersion" : "21.0.13",
+        "warmupIterations" : 3,
+        "warmupTime" : "2 s",
+        "warmupBatchSize" : 1,
+        "measurementIterations" : 5,
+        "measurementTime" : "2 s",
+        "measurementBatchSize" : 1,
+        "params" : {
+            "parameterSet" : "P500_27"
+        },
+        "primaryMetric" : {
+            "score" : 20.662529678057453,
+            "scoreError" : 1.4948250251115083,
+            "scoreConfidence" : [
+                19.167704652945943,
+                22.157354703168963
+            ],
+            "scorePercentiles" : {
+                "0.0" : 18.975317603773586,
+                "50.0" : 20.777344256590133,
+                "90.0" : 22.14452946006311,
+                "95.0" : 22.183993206521738,
+                "99.0" : 22.183993206521738,
+                "99.9" : 22.183993206521738,
+                "99.99" : 22.183993206521738,
+                "99.999" : 22.183993206521738,
+                "99.9999" : 22.183993206521738,
+                "100.0" : 22.183993206521738
+            },
+            "scoreUnit" : "ms/op",
+            "rawData" : [
+                [
+                    21.789355741935484,
+                    21.114607197916666,
+                    22.183993206521738,
+                    18.975317603773586,
+                    19.83857924509804
+                ],
+                [
+                    20.638972367346938,
+                    20.251281989898988,
+                    21.222598684210528,
+                    19.694874598039217,
+                    20.915716145833333
+                ]
+            ]
+        },
+        "secondaryMetrics" : {
+        }
+    },
+    {
+        "jmhVersion" : "1.37",
+        "benchmark" : "org.sqisign.SqiSignBenchmark.keyGeneration",
+        "mode" : "avgt",
+        "threads" : 1,
+        "forks" : 2,
+        "jvm" : "/opt/homebrew/Cellar/openjdk@21/21.0.13/libexec/openjdk.jdk/Contents/Home/bin/java",
+        "jvmArgs" : [
+            "-Dfile.encoding=UTF-8",
+            "-Duser.country=US",
+            "-Duser.language=en",
+            "-Duser.variant"
+        ],
+        "jdkVersion" : "21.0.13",
+        "vmName" : "OpenJDK 64-Bit Server VM",
+        "vmVersion" : "21.0.13",
+        "warmupIterations" : 3,
+        "warmupTime" : "2 s",
+        "warmupBatchSize" : 1,
+        "measurementIterations" : 5,
+        "measurementTime" : "2 s",
+        "measurementBatchSize" : 1,
+        "params" : {
+            "parameterSet" : "P664_17"
+        },
+        "primaryMetric" : {
+            "score" : 36.5052855259875,
+            "scoreError" : 1.7131214511758928,
+            "scoreConfidence" : [
+                34.79216407481161,
+                38.2184069771634
+            ],
+            "scorePercentiles" : {
+                "0.0" : 34.671338362068965,
+                "50.0" : 36.431992465584415,
+                "90.0" : 38.51237036460114,
+                "95.0" : 38.591083326923076,
+                "99.0" : 38.591083326923076,
+                "99.9" : 38.591083326923076,
+                "99.99" : 38.591083326923076,
+                "99.999" : 38.591083326923076,
+                "99.9999" : 38.591083326923076,
+                "100.0" : 38.591083326923076
+            },
+            "scoreUnit" : "ms/op",
+            "rawData" : [
+                [
+                    37.803953703703705,
+                    37.017724236363634,
+                    38.591083326923076,
+                    36.59441363636363,
+                    34.671338362068965
+                ],
+                [
+                    36.166768607142856,
+                    36.34699478571429,
+                    36.51699014545454,
+                    35.25017105263158,
+                    36.093417403508774
+                ]
+            ]
+        },
+        "secondaryMetrics" : {
+        }
+    },
+    {
+        "jmhVersion" : "1.37",
+        "benchmark" : "org.sqisign.SqiSignBenchmark.signing",
+        "mode" : "avgt",
+        "threads" : 1,
+        "forks" : 2,
+        "jvm" : "/opt/homebrew/Cellar/openjdk@21/21.0.13/libexec/openjdk.jdk/Contents/Home/bin/java",
+        "jvmArgs" : [
+            "-Dfile.encoding=UTF-8",
+            "-Duser.country=US",
+            "-Duser.language=en",
+            "-Duser.variant"
+        ],
+        "jdkVersion" : "21.0.13",
+        "vmName" : "OpenJDK 64-Bit Server VM",
+        "vmVersion" : "21.0.13",
+        "warmupIterations" : 3,
+        "warmupTime" : "2 s",
+        "warmupBatchSize" : 1,
+        "measurementIterations" : 5,
+        "measurementTime" : "2 s",
+        "measurementBatchSize" : 1,
+        "params" : {
+            "parameterSet" : "P324_3"
+        },
+        "primaryMetric" : {
+            "score" : 16.13346544345235,
+            "scoreError" : 0.5835839774413469,
+            "scoreConfidence" : [
+                15.549881466011005,
+                16.717049420893698
+            ],
+            "scorePercentiles" : {
+                "0.0" : 15.783770007874017,
+                "50.0" : 16.029002518507937,
+                "90.0" : 17.081572995138462,
+                "95.0" : 17.181167735042735,
+                "99.0" : 17.181167735042735,
+                "99.9" : 17.181167735042735,
+                "99.99" : 17.181167735042735,
+                "99.999" : 17.181167735042735,
+                "99.9999" : 17.181167735042735,
+                "100.0" : 17.181167735042735
+            },
+            "scoreUnit" : "ms/op",
+            "rawData" : [
+                [
+                    17.181167735042735,
+                    15.964672952380953,
+                    16.147487903225805,
+                    16.056134664,
+                    16.001870373015873
+                ],
+                [
+                    15.93511242857143,
+                    15.783770007874017,
+                    16.108180336,
+                    16.185220336,
+                    15.9710376984127
+                ]
+            ]
+        },
+        "secondaryMetrics" : {
+        }
+    },
+    {
+        "jmhVersion" : "1.37",
+        "benchmark" : "org.sqisign.SqiSignBenchmark.signing",
+        "mode" : "avgt",
+        "threads" : 1,
+        "forks" : 2,
+        "jvm" : "/opt/homebrew/Cellar/openjdk@21/21.0.13/libexec/openjdk.jdk/Contents/Home/bin/java",
+        "jvmArgs" : [
+            "-Dfile.encoding=UTF-8",
+            "-Duser.country=US",
+            "-Duser.language=en",
+            "-Duser.variant"
+        ],
+        "jdkVersion" : "21.0.13",
+        "vmName" : "OpenJDK 64-Bit Server VM",
+        "vmVersion" : "21.0.13",
+        "warmupIterations" : 3,
+        "warmupTime" : "2 s",
+        "warmupBatchSize" : 1,
+        "measurementIterations" : 5,
+        "measurementTime" : "2 s",
+        "measurementBatchSize" : 1,
+        "params" : {
+            "parameterSet" : "P500_27"
+        },
+        "primaryMetric" : {
+            "score" : 59.68691933802214,
+            "scoreError" : 6.637850043102748,
+            "scoreConfidence" : [
+                53.04906929491939,
+                66.3247693811249
+            ],
+            "scorePercentiles" : {
+                "0.0" : 55.3184132972973,
+                "50.0" : 58.03460298571429,
+                "90.0" : 68.54408944129032,
+                "95.0" : 68.96436386666667,
+                "99.0" : 68.96436386666667,
+                "99.9" : 68.96436386666667,
+                "99.99" : 68.96436386666667,
+                "99.999" : 68.96436386666667,
+                "99.9999" : 68.96436386666667,
+                "100.0" : 68.96436386666667
+            },
+            "scoreUnit" : "ms/op",
+            "rawData" : [
+                [
+                    58.78951548571428,
+                    68.96436386666667,
+                    57.37607977142857,
+                    64.76161961290323,
+                    58.1922024
+                ],
+                [
+                    55.3184132972973,
+                    57.67803454285714,
+                    55.362675675675675,
+                    57.877003571428574,
+                    62.54928515625
+                ]
+            ]
+        },
+        "secondaryMetrics" : {
+        }
+    },
+    {
+        "jmhVersion" : "1.37",
+        "benchmark" : "org.sqisign.SqiSignBenchmark.signing",
+        "mode" : "avgt",
+        "threads" : 1,
+        "forks" : 2,
+        "jvm" : "/opt/homebrew/Cellar/openjdk@21/21.0.13/libexec/openjdk.jdk/Contents/Home/bin/java",
+        "jvmArgs" : [
+            "-Dfile.encoding=UTF-8",
+            "-Duser.country=US",
+            "-Duser.language=en",
+            "-Duser.variant"
+        ],
+        "jdkVersion" : "21.0.13",
+        "vmName" : "OpenJDK 64-Bit Server VM",
+        "vmVersion" : "21.0.13",
+        "warmupIterations" : 3,
+        "warmupTime" : "2 s",
+        "warmupBatchSize" : 1,
+        "measurementIterations" : 5,
+        "measurementTime" : "2 s",
+        "measurementBatchSize" : 1,
+        "params" : {
+            "parameterSet" : "P664_17"
+        },
+        "primaryMetric" : {
+            "score" : 109.00409756764509,
+            "scoreError" : 7.619251862466017,
+            "scoreConfidence" : [
+                101.38484570517907,
+                116.6233494301111
+            ],
+            "scorePercentiles" : {
+                "0.0" : 100.25667657142857,
+                "50.0" : 108.90984868421053,
+                "90.0" : 119.01404948071895,
+                "95.0" : 119.73904905882353,
+                "99.0" : 119.73904905882353,
+                "99.9" : 119.73904905882353,
+                "99.99" : 119.73904905882353,
+                "99.999" : 119.73904905882353,
+                "99.9999" : 119.73904905882353,
+                "100.0" : 119.73904905882353
+            },
+            "scoreUnit" : "ms/op",
+            "rawData" : [
+                [
+                    110.39595394736843,
+                    100.25667657142857,
+                    108.94366010526316,
+                    107.50774121052632,
+                    108.0980767368421
+                ],
+                [
+                    112.48905327777777,
+                    109.16234210526316,
+                    104.5723854,
+                    119.73904905882353,
+                    108.8760372631579
+                ]
+            ]
+        },
+        "secondaryMetrics" : {
+        }
+    },
+    {
+        "jmhVersion" : "1.37",
+        "benchmark" : "org.sqisign.SqiSignBenchmark.verification",
+        "mode" : "avgt",
+        "threads" : 1,
+        "forks" : 2,
+        "jvm" : "/opt/homebrew/Cellar/openjdk@21/21.0.13/libexec/openjdk.jdk/Contents/Home/bin/java",
+        "jvmArgs" : [
+            "-Dfile.encoding=UTF-8",
+            "-Duser.country=US",
+            "-Duser.language=en",
+            "-Duser.variant"
+        ],
+        "jdkVersion" : "21.0.13",
+        "vmName" : "OpenJDK 64-Bit Server VM",
+        "vmVersion" : "21.0.13",
+        "warmupIterations" : 3,
+        "warmupTime" : "2 s",
+        "warmupBatchSize" : 1,
+        "measurementIterations" : 5,
+        "measurementTime" : "2 s",
+        "measurementBatchSize" : 1,
+        "params" : {
+            "parameterSet" : "P324_3"
+        },
+        "primaryMetric" : {
+            "score" : 1.8573687613786234,
+            "scoreError" : 0.03980582468729783,
+            "scoreConfidence" : [
+                1.8175629366913255,
+                1.8971745860659213
+            ],
+            "scorePercentiles" : {
+                "0.0" : 1.8300850091407679,
+                "50.0" : 1.8591693666486049,
+                "90.0" : 1.8863514753575956,
+                "95.0" : 1.8868597624882186,
+                "99.0" : 1.8868597624882186,
+                "99.9" : 1.8868597624882186,
+                "99.99" : 1.8868597624882186,
+                "99.999" : 1.8868597624882186,
+                "99.9999" : 1.8868597624882186,
+                "100.0" : 1.8868597624882186
+            },
+            "scoreUnit" : "ms/op",
+            "rawData" : [
+                [
+                    1.8302656919561242,
+                    1.8310772831050228,
+                    1.8332643846153847,
+                    1.8379801026581117,
+                    1.8300850091407679
+                ],
+                [
+                    1.8810647716165414,
+                    1.8803586306390978,
+                    1.8868597624882186,
+                    1.8809550863849764,
+                    1.8817768911819888
+                ]
+            ]
+        },
+        "secondaryMetrics" : {
+        }
+    },
+    {
+        "jmhVersion" : "1.37",
+        "benchmark" : "org.sqisign.SqiSignBenchmark.verification",
+        "mode" : "avgt",
+        "threads" : 1,
+        "forks" : 2,
+        "jvm" : "/opt/homebrew/Cellar/openjdk@21/21.0.13/libexec/openjdk.jdk/Contents/Home/bin/java",
+        "jvmArgs" : [
+            "-Dfile.encoding=UTF-8",
+            "-Duser.country=US",
+            "-Duser.language=en",
+            "-Duser.variant"
+        ],
+        "jdkVersion" : "21.0.13",
+        "vmName" : "OpenJDK 64-Bit Server VM",
+        "vmVersion" : "21.0.13",
+        "warmupIterations" : 3,
+        "warmupTime" : "2 s",
+        "warmupBatchSize" : 1,
+        "measurementIterations" : 5,
+        "measurementTime" : "2 s",
+        "measurementBatchSize" : 1,
+        "params" : {
+            "parameterSet" : "P500_27"
+        },
+        "primaryMetric" : {
+            "score" : 4.557064353965402,
+            "scoreError" : 0.021708390650417728,
+            "scoreConfidence" : [
+                4.535355963314984,
+                4.57877274461582
+            ],
+            "scorePercentiles" : {
+                "0.0" : 4.537680367346939,
+                "50.0" : 4.556725025162836,
+                "90.0" : 4.575308712984055,
+                "95.0" : 4.5753248861047835,
+                "99.0" : 4.5753248861047835,
+                "99.9" : 4.5753248861047835,
+                "99.99" : 4.5753248861047835,
+                "99.999" : 4.5753248861047835,
+                "99.9999" : 4.5753248861047835,
+                "100.0" : 4.5753248861047835
+            },
+            "scoreUnit" : "ms/op",
+            "rawData" : [
+                [
+                    4.563673596810934,
+                    4.568689731207289,
+                    4.5753248861047835,
+                    4.566555113636364,
+                    4.575163154897495
+                ],
+                [
+                    4.537680367346939,
+                    4.542100868778281,
+                    4.549776453514739,
+                    4.542606995475113,
+                    4.549072371882086
+                ]
+            ]
+        },
+        "secondaryMetrics" : {
+        }
+    },
+    {
+        "jmhVersion" : "1.37",
+        "benchmark" : "org.sqisign.SqiSignBenchmark.verification",
+        "mode" : "avgt",
+        "threads" : 1,
+        "forks" : 2,
+        "jvm" : "/opt/homebrew/Cellar/openjdk@21/21.0.13/libexec/openjdk.jdk/Contents/Home/bin/java",
+        "jvmArgs" : [
+            "-Dfile.encoding=UTF-8",
+            "-Duser.country=US",
+            "-Duser.language=en",
+            "-Duser.variant"
+        ],
+        "jdkVersion" : "21.0.13",
+        "vmName" : "OpenJDK 64-Bit Server VM",
+        "vmVersion" : "21.0.13",
+        "warmupIterations" : 3,
+        "warmupTime" : "2 s",
+        "warmupBatchSize" : 1,
+        "measurementIterations" : 5,
+        "measurementTime" : "2 s",
+        "measurementBatchSize" : 1,
+        "params" : {
+            "parameterSet" : "P664_17"
+        },
+        "primaryMetric" : {
+            "score" : 10.558672217255442,
+            "scoreError" : 0.024462342903371622,
+            "scoreConfidence" : [
+                10.53420987435207,
+                10.583134560158813
+            ],
+            "scorePercentiles" : {
+                "0.0" : 10.527150743455497,
+                "50.0" : 10.561069955263157,
+                "90.0" : 10.580831383157896,
+                "95.0" : 10.58146732631579,
+                "99.0" : 10.58146732631579,
+                "99.9" : 10.58146732631579,
+                "99.99" : 10.58146732631579,
+                "99.999" : 10.58146732631579,
+                "99.9999" : 10.58146732631579,
+                "100.0" : 10.58146732631579
+            },
+            "scoreUnit" : "ms/op",
+            "rawData" : [
+                [
+                    10.538510471204189,
+                    10.575107894736842,
+                    10.562771268421052,
+                    10.527150743455497,
+                    10.552677847368422
+                ],
+                [
+                    10.560718421052632,
+                    10.58146732631579,
+                    10.561421489473684,
+                    10.558143857894736,
+                    10.56875285263158
+                ]
+            ]
+        },
+        "secondaryMetrics" : {
+        }
+    }
+]
+
+

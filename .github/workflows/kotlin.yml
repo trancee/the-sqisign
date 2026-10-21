@@ -80,8 +80,16 @@ jobs:
       - name: Put MinGW clang on PATH
         if: matrix.platform == 'windows-x86_64'
         run: cygpath -w '${{ steps.msys2.outputs.msys2-location }}/clang64/bin' >> "$GITHUB_PATH"
-      - name: Build and test
-        run: ./gradlew buildNativeJvm jvmTest "-Psqisign.hostCMakeArgs=${{ matrix.cmake-args }}"
+      # Constitution T3 coverage gate: 100 % lines and branches of commonMain + jvmMain. Not measured (no JVM bytecode):
+      # androidMain and appleMain bridges and the C glue in kotlin/native; they are exercised by the Android and Apple jobs.
+      # Excluded: the jvm "benchmark" compilation (src/jvmBenchmark, measurement code).
+      - name: Build, test and verify coverage
+        run: ./gradlew buildNativeJvm jvmTest koverVerify koverXmlReport "-Psqisign.hostCMakeArgs=${{ matrix.cmake-args }}"
+      # Proves the JMH benchmarks still build and run. Timings on shared runners are not compared with the baseline;
+      # see kotlin/benchmarks/README.md for the controlled measurement (Constitution P2-P4).
+      - name: Benchmark smoke run
+        if: matrix.platform == 'linux-x86_64'
+        run: ./gradlew jvmBenchmarkSmokeBenchmark
       - name: Inspect library
         run: |
           lib=$(find build/sqisign/out/buildNativeJvm -type f)
@@ -97,6 +105,12 @@ jobs:
         with:
           name: jvm-native-${{ matrix.platform }}
           path: kotlin/build/sqisign/out/buildNativeJvm/
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v7
+        if: matrix.platform == 'linux-x86_64'
+        with:
+          name: kover-report
+          path: kotlin/build/reports/kover/report.xml
           if-no-files-found: error
       - uses: actions/upload-artifact@v7
         if: failure()
