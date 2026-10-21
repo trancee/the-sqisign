@@ -1,0 +1,16 @@
+[workspace]
+resolver = "2"
+members = ["crates/sqisign", "crates/sqisign-reference"]
+
+[workspace.package]
+edition = "2021"
+license = "Apache-2.0"
+repository = "https://github.com/trancee/the-sqisign"
+rust-version = "1.99"
+
+[workspace.lints.rust]
+unsafe_op_in_unsafe_fn = "deny"
+missing_docs = "warn"
+
+[workspace.lints.clippy]
+all = { level = "deny", priority = -1 }

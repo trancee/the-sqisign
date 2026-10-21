@@ -4,25 +4,27 @@ R full [`CONSTITUTION.md`](CONSTITUTION.md) before mutation; summary != source. 
 
 ## SCOPE
 
-- Owned => full Constitution: `kotlin/` (incl. C glue `kotlin/native/`), `.github/workflows/kotlin.yml`,
+- Owned => full Constitution: `kotlin/` (incl. C glue `kotlin/native/`), `rust/` (Rust port, follows
+  [`rust/AGENTS.md`](rust/AGENTS.md)), `.github/workflows/kotlin.yml`, `.github/workflows/rust.yml`,
   `.github/workflows/secret-scan.yml`, `.gitleaksignore`, `AGENTS.md`, `CONSTITUTION.md`, `.gitignore`,
   `skills-lock.json`.
 - Vendor => upstream [SQIsign](https://github.com/SQISign/the-sqisign) C implementation and its tooling: every other path
   (`src/`, `include/`, `test/`, `apps/`, `KAT/`, `scripts/`, `integration/`, `.cmake/`, `CMakeLists.txt`, other
   `.github/` files, upstream `*.md`). X edit except upstream sync or change required by owned code (e.g. CI runner
   selection); R upstream style ([`DEVELOPERS.md`](DEVELOPERS.md), [`FORMATTING.md`](FORMATTING.md)); Constitution vendor
-  exemptions (T3, D9) apply; R report every vendor edit with reason.
+  exemptions (T3, D9) apply; R report every vendor edit with reason. `rust/` may read vendor sources (tests,
+  constant generation), X edit them.
 
 ## START
 
 1. Load governing `AGENTS.md`, task specs, ADRs in [`kotlin/docs/adr/`](kotlin/docs/adr/). Owned paths additionally follow
-   [`kotlin/AGENTS.md`](kotlin/AGENTS.md).
+   [`kotlin/AGENTS.md`](kotlin/AGENTS.md) or [`rust/AGENTS.md`](rust/AGENTS.md).
 2. Same-priority instructions: narrower path refines broader; unresolved same-scope conflict => ASK. Lower priority X weaken higher.
 3. Inspect worktree; preserve user/concurrent changes. Derive stack/layout/framework/commands from scripts/config/build/CI; missing facts => unverified, X invent.
 4. Map affected contracts/callers/tests/artifacts/platforms/docs/gates.
 5. Non-trivial => short ordered plan + checkable completion + exactly one active implementation step.
 
-Verified project profile (stack, commands, gates): [`kotlin/AGENTS.md`](kotlin/AGENTS.md).
+Verified project profiles (stack, commands, gates): [`kotlin/AGENTS.md`](kotlin/AGENTS.md), [`rust/AGENTS.md`](rust/AGENTS.md).
 START done iff behavior authority + proof commands known. Ecosystem/version recipes belong in scoped guidance.
 
 ## PATH
