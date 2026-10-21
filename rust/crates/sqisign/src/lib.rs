@@ -8,3 +8,5 @@
 pub mod ec;
 pub mod gf;
 pub mod hd;
+pub mod shake;
+pub mod verify;

@@ -8,6 +8,7 @@ pub mod ec;
 pub mod hd;
 #[macro_use]
 pub mod kani;
+pub mod kat;
 
 /// Deterministic SplitMix64 generator; tests must be reproducible.
 pub struct Rng(u64);
