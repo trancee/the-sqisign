@@ -52,6 +52,26 @@ fn assert_matches_header<P: FpParams>(level: &str) {
     assert!(P::ZERO.as_ref().iter().all(|&l| l == 0));
 }
 
+/// `NWORDS_ORDER` of the precomp header, radix-64 branch (the last definition).
+fn order_words(level: &str) -> usize {
+    let path = format!(
+        "{}/../../../src/precomp/ref/{level}/include/fp_constants.h",
+        env!("CARGO_MANIFEST_DIR")
+    );
+    let text = std::fs::read_to_string(path).expect("vendor header");
+    let (_, tail) = text
+        .rsplit_once("#define NWORDS_ORDER ")
+        .expect("define present");
+    tail.split_whitespace().next().unwrap().parse().unwrap()
+}
+
+#[test]
+fn order_words_match_vendor_headers() {
+    assert_eq!(P324::ORDER_WORDS, order_words("p324_3"));
+    assert_eq!(P500::ORDER_WORDS, order_words("p500_27"));
+    assert_eq!(P664::ORDER_WORDS, order_words("p664_17"));
+}
+
 #[test]
 fn constants_match_vendor_headers() {
     assert_matches_header::<P324>("p324_3");
