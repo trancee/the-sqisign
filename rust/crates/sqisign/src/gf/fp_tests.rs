@@ -67,6 +67,12 @@ fn elements_are_cloneable() {
 }
 
 #[test]
+fn montgomery_limbs_are_taken_verbatim() {
+    let one = Fp::<P324>::from_montgomery(core::hint::black_box(P324::ONE));
+    assert_eq!(one.ct_eq(&Fp::ONE), u32::MAX);
+}
+
+#[test]
 fn maximal_sum_needs_two_reductions() {
     let max = domain_max::<P324>();
     let sum = max + max;

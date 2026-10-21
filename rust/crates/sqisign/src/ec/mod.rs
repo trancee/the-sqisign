@@ -2,10 +2,21 @@
 //!
 //! Points are x-only projective `(X : Z)`; curves are `y^2 = x^3 + (A/C) x^2 + x`.
 
+mod basis;
+mod biext;
 mod biscalar;
 mod curve;
+mod dlog;
+mod isog;
+mod normalize;
+mod params;
 mod point;
 mod scalar;
+
+pub use dlog::Dlog;
+pub use isog::{IsogEven, Kps4};
+pub use normalize::ChangeCoordMatrix;
+pub use params::EcParams;
 
 use crate::gf::{Fp2, FpParams};
 

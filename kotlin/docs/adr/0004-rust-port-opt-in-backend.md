@@ -24,9 +24,16 @@ an expert review has accepted the Rust code, it must not replace the reviewed C 
 2. Field arithmetic follows the C `sat64` backend (the one the `arm64` build runs): Montgomery form over saturated
    64-bit limbs, partially reduced to `[0, 2^bits)`. The Montgomery constants (`R mod p`, `R^2 mod p`, `1/2`, `1/3`)
    are computed by `const fn`s from the prime shape `(N, C, T)` and unit-tested against the vendor
-   `src/gf/sat64/<set>/include/fp_generic_params.h`. The precomputed curve and quaternion tables are converted from
-   the vendor `src/precomp/ref/<set>` SAT64 tables by a generator with a `--check` mode, never edited by hand (E6).
-3. Correctness evidence, in this order:
+   `src/gf/sat64/<set>/include/fp_generic_params.h`. The few curve constants verification needs (`BASIS_E0_PX`,
+   `BASIS_E0_QX`, `p_cofactor_for_2f`) are source literals copied from the vendor `src/precomp/ref/<set>` SAT64
+   tables and pinned by a differential test against the C globals. The large signing tables (quaternion orders,
+   endomorphism and torsion data) are converted by a generator with a `--check` mode, never edited by hand (E6).
+3. The port reproduces the C code as the Kotlin project builds it, `CMAKE_BUILD_TYPE=Release`, which defines `NDEBUG`:
+   checks that exist only in `assert` or `#ifndef NDEBUG` blocks are not ported, and functions whose only failure
+   path is such a check (for example `ec_curve_to_basis_2f_from_hint`) are infallible in Rust. Results C returns
+   through a status flag and an out-parameter become `Option`; the C out-parameter on failure is not reproduced, as
+   every C caller aborts on it.
+4. Correctness evidence, in this order:
    - differential tests of every ported module against the vendor C `ref` build, compiled from `src/` into a test-only
      crate (`sqisign-reference`) and compared through the byte encodings;
    - the 300 NIST KAT entries in `KAT/`: verification of every signature, and byte-exact key generation and signing
@@ -35,10 +42,10 @@ an expert review has accepted the Rust code, it must not replace the reviewed C 
 
    Coverage (T3) is gated at 100% lines, functions and regions with `cargo llvm-cov` on the pinned stable toolchain.
    Rust branch coverage needs a nightly compiler; regions count both arms of every condition and stand in for it.
-4. The Kotlin project selects the backend at build time with the Gradle property `sqisign.backend` (`c` default,
+5. The Kotlin project selects the backend at build time with the Gradle property `sqisign.backend` (`c` default,
    `rust` opt-in). The Rust backend exports the same C ABI as `kotlin/native/include/sqisign_kmp.h`, so the JNI glue,
    cinterop definitions and the Kotlin API do not change.
-5. The C backend stays the default and the only release backend until an expert review of the Rust port is recorded
+6. The C backend stays the default and the only release backend until an expert review of the Rust port is recorded
    in a new version of this ADR.
 
 ## Alternatives
@@ -55,6 +62,9 @@ an expert review has accepted the Rust code, it must not replace the reviewed C 
 - Constant-time behavior of the Rust field code depends on the compiler. The verification and field paths use
   branch-free code; a measured timing analysis is part of the expert review.
 - Signing is variable-time in the C code (lattice reduction); the port inherits that.
+- The port also inherits C behaviour on inputs outside the documented domain, for example `pairing_dlog_2_tate`
+  with `e = 1` can return logarithms that do not satisfy the relation. The differential tests pin this behaviour; the
+  callers never use such inputs.
 - Two backends double the platform test matrix while both exist.
 
 ## Migration
