@@ -1,0 +1,275 @@
+name: Kotlin
+
+on:
+  push:
+    branches: ["**"]
+    paths:
+      - "kotlin/**"
+      - "src/**"
+      - "include/**"
+      - ".cmake/**"
+      - "CMakeLists.txt"
+      - "KAT/**"
+      - ".github/workflows/kotlin.yml"
+  pull_request:
+    paths:
+      - "kotlin/**"
+      - "src/**"
+      - "include/**"
+      - ".cmake/**"
+      - "CMakeLists.txt"
+      - "KAT/**"
+      - ".github/workflows/kotlin.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: kotlin-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    shell: bash
+    working-directory: kotlin
+
+jobs:
+  # Builds the JNI library on each JVM platform and runs the common tests against it.
+  jvm-native:
+    name: JVM native (${{ matrix.platform }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: linux-x86_64
+            os: ubuntu-24.04
+          - platform: linux-aarch64
+            os: ubuntu-24.04-arm
+          - platform: macos-aarch64
+            os: macos-15
+          - platform: macos-x86_64
+            os: macos-15-intel
+          - platform: windows-x86_64
+            os: windows-2025
+            # MSVC has no __int128, which the C code requires; build with MinGW clang instead.
+            cmake-args: -G Ninja -DCMAKE_C_COMPILER=clang -DCMAKE_ASM_COMPILER=clang
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: 21
+      - uses: gradle/actions/setup-gradle@v6
+      - name: Set up Android SDK
+        # The Android Gradle plugin needs an SDK to configure the project; the arm64 Linux image has none.
+        if: matrix.platform == 'linux-aarch64'
+        uses: android-actions/setup-android@v4
+      - name: Set up MinGW clang
+        if: matrix.platform == 'windows-x86_64'
+        id: msys2
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: CLANG64
+          path-type: inherit
+          install: >-
+            mingw-w64-clang-x86_64-clang
+            mingw-w64-clang-x86_64-cmake
+            mingw-w64-clang-x86_64-ninja
+      - name: Put MinGW clang on PATH
+        if: matrix.platform == 'windows-x86_64'
+        run: cygpath -w '${{ steps.msys2.outputs.msys2-location }}/clang64/bin' >> "$GITHUB_PATH"
+      # Constitution T3 coverage gate: 100 % lines and branches of commonMain + jvmMain. Not measured (no JVM bytecode):
+      # androidMain and appleMain bridges and the C glue in kotlin/native; they are exercised by the Android and Apple jobs.
+      # Excluded: the jvm "benchmark" compilation (src/jvmBenchmark, measurement code).
+      - name: Build, test and verify coverage
+        run: ./gradlew buildNativeJvm jvmTest koverVerify koverXmlReport "-Psqisign.hostCMakeArgs=${{ matrix.cmake-args }}"
+      # Proves the JMH benchmarks still build and run. Timings on shared runners are not compared with the baseline;
+      # see kotlin/benchmarks/README.md for the controlled measurement (Constitution P2-P4).
+      - name: Benchmark smoke run
+        if: matrix.platform == 'linux-x86_64'
+        run: ./gradlew jvmBenchmarkSmokeBenchmark
+      - name: Inspect library
+        run: |
+          lib=$(find build/sqisign/out/buildNativeJvm -type f)
+          ls -l $lib
+          case "${{ matrix.platform }}" in
+            linux-*)
+              readelf -d $lib | grep NEEDED
+              echo "Highest glibc symbol version: $(objdump -T $lib | grep -o 'GLIBC_[0-9.]*' | sort -uV | tail -1)" ;;
+            macos-*) otool -L $lib ;;
+            windows-*) llvm-objdump -p $lib | grep -E "DLL Name|Java_" ;;
+          esac
+      - uses: actions/upload-artifact@v7
+        with:
+          name: jvm-native-${{ matrix.platform }}
+          path: kotlin/build/sqisign/out/buildNativeJvm/
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v7
+        if: matrix.platform == 'linux-x86_64'
+        with:
+          name: kover-report
+          path: kotlin/build/reports/kover/report.xml
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v7
+        if: failure()
+        with:
+          name: jvm-native-${{ matrix.platform }}-reports
+          path: kotlin/build/reports/
+
+  # Runs the tests against the combined resources on every platform, then publishes the all-platform JVM jar.
+  jvm-jar:
+    name: JVM jar (${{ matrix.platform }})
+    needs: jvm-native
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: linux-x86_64
+            os: ubuntu-24.04
+          - platform: linux-aarch64
+            os: ubuntu-24.04-arm
+          - platform: macos-aarch64
+            os: macos-15
+          - platform: macos-x86_64
+            os: macos-15-intel
+          - platform: windows-x86_64
+            os: windows-2025
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: 21
+      - uses: gradle/actions/setup-gradle@v6
+      - name: Set up Android SDK
+        if: matrix.platform == 'linux-aarch64'
+        uses: android-actions/setup-android@v4
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: jvm-native-*-*64
+          path: kotlin/build/jvm-natives
+          merge-multiple: true
+      - name: Test with all bundled libraries
+        run: ./gradlew jvmTest jvmJar -Psqisign.jvmNativeLibs=build/jvm-natives -Psqisign.katTests=false
+      - name: Check jar contents
+        run: |
+          jar=$(ls build/libs/*-jvm-*.jar)
+          unzip -l "$jar" | grep org/sqisign/native/
+          for p in linux-x86_64/libsqisign_jni.so linux-aarch64/libsqisign_jni.so \
+                   macos-x86_64/libsqisign_jni.dylib macos-aarch64/libsqisign_jni.dylib \
+                   windows-x86_64/sqisign_jni.dll; do
+            unzip -l "$jar" | grep -q "org/sqisign/native/$p" || { echo "missing $p"; exit 1; }
+          done
+      - uses: actions/upload-artifact@v7
+        if: matrix.platform == 'linux-x86_64'
+        with:
+          name: sqisign-kotlin-jvm
+          path: kotlin/build/libs/*-jvm-*.jar
+          if-no-files-found: error
+
+  # Runs the device tests on an x86_64 emulator twice: natively with the portable `ref` build of the C core, then with
+  # the arm64-v8a libraries (optimized `arm64` build) through the system image's ARM translation. GitHub-hosted
+  # runners cannot run an accelerated arm64 emulator; the translated run checks correctness, not performance.
+  # The AndroidX Microbenchmarks run once each in dry-run mode, which checks that they work; timings are device-only.
+  android-x86_64:
+    name: Android (x86_64 emulator, arm64 translated)
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: 21
+      - uses: gradle/actions/setup-gradle@v6
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Install NDK and CMake
+        run: |
+          ndk=$(grep '^sqisign.ndkVersion=' gradle.properties | cut -d= -f2)
+          cmake=$(grep '^sqisign.cmakeVersion=' gradle.properties | cut -d= -f2)
+          # yes gets SIGPIPE once sdkmanager exits; pipefail must not treat that as failure.
+          (yes || true) | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --install "ndk;$ndk" "cmake;$cmake" > /dev/null
+      - name: Build AAR
+        run: |
+          ./gradlew bundleAndroidMainAar assembleAndroidDeviceTest :benchmark-android:assembleReleaseAndroidTest
+          unzip -l build/outputs/aar/*.aar | grep jni/
+      - name: Run device tests
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          arch: x86_64
+          target: google_apis
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -no-snapshot
+          working-directory: kotlin
+          script: |
+            adb shell getprop ro.product.cpu.abi
+            ./gradlew connectedAndroidDeviceTest
+            scripts/android-device-test-abi.sh arm64-v8a
+            ./gradlew :benchmark-android:connectedReleaseAndroidTest -Pandroid.testInstrumentationRunnerArguments.androidx.benchmark.dryRunMode.enable=true
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: android-x86_64-reports
+          path: |
+            kotlin/build/reports/
+            kotlin/build/outputs/androidTest-results/
+            kotlin/benchmark-android/build/outputs/androidTest-results/
+          if-no-files-found: ignore
+
+  # Kotlin/Native tests plus the Swift consumer tests against the static XCFramework.
+  apple:
+    name: Apple (macOS, iOS Simulator, Swift)
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: 21
+      - uses: gradle/actions/setup-gradle@v6
+      # Only a macOS host compiles every target, so the klib ABI dump is checked here without inferred targets.
+      - name: Formatting, static analysis, ABI and API docs
+        run: ./gradlew spotlessCheck detekt checkKotlinAbi dokkaGenerate
+      - name: Kotlin/Native tests and XCFramework
+        run: ./gradlew macosArm64Test iosSimulatorArm64Test compileKotlinIosArm64 assembleSqiSignReleaseXCFramework
+      - name: Swift tests (macOS)
+        working-directory: kotlin/swift
+        run: swift test --skip SqiSignKitBenchmarks
+      # Checks that the XCTest benchmarks run; shared runners are too noisy to compare the timings.
+      - name: Swift benchmarks smoke (macOS)
+        working-directory: kotlin/swift
+        run: swift test --filter SqiSignKitBenchmarks
+      - name: Swift tests (iOS Simulator)
+        working-directory: kotlin/swift
+        run: |
+          udid=$(xcrun simctl list devices available -j | python3 -c 'import json,sys; print(next(d["udid"] for r, ds in json.load(sys.stdin)["devices"].items() if "iOS" in r for d in ds if d["name"].startswith("iPhone")))')
+          xcodebuild test -scheme SqiSignKit -destination "id=$udid" -derivedDataPath ../build/swift-dd \
+            -skip-testing:SqiSignKitBenchmarks
+      - uses: actions/upload-artifact@v7
+        with:
+          name: SqiSign.xcframework
+          path: kotlin/build/XCFrameworks/release/SqiSign.xcframework
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v7
+        with:
+          name: api-docs
+          path: kotlin/build/dokka/html
+          if-no-files-found: error
+      # Clang source-based coverage of the C glue (native/src) through the JVM tests; Xcode ships llvm-cov.
+      - name: C glue coverage
+        run: scripts/native-coverage.sh
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: native-coverage
+          path: |
+            kotlin/build/native-coverage/report.txt
+            kotlin/build/native-coverage/html
+          if-no-files-found: ignore

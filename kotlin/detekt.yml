@@ -1,0 +1,18 @@
+# Overrides on top of the detekt default configuration (buildUponDefaultConfig = true).
+
+style:
+  MagicNumber:
+    # ParameterSet declares the byte sizes from the C api.h as enum arguments.
+    ignoreEnums: true
+    excludes: &tests
+      - '**/commonTest/**'
+      - '**/drbgTest/**'
+      - '**/katTest/**'
+      - '**/jvmTest/**'
+      - '**/appleTest/**'
+      - '**/androidDeviceTest/**'
+
+complexity:
+  LongParameterList:
+    # The test-only KAT bridge mirrors the six-argument C function sqisign_kmp_kat_keypair_sign.
+    excludes: *tests

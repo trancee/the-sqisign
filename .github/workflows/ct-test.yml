@@ -39,7 +39,7 @@ jobs:
           - platform: arm64
             sqisign_build_type: arm64
 
-    runs-on: [self-hosted, "${{ matrix.platform }}"]
+    runs-on: ${{ matrix.platform == 'arm64' && 'ubuntu-24.04-arm' || 'ubuntu-24.04' }}
 
     steps:
     - uses: actions/checkout@v5
@@ -48,6 +48,11 @@ jobs:
         # `inputs` context, not `github.event.inputs`: the latter is empty when this workflow is called rather than
         # dispatched. A SHA here must be the full 40 characters.
         ref: ${{ inputs.commit_sha }}
+
+    - name: Install dependencies
+      run: |
+        sudo apt-get update -qq
+        sudo apt-get install -y -qq --no-install-recommends ninja-build valgrind
 
     - name: Configure CMake
       run: cmake -B ${{github.workspace}}/build -DENABLE_CT_TESTING=ON -DCMAKE_BUILD_TYPE=RelWithDebInfo -DSQISIGN_TEST_REPS=1 -DSQISIGN_BUILD_TYPE=${{ matrix.sqisign_build_type }} -G Ninja

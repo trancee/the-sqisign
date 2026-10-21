@@ -1,0 +1,82 @@
+// Klib ABI Dump
+// Targets: [iosArm64, iosSimulatorArm64, macosArm64]
+// Rendering settings:
+// - Signature version: 2
+// - Show manifest properties: true
+// - Show declarations: true
+
+// Library unique name: <org.sqisign:sqisign-kotlin>
+final enum class org.sqisign/ParameterSet : kotlin/Enum<org.sqisign/ParameterSet> { // org.sqisign/ParameterSet|null[0]
+    enum entry P324_3 // org.sqisign/ParameterSet.P324_3|null[0]
+    enum entry P500_27 // org.sqisign/ParameterSet.P500_27|null[0]
+    enum entry P664_17 // org.sqisign/ParameterSet.P664_17|null[0]
+
+    final val algorithmName // org.sqisign/ParameterSet.algorithmName|{}algorithmName[0]
+        final fun <get-algorithmName>(): kotlin/String // org.sqisign/ParameterSet.algorithmName.<get-algorithmName>|<get-algorithmName>(){}[0]
+    final val entries // org.sqisign/ParameterSet.entries|#static{}entries[0]
+        final fun <get-entries>(): kotlin.enums/EnumEntries<org.sqisign/ParameterSet> // org.sqisign/ParameterSet.entries.<get-entries>|<get-entries>#static(){}[0]
+    final val nistLevel // org.sqisign/ParameterSet.nistLevel|{}nistLevel[0]
+        final fun <get-nistLevel>(): kotlin/Int // org.sqisign/ParameterSet.nistLevel.<get-nistLevel>|<get-nistLevel>(){}[0]
+    final val publicKeyBytes // org.sqisign/ParameterSet.publicKeyBytes|{}publicKeyBytes[0]
+        final fun <get-publicKeyBytes>(): kotlin/Int // org.sqisign/ParameterSet.publicKeyBytes.<get-publicKeyBytes>|<get-publicKeyBytes>(){}[0]
+    final val secretKeyBytes // org.sqisign/ParameterSet.secretKeyBytes|{}secretKeyBytes[0]
+        final fun <get-secretKeyBytes>(): kotlin/Int // org.sqisign/ParameterSet.secretKeyBytes.<get-secretKeyBytes>|<get-secretKeyBytes>(){}[0]
+    final val signatureBytes // org.sqisign/ParameterSet.signatureBytes|{}signatureBytes[0]
+        final fun <get-signatureBytes>(): kotlin/Int // org.sqisign/ParameterSet.signatureBytes.<get-signatureBytes>|<get-signatureBytes>(){}[0]
+
+    final fun valueOf(kotlin/String): org.sqisign/ParameterSet // org.sqisign/ParameterSet.valueOf|valueOf#static(kotlin.String){}[0]
+    final fun values(): kotlin/Array<org.sqisign/ParameterSet> // org.sqisign/ParameterSet.values|values#static(){}[0]
+}
+
+final class org.sqisign/SqiSignException : kotlin/RuntimeException { // org.sqisign/SqiSignException|null[0]
+    constructor <init>(kotlin/String) // org.sqisign/SqiSignException.<init>|<init>(kotlin.String){}[0]
+}
+
+final class org.sqisign/SqiSignKeyPair { // org.sqisign/SqiSignKeyPair|null[0]
+    constructor <init>(org.sqisign/SqiSignPublicKey, org.sqisign/SqiSignSecretKey) // org.sqisign/SqiSignKeyPair.<init>|<init>(org.sqisign.SqiSignPublicKey;org.sqisign.SqiSignSecretKey){}[0]
+
+    final val parameterSet // org.sqisign/SqiSignKeyPair.parameterSet|{}parameterSet[0]
+        final fun <get-parameterSet>(): org.sqisign/ParameterSet // org.sqisign/SqiSignKeyPair.parameterSet.<get-parameterSet>|<get-parameterSet>(){}[0]
+    final val publicKey // org.sqisign/SqiSignKeyPair.publicKey|{}publicKey[0]
+        final fun <get-publicKey>(): org.sqisign/SqiSignPublicKey // org.sqisign/SqiSignKeyPair.publicKey.<get-publicKey>|<get-publicKey>(){}[0]
+    final val secretKey // org.sqisign/SqiSignKeyPair.secretKey|{}secretKey[0]
+        final fun <get-secretKey>(): org.sqisign/SqiSignSecretKey // org.sqisign/SqiSignKeyPair.secretKey.<get-secretKey>|<get-secretKey>(){}[0]
+
+    final fun toString(): kotlin/String // org.sqisign/SqiSignKeyPair.toString|toString(){}[0]
+}
+
+final class org.sqisign/SqiSignPublicKey { // org.sqisign/SqiSignPublicKey|null[0]
+    constructor <init>(org.sqisign/ParameterSet, kotlin/ByteArray) // org.sqisign/SqiSignPublicKey.<init>|<init>(org.sqisign.ParameterSet;kotlin.ByteArray){}[0]
+
+    final val encoded // org.sqisign/SqiSignPublicKey.encoded|{}encoded[0]
+        final fun <get-encoded>(): kotlin/ByteArray // org.sqisign/SqiSignPublicKey.encoded.<get-encoded>|<get-encoded>(){}[0]
+    final val parameterSet // org.sqisign/SqiSignPublicKey.parameterSet|{}parameterSet[0]
+        final fun <get-parameterSet>(): org.sqisign/ParameterSet // org.sqisign/SqiSignPublicKey.parameterSet.<get-parameterSet>|<get-parameterSet>(){}[0]
+
+    final fun equals(kotlin/Any?): kotlin/Boolean // org.sqisign/SqiSignPublicKey.equals|equals(kotlin.Any?){}[0]
+    final fun hashCode(): kotlin/Int // org.sqisign/SqiSignPublicKey.hashCode|hashCode(){}[0]
+    final fun toString(): kotlin/String // org.sqisign/SqiSignPublicKey.toString|toString(){}[0]
+}
+
+final class org.sqisign/SqiSignSecretKey : kotlin/AutoCloseable { // org.sqisign/SqiSignSecretKey|null[0]
+    constructor <init>(org.sqisign/ParameterSet, kotlin/ByteArray) // org.sqisign/SqiSignSecretKey.<init>|<init>(org.sqisign.ParameterSet;kotlin.ByteArray){}[0]
+
+    final val encoded // org.sqisign/SqiSignSecretKey.encoded|{}encoded[0]
+        final fun <get-encoded>(): kotlin/ByteArray // org.sqisign/SqiSignSecretKey.encoded.<get-encoded>|<get-encoded>(){}[0]
+    final val isClosed // org.sqisign/SqiSignSecretKey.isClosed|{}isClosed[0]
+        final fun <get-isClosed>(): kotlin/Boolean // org.sqisign/SqiSignSecretKey.isClosed.<get-isClosed>|<get-isClosed>(){}[0]
+    final val parameterSet // org.sqisign/SqiSignSecretKey.parameterSet|{}parameterSet[0]
+        final fun <get-parameterSet>(): org.sqisign/ParameterSet // org.sqisign/SqiSignSecretKey.parameterSet.<get-parameterSet>|<get-parameterSet>(){}[0]
+
+    final fun close() // org.sqisign/SqiSignSecretKey.close|close(){}[0]
+    final fun toString(): kotlin/String // org.sqisign/SqiSignSecretKey.toString|toString(){}[0]
+}
+
+final object org.sqisign/SqiSign { // org.sqisign/SqiSign|null[0]
+    final fun generateKeyPair(org.sqisign/ParameterSet = ...): org.sqisign/SqiSignKeyPair // org.sqisign/SqiSign.generateKeyPair|generateKeyPair(org.sqisign.ParameterSet){}[0]
+    final fun sign(kotlin/ByteArray, org.sqisign/SqiSignSecretKey): kotlin/ByteArray // org.sqisign/SqiSign.sign|sign(kotlin.ByteArray;org.sqisign.SqiSignSecretKey){}[0]
+    final fun verify(kotlin/ByteArray, kotlin/ByteArray, org.sqisign/SqiSignPublicKey): kotlin/Boolean // org.sqisign/SqiSign.verify|verify(kotlin.ByteArray;kotlin.ByteArray;org.sqisign.SqiSignPublicKey){}[0]
+}
+
+final fun org.sqisign/byteArray(platform.Foundation/NSData): kotlin/ByteArray // org.sqisign/byteArray|byteArray(platform.Foundation.NSData){}[0]
+final fun org.sqisign/nsData(kotlin/ByteArray): platform.Foundation/NSData // org.sqisign/nsData|nsData(kotlin.ByteArray){}[0]

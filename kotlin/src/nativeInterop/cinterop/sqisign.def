@@ -1,0 +1,3 @@
+headers = sqisign_kmp.h
+headerFilter = sqisign_kmp.h
+staticLibraries = libsqisign_kmp_all.a
