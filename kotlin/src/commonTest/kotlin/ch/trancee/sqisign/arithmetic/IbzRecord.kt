@@ -10,7 +10,8 @@ internal class IbzRecord(text: String) {
     private val sides = text.split(" = ")
     private val query = sides[0].split(" ")
     internal val operation: String = query[0]
-    internal val capacity: Int = CAPACITIES.getValue(query[1])
+    internal val level: String = query[1]
+    internal val capacity: Int = CAPACITIES.getValue(level)
     internal val arguments: List<String> = query.drop(2)
     internal val expected: String = sides[1]
     internal val description: String = text.take(DESCRIPTION_LENGTH)

@@ -108,7 +108,7 @@ private class LehmerReduction(detBits: Int) {
 }
 
 /** The 64 magnitude bits from [offset], or the low bits shifted up for a negative [offset]. */
-private fun window(value: Ibz, offset: Int): Long =
+internal fun window(value: Ibz, offset: Int): Long =
     value.extractUnsigned64(maxOf(offset, 0)) shl maxOf(-offset, 0)
 
 /**

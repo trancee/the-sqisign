@@ -10,6 +10,7 @@
 #include "../../src/mp/ref/lvlx/mp.c"
 #include "../../src/quaternion/ref/lvlx/lll/lehmer_xgcd.c"
 #include "../../src/quaternion/ref/lvlx/integers.c"
+#include "../../src/quaternion/ref/lvlx/lll/lll_lg2.c"
 
 enum
 {
@@ -465,6 +466,52 @@ lattice(const char *op, char **arguments)
     return 1;
 }
 
+static int
+gram(const char *op, char **arguments)
+{
+    quat_lll_gram2_t form;
+    ibz_t a, b, c, U[2][2];
+    int32_t M[2][2];
+    if (strcmp(op, "outer") == 0) {
+        printf("%d", lg_outer_its_for_round((int)number(arguments[0])));
+    } else if (strcmp(op, "gmsb") == 0) {
+        partial_gram_msb(strtoull(required(arguments[0]), NULL, 16),
+                         (int64_t)strtoull(required(arguments[1]), NULL, 16),
+                         strtoull(required(arguments[2]), NULL, 16),
+                         M,
+                         (uint64_t)number(arguments[3]));
+        printf("%" PRId32 " %" PRId32 " %" PRId32 " %" PRId32, M[0][0], M[0][1], M[1][0], M[1][1]);
+    } else if (strcmp(op, "block") == 0) {
+        decode(&a, arguments[0]);
+        decode(&b, arguments[1]);
+        decode(&c, arguments[2]);
+        quat_lll_materialise_block(&form, &a, &b, &c, FP_P_BITS);
+        print_ibz(&form.a);
+        printf(" ");
+        print_ibz(&form.b);
+        printf(" ");
+        print_ibz(&form.c);
+        printf(" %" PRId32, form.e);
+    } else if (strcmp(op, "gram") == 0) {
+        decode(&form.a, arguments[0]);
+        decode(&form.b, arguments[1]);
+        decode(&form.c, arguments[2]);
+        quat_lll_gram_lehmer(&form, U, (int)number(arguments[3]));
+        print_ibz(&form.a);
+        printf(" ");
+        print_ibz(&form.b);
+        printf(" ");
+        print_ibz(&form.c);
+        for (int index = 0; index < 4; index++) {
+            printf(" ");
+            print_ibz(&U[index / 2][index % 2]);
+        }
+    } else {
+        return 0;
+    }
+    return 1;
+}
+
 static void
 special(const char *op, char **arguments)
 {
@@ -494,7 +541,8 @@ special(const char *op, char **arguments)
             fail("random symmetric interval");
         finish_script();
     } else {
-        if (!fixed_point(op, arguments) && !lattice(op, arguments) && !number_theory(op, arguments))
+        if (!fixed_point(op, arguments) && !lattice(op, arguments) && !gram(op, arguments) &&
+            !number_theory(op, arguments))
             unary(op, arguments);
         return;
     }

@@ -1279,3 +1279,30 @@ Remaining milestone 6 work: the dimension-4 and Gaussian lattice reductions,
 quaternion algebra elements and lattices, then ideals. Everything remains
 variable-time and without expert review. No public ABI, wire format,
 dependency or toolchain changes.
+
+## Quaternion decision 2026-10-20: dimension-2 Gram kernel
+
+[`ADR 0024`](adr/0024-dimension-two-gram-kernel.md) ports the pinned
+`lll_lg2.c`, the binary-form kernel of the dimension-4 reduction:
+
+- `quat_lll_materialise_block` truncates the LDL block
+  `(D_k, mu D_k, D_{k+1} + mu^2 D_k)` to `GRAM_TOT_BITS`;
+- `quat_lll_gram_lehmer` runs Lehmer Lagrange-Gauss passes, including the
+  large-gap pre-scaling, through `partial_gram_msb` and `fast_log2_ratio`.
+
+`LllConfig` derives the `lll_config.h` bounds and `lg_outer_its_for_round`
+for each parameter set. The 64-bit windows, unsigned compares and wrapping
+`int32` coefficients are reproduced exactly.
+
+`tools/generate_gram_vectors.py` independently models 171 records and checks
+every reduction for unimodularity and exactness. `checkIbzReference` now
+checks 2539 records against pinned C, adding the pinned `lll_lg2.c`,
+`lll_lg2.h` and `quaternion_constants.h`. Precondition tests bring coverage to
+100%. Six retained `GramBenchmark` cases are checked against `BigInteger`, so
+the smoke inventory changes from 328 to 334.
+
+Remaining milestone 6 work: the dimension-4 driver
+(`quat_lll_dual_reduce_ideal`), the Gaussian reduction, quaternion algebra
+elements and lattices, then ideals. Everything remains variable-time and
+without expert review. No public ABI, wire format, dependency or toolchain
+changes.
