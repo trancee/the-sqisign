@@ -1,5 +1,5 @@
-# Host app for running the Swift tests on a physical iOS device, where SwiftPM package tests need an app host.
-# Generate with `xcodegen generate` from this directory; the generated project is not committed.
+# Host app for running the Swift tests and benchmarks on a physical iOS device, where SwiftPM package tests need an
+# app host. Generate with `xcodegen generate` from this directory; the generated project is not committed.
 name: SqiSignDeviceHost
 options:
   bundleIdPrefix: org.sqisign
@@ -17,12 +17,36 @@ targets:
       path: build/HostInfo.plist
       properties:
         UILaunchScreen: {}
+  SqiSignKit:
+    type: library.static
+    platform: iOS
+    sources: [../Sources/SqiSignKit]
+    dependencies:
+      - framework: ../../build/XCFrameworks/release/SqiSign.xcframework
+        embed: false
+    settings:
+      base:
+        PRODUCT_MODULE_NAME: SqiSignKit
+        SWIFT_STRICT_CONCURRENCY: complete
   SqiSignDeviceTests:
     type: bundle.unit-test
     platform: iOS
-    sources: [../Tests/SqiSignTests]
+    sources: [../Tests/SqiSignKitTests]
     dependencies:
       - target: SqiSignTestHost
+      - target: SqiSignKit
+      - framework: ../../build/XCFrameworks/release/SqiSign.xcframework
+        embed: false
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES
+  SqiSignDeviceBenchmarks:
+    type: bundle.unit-test
+    platform: iOS
+    sources: [../Tests/SqiSignKitBenchmarks]
+    dependencies:
+      - target: SqiSignTestHost
+      - target: SqiSignKit
       - framework: ../../build/XCFrameworks/release/SqiSign.xcframework
         embed: false
     settings:
@@ -36,3 +60,12 @@ schemes:
         SqiSignDeviceTests: [test]
     test:
       targets: [SqiSignDeviceTests]
+  # Release build of the Swift layer; the SqiSign XCFramework is always the optimized release build.
+  SqiSignDeviceBenchmarks:
+    build:
+      targets:
+        SqiSignTestHost: all
+        SqiSignDeviceBenchmarks: [test]
+    test:
+      config: Release
+      targets: [SqiSignDeviceBenchmarks]

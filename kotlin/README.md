@@ -50,18 +50,23 @@ main thread.
 ### Swift
 
 `./gradlew assembleSqiSignReleaseXCFramework` writes a static `build/XCFrameworks/release/SqiSign.xcframework`
-(`ios-arm64`, `ios-arm64-simulator`, `macos-arm64`). Failures surface as Swift errors:
+(`ios-arm64`, `ios-arm64-simulator`, `macos-arm64`). The SwiftPM package in `swift/` adds `SqiSignKit`, a Swift layer
+over the framework with `Data`, `async`/`await` and CryptoKit-style names
+([ADR 0003](docs/adr/0003-sqisignkit-swift-layer.md)). Failures surface as Swift errors:
 
 ```swift
-import SqiSign
+import SqiSignKit
 
-let keyPair = try SqiSign.shared.generateKeyPair(parameterSet: .p3243)
-let signature = try SqiSign.shared.sign(message: message, secretKey: keyPair.secretKey) // KotlinByteArray
-let valid = SqiSign.shared.verify(message: message, signature: signature, publicKey: keyPair.publicKey)
+let keyPair = try await SqiSignKeyPair.generate(.level1)
+let signature = try await keyPair.secretKey.signature(for: message)   // Data
+let valid = keyPair.publicKey.isValidSignature(signature, for: message)
+let publicKey = try SqiSignPublicKey(parameterSet: .level1, rawRepresentation: keyPair.publicKey.rawRepresentation)
 ```
 
-`swift/` is a SwiftPM package that tests the framework from Swift; `swift/Tests/SqiSignTests/SqiSignTests.swift` also
-shows `Data` ⇄ `KotlinByteArray` conversion.
+Each operation also has a synchronous variant, which blocks the calling thread. The `async` variants run on a detached
+task. They check cancellation before starting but cannot interrupt the native call. Don't close a secret key while it
+is signing. `SqiSignKit` re-exports `SqiSign`, so the Kotlin-generated API (`SqiSign.shared`, `KotlinByteArray`)
+remains available.
 
 ## Build
 
@@ -170,8 +175,9 @@ To run the Swift tests locally (after `assembleSqiSignReleaseXCFramework`):
 
 ```sh
 cd swift
-swift test                                                          # macOS
-xcodebuild test -scheme SqiSignSwiftTests-Package -destination "platform=iOS Simulator,name=iPhone 17"
+swift test --skip SqiSignKitBenchmarks                              # macOS
+xcodebuild test -scheme SqiSignKit -destination "platform=iOS Simulator,name=iPhone 17" \
+  -skip-testing:SqiSignKitBenchmarks
 ```
 
 SwiftPM cannot run package tests on a physical iPhone, so `swift/DeviceHost` generates a small host app with
@@ -185,7 +191,8 @@ xcodebuild test -project SqiSignDeviceHost.xcodeproj -scheme SqiSignDeviceTests 
   -allowProvisioningUpdates DEVELOPMENT_TEAM=<team-id>
 ```
 
-On first launch, trust the developer certificate on the iPhone (Settings → General → VPN & Device Management).
+On first launch, trust the developer certificate on the iPhone (Settings → General → VPN & Device Management). The
+`SqiSignDeviceBenchmarks` scheme runs the device benchmarks; see [`benchmarks/README.md`](benchmarks/README.md).
 
 ## Limitations
 
@@ -200,5 +207,7 @@ On first launch, trust the developer certificate on the iPhone (Settings → Gen
 - Physical-device runs (iPhone, Android phone) are manual, not part of CI. Android `x86_64` is tested only on the CI
   emulator.
 - The Apple static library is embedded in the klib, so consumers cannot swap or deduplicate it.
-- Swift sees `KotlinByteArray` rather than `Data`, and Kotlin default arguments are not exported, so Swift callers
-  always pass a parameter set.
+- Without `SqiSignKit`, Swift sees `KotlinByteArray` rather than `Data`, and Kotlin default arguments are not
+  exported. `SqiSignKit`'s binary target points at the local build output; distributing it needs a released
+  XCFramework URL and checksum.
+- `Data` copies of secret keys (`rawRepresentation`) cannot be reliably wiped.
