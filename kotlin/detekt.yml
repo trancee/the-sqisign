@@ -7,8 +7,10 @@ style:
     excludes: &tests
       - '**/commonTest/**'
       - '**/drbgTest/**'
+      - '**/katTest/**'
       - '**/jvmTest/**'
       - '**/appleTest/**'
+      - '**/androidDeviceTest/**'
 
 complexity:
   LongParameterList:
