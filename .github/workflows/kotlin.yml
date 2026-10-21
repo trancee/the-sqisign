@@ -251,3 +251,14 @@ jobs:
           name: api-docs
           path: kotlin/build/dokka/html
           if-no-files-found: error
+      # Clang source-based coverage of the C glue (native/src) through the JVM tests; Xcode ships llvm-cov.
+      - name: C glue coverage
+        run: scripts/native-coverage.sh
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: native-coverage
+          path: |
+            kotlin/build/native-coverage/report.txt
+            kotlin/build/native-coverage/html
+          if-no-files-found: ignore

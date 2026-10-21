@@ -51,6 +51,7 @@ external prerequisite, X stub it.
 | ABI | `./gradlew checkKotlinAbi` | Apple |
 | API docs | `./gradlew dokkaGenerate` (fails on warnings/undocumented) | Apple |
 | JVM tests + coverage | `./gradlew jvmTest koverVerify` (100 % line+branch, commonMain+jvmMain) | JVM native (5 hosts) |
+| C glue coverage | `scripts/native-coverage.sh` (Clang; all functions, >= 98 % lines of `native/src`) | Apple |
 | Apple tests | `./gradlew macosArm64Test iosSimulatorArm64Test compileKotlinIosArm64` | Apple |
 | XCFramework + Swift | `./gradlew assembleSqiSignReleaseXCFramework`, then `swift test` in `swift/` | Apple |
 | Android | `./gradlew bundleAndroidMainAar connectedAndroidDeviceTest` (device/emulator; includes seeded KATs) | Android (x86_64 emulator) |

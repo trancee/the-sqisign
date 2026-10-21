@@ -25,4 +25,26 @@ class DeterministicKatTest {
             assertContentEquals(signedMessage.copyOfRange(0, set.signatureBytes), sig, "$label sig")
         }
     }
+
+    @Test
+    fun unknownParameterSetIsRejected() {
+        val seed = ByteArray(KAT_SEED_BYTES)
+
+        val result =
+            nativeKatKeypairSign(
+                ParameterSet.entries.size,
+                seed,
+                ByteArray(1),
+                ByteArray(1),
+                ByteArray(1),
+                ByteArray(1),
+            )
+
+        assertEquals(-2, result)
+    }
+
+    private companion object {
+        /** `SQISIGN_KMP_KAT_SEED_BYTES` in native/include/sqisign_kmp_kat.h. */
+        const val KAT_SEED_BYTES = 48
+    }
 }
