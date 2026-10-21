@@ -109,12 +109,21 @@ combined jar. MSVC cannot compile the C core (`__int128`), so Windows uses MinGW
 | Binary compatibility (KGP built-in ABI validation) | `checkKotlinAbi`; accept a reviewed change with `updateKotlinAbi` | dumps in `api/` (JVM, Android, Apple klib) |
 | Formatting (Spotless 8.10.4 + ktlint 1.8.0, `intellij_idea` style) | `spotlessCheck`; fix with `spotlessApply` | `.editorconfig` |
 | Static analysis (detekt 1.23.8, default rules) | `detekt` | `detekt.yml` |
+| Coverage (Kover 0.9.11): 100 % lines and branches of `commonMain` + `jvmMain` | `koverVerify`; report with `koverHtmlReport` | `kover {}` in `build.gradle.kts` |
 
 Run `updateKotlinAbi` on macOS: other hosts cannot compile the Apple targets and only infer their part of
 `api/sqisign-kotlin.klib.api`. CI checks all of the above, plus `dokkaGenerate`, on macOS.
 
 API reference: `./gradlew dokkaGenerate` writes HTML to `build/dokka/html` (Dokka 2.2.0, module page from `Module.md`).
 Undocumented public declarations fail the build. CI uploads the HTML as the `api-docs` artifact.
+
+Kover measures JVM bytecode only. `androidMain`, `appleMain` and the C glue in `native/` are not measured, but the
+Android and Apple jobs test them. Two more checks run outside `check`:
+- **Benchmarks:** JMH benchmarks are in `src/jvmBenchmark`. Budgets, the baseline and the comparison script are in
+  [`benchmarks/README.md`](benchmarks/README.md).
+- **Secret scan:** the `Secret scan` workflow runs gitleaks over the full git history on every push.
+
+Design decisions are recorded in [`docs/adr/`](docs/adr/). Contributor and agent workflow: [`AGENTS.md`](AGENTS.md).
 
 ## Tests
 
@@ -125,6 +134,11 @@ Undocumented public declarations fail the build. CI uploads the HTML as the `api
 - empty messages work;
 - key encodings round-trip, and closing a secret key wipes it;
 - the first three NIST KAT signatures per set verify (generated from `../KAT/*.rsp` by `generateKatVectors`).
+- key equality, `toString` redaction, key pairs whose keys use different parameter sets, and the mapping of native
+  failure codes to `SqiSignException`.
+
+`jvmTest` adds the JVM loader: platform directory names, the `sqisign.library.path` override and the fallback to
+`java.library.path`.
 
 `drbgTest` (JVM and Apple targets) reproduces the same KATs from their seeds: public key, secret key and signature must
 match byte for byte. It links a test-only native build (`-DSQISIGN_KMP_KAT=ON`) that replaces the system RNG with the
