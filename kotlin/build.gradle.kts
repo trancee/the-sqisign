@@ -200,6 +200,10 @@ val hostCMakeArgs: Provider<List<String>> = providers.gradleProperty("sqisign.ho
     .map { it.trim().split(Regex("\\s+")).filter(String::isNotEmpty) }
     .orElse(emptyList())
 
+// Test-only Clang source-based coverage of the C glue for the host JNI libraries; see scripts/native-coverage.sh.
+val nativeCoverage: Boolean = providers.gradleProperty("sqisign.nativeCoverage").map(String::toBoolean).getOrElse(false)
+val nativeCoverageDir = layout.buildDirectory.dir("native-coverage")
+
 fun registerHostJni(taskName: String, resourceDir: String, extraArgs: List<String>) = registerCMake(
     taskName,
     "$resourceDir/$hostOs-$hostArch",
@@ -207,6 +211,8 @@ fun registerHostJni(taskName: String, resourceDir: String, extraArgs: List<Strin
         arg("-DSQISIGN_KMP_OUTPUT=jni"),
         hostBuildType.map { "-DSQISIGN_BUILD_TYPE=$it" },
         jniJavaHome.map { "-DJNI_INCLUDE_DIRS=$it/include;$it/include/$jniPlatformDir" },
+        // Always passed: CMake caches options, so omitting it would keep a previous coverage build instrumented.
+        arg("-DSQISIGN_KMP_COVERAGE=${if (nativeCoverage) "ON" else "OFF"}"),
     ) + extraArgs.map(::arg),
 ).also { task -> task.configure { cmakeArguments.addAll(hostCMakeArgs) } }
 
@@ -402,6 +408,17 @@ extensions.getByType<KotlinMultiplatformAndroidComponentsExtension>().onVariants
 if (!katTests) {
     tasks.named<Test>("jvmTest") {
         filter.excludeTestsMatching("org.sqisign.DeterministicKatTest")
+        filter.excludeTestsMatching("org.sqisign.KatJniTest")
+    }
+}
+
+if (nativeCoverage) {
+    tasks.named<Test>("jvmTest") {
+        val profiles = nativeCoverageDir.get().dir("profiles").asFile
+        doFirst { profiles.deleteRecursively() }
+        // %p: one file per test JVM; %m: one per instrumented library.
+        environment("LLVM_PROFILE_FILE", "${profiles.path}/%p-%m.profraw")
+        outputs.dir(profiles)
     }
 }
 

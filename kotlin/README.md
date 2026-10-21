@@ -117,8 +117,13 @@ Run `updateKotlinAbi` on macOS: other hosts cannot compile the Apple targets and
 API reference: `./gradlew dokkaGenerate` writes HTML to `build/dokka/html` (Dokka 2.2.0, module page from `Module.md`).
 Undocumented public declarations fail the build. CI uploads the HTML as the `api-docs` artifact.
 
-Kover measures JVM bytecode only. `androidMain`, `appleMain` and the C glue in `native/` are not measured, but the
-Android and Apple jobs test them. Two more checks run outside `check`:
+Kover measures JVM bytecode only. `androidMain` and `appleMain` are not measured, but the Android and Apple jobs test
+them. Three more checks run outside `check`:
+- **C glue coverage:** `scripts/native-coverage.sh` builds the host JNI libraries with Clang source-based coverage
+  (`-Psqisign.nativeCoverage=true`, CMake `SQISIGN_KMP_COVERAGE`), runs `jvmTest`, and reports `native/src/*.c` with
+  `llvm-cov` in `build/native-coverage/`. It requires every function to run and at least 98 % of lines; the missed
+  lines are `malloc` and upstream signing failures that tests cannot trigger. The Apple CI job runs it and uploads
+  the `native-coverage` artifact. The upstream C library is not instrumented.
 - **Benchmarks:** JMH benchmarks are in `src/jvmBenchmark`. Budgets, the baseline and the comparison script are in
   [`benchmarks/README.md`](benchmarks/README.md).
 - **Secret scan:** the `Secret scan` workflow runs gitleaks over the full git history on every push.
@@ -135,10 +140,11 @@ Design decisions are recorded in [`docs/adr/`](docs/adr/). Contributor and agent
 - key encodings round-trip, and closing a secret key wipes it;
 - the first three NIST KAT signatures per set verify (generated from `../KAT/*.rsp` by `generateKatVectors`).
 - key equality, `toString` redaction, key pairs whose keys use different parameter sets, and the mapping of native
-  failure codes to `SqiSignException`.
+  failure codes to `SqiSignException`;
+- the native bridge rejects an unknown parameter set (`NativeBridgeTest`, which calls the bridge directly).
 
 `jvmTest` adds the JVM loader: platform directory names, the `sqisign.library.path` override and the fallback to
-`java.library.path`.
+`java.library.path`; and the KAT JNI bridge's seed-length check.
 
 The seeded KAT test (`src/katTest`) reproduces the same KATs from their seeds on JVM, Apple and Android device tests:
 public key, secret key and signature must match byte for byte. It links a test-only native build
