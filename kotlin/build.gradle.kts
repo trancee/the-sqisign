@@ -13,6 +13,9 @@ plugins {
     alias(libs.plugins.dokka)
     alias(libs.plugins.detekt)
     alias(libs.plugins.spotless)
+    alias(libs.plugins.kover)
+    alias(libs.plugins.kotlinx.benchmark)
+    alias(libs.plugins.kotlin.allopen)
 }
 
 group = "org.sqisign"
@@ -276,7 +279,16 @@ kotlin {
     @OptIn(ExperimentalAbiValidation::class)
     abiValidation()
 
-    jvm()
+    jvm {
+        val main = compilations.getByName("main")
+        // JMH benchmarks (src/jvmBenchmark) in their own compilation, so the benchmark runtime stays out of the jar.
+        compilations.create("benchmark") {
+            associateWith(main)
+            defaultSourceSet.dependencies {
+                implementation(libs.kotlinx.benchmark.runtime)
+            }
+        }
+    }
 
     // drbgTest holds the keygen/sign KAT tests, which need a DRBG-seeded native library (JVM and Apple only).
     @OptIn(ExperimentalKotlinGradlePluginApi::class)
@@ -403,5 +415,64 @@ spotless {
     kotlinGradle {
         target("*.gradle.kts")
         ktlint(libs.versions.ktlint.get())
+    }
+}
+
+// Constitution T3: 100 % line and branch coverage of the code the JVM tests execute (commonMain + jvmMain).
+// Kover measures JVM bytecode only; androidMain and appleMain are tested on devices/simulators but not measured.
+kover {
+    currentProject {
+        sources {
+            // Benchmarks are measurement code, not production (T3 exclusion, named in the CI coverage step).
+            excludedSourceSets.add("benchmark")
+        }
+    }
+    reports {
+        verify {
+            rule("Kotlin production code") {
+                bound {
+                    coverageUnits = kotlinx.kover.gradle.plugin.dsl.CoverageUnit.LINE
+                    minValue = 100
+                }
+                bound {
+                    coverageUnits = kotlinx.kover.gradle.plugin.dsl.CoverageUnit.BRANCH
+                    minValue = 100
+                }
+            }
+        }
+    }
+}
+
+allOpen {
+    annotation("org.openjdk.jmh.annotations.State")
+}
+
+// Constitution P1/P2: performance budgets and the committed baseline are in benchmarks/README.md.
+benchmark {
+    targets {
+        register("jvmBenchmark")
+    }
+    configurations {
+        named("main") {
+            warmups = 3
+            iterations = 5
+            iterationTime = 2
+            iterationTimeUnit = "s"
+            mode = "avgt"
+            outputTimeUnit = "ms"
+            reportFormat = "json"
+            advanced("jvmForks", 2)
+        }
+        register("smoke") {
+            warmups = 0
+            iterations = 1
+            iterationTime = 200
+            iterationTimeUnit = "ms"
+            mode = "avgt"
+            outputTimeUnit = "ms"
+            reportFormat = "json"
+            param("parameterSet", "P324_3")
+            advanced("jvmForks", 1)
+        }
     }
 }

@@ -12,7 +12,7 @@ internal object SqiSignJni {
     private const val LIBRARY_PATH_PROPERTY = "sqisign.library.path"
 
     init {
-        load()
+        loadJni(System.getProperty(LIBRARY_PATH_PROPERTY))
     }
 
     @JvmStatic external fun sizes(set: Int, out: IntArray): Int
@@ -23,12 +23,13 @@ internal object SqiSignJni {
 
     @JvmStatic external fun verify(set: Int, sig: ByteArray, msg: ByteArray, pk: ByteArray): Int
 
-    private fun load() {
-        System.getProperty(LIBRARY_PATH_PROPERTY)?.let {
-            System.load(File(it).absolutePath)
-            return
+    /** Loads the library at [libraryPath] if given, otherwise the bundled one. */
+    internal fun loadJni(libraryPath: String?) {
+        if (libraryPath != null) {
+            System.load(File(libraryPath).absolutePath)
+        } else {
+            loadBundledJni(LIBRARY, "org/sqisign/native")
         }
-        loadBundledJni(LIBRARY, "org/sqisign/native")
     }
 }
 
@@ -38,7 +39,9 @@ internal object SqiSignJni {
  */
 internal fun loadBundledJni(library: String, resourceRoot: String) {
     val fileName = System.mapLibraryName(library)
-    val stream = SqiSignJni::class.java.getResourceAsStream("/$resourceRoot/${jniPlatform()}/$fileName")
+    val stream = SqiSignJni::class.java.getResourceAsStream(
+        "/$resourceRoot/${jniPlatform(System.getProperty("os.name"), System.getProperty("os.arch"))}/$fileName",
+    )
     if (stream == null) {
         System.loadLibrary(library)
         return
@@ -51,18 +54,19 @@ internal fun loadBundledJni(library: String, resourceRoot: String) {
     System.load(file.absolutePath)
 }
 
-private fun jniPlatform(): String {
-    val os = System.getProperty("os.name").lowercase().let {
+/** Maps the `os.name` and `os.arch` system properties to the bundled resource directory, e.g. `macos-aarch64`. */
+internal fun jniPlatform(osName: String, osArch: String): String {
+    val os = osName.lowercase().let {
         when {
             it.contains("mac") -> "macos"
             it.contains("win") -> "windows"
             else -> "linux"
         }
     }
-    val arch = when (val a = System.getProperty("os.arch")) {
+    val arch = when (osArch) {
         "aarch64", "arm64" -> "aarch64"
         "amd64", "x86_64" -> "x86_64"
-        else -> a
+        else -> osArch
     }
     return "$os-$arch"
 }

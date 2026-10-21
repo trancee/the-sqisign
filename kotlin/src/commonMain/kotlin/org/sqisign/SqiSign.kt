@@ -15,7 +15,7 @@ public object SqiSign {
         val pk = ByteArray(parameterSet.publicKeyBytes)
         val sk = ByteArray(parameterSet.secretKeyBytes)
         try {
-            check(nativeKeypair(parameterSet.nativeId, pk, sk), "key generation")
+            checkNativeResult(nativeKeypair(parameterSet.nativeId, pk, sk), "key generation")
             return SqiSignKeyPair(SqiSignPublicKey(parameterSet, pk), SqiSignSecretKey(parameterSet, sk))
         } finally {
             sk.fill(0)
@@ -31,7 +31,7 @@ public object SqiSign {
     public fun sign(message: ByteArray, secretKey: SqiSignSecretKey): ByteArray {
         val set = secretKey.parameterSet
         val signature = ByteArray(set.signatureBytes)
-        check(nativeSign(set.nativeId, signature, message, secretKey.bytesForNative()), "signing")
+        checkNativeResult(nativeSign(set.nativeId, signature, message, secretKey.bytesForNative()), "signing")
         return signature
     }
 
@@ -42,7 +42,8 @@ public object SqiSign {
         return nativeVerify(set.nativeId, signature, message, publicKey.bytesForNative()) == OK
     }
 
-    private fun check(result: Int, operation: String) {
+    /** Translates a native status code into [SqiSignException]; `0` means success. */
+    internal fun checkNativeResult(result: Int, operation: String) {
         if (result != OK) throw SqiSignException("SQIsign $operation failed (code $result)")
     }
 }
