@@ -32,13 +32,20 @@ an expert review has accepted the Rust code, it must not replace the reviewed C 
    checks that exist only in `assert` or `#ifndef NDEBUG` blocks are not ported, and functions whose only failure
    path is such a check (for example `ec_curve_to_basis_2f_from_hint`) are infallible in Rust. Results C returns
    through a status flag and an out-parameter become `Option`; the C out-parameter on failure is not reproduced, as
-   every C caller aborts on it.
+   every C caller aborts on it. Where a C function reports failure but its caller continues on uninitialised data
+   (in `hd`, `theta_chain_compute_and_eval*` when `gluing_start_chain` fails, and for chain lengths `n < 2`), the
+   Rust function returns `None` instead of reproducing the undefined behaviour.
 4. Correctness evidence, in this order:
    - differential tests of every ported module against the vendor C `ref` build, compiled from `src/` into a test-only
      crate (`sqisign-reference`) and compared through the byte encodings;
    - the 300 NIST KAT entries in `KAT/`: verification of every signature, and byte-exact key generation and signing
      with the NIST AES-256 CTR-DRBG in test-only code (the production API takes no seed, as in ADR 0002);
    - malformed, truncated and boundary inputs for every decoder (T10).
+
+   - a targeted mutation check of the decision points of every ported module. Survivors are either killed by a new
+     test or recorded with the reason they are not: equivalent mutants (for example a different split of the doubling
+     work in `hd` chain set-up), or checks the tests cannot reach but that mirror the C code (for example the `tt2.t`
+     half of the `hd` gluing check).
 
    Coverage (T3) is gated at 100% lines, functions and regions with `cargo llvm-cov` on the pinned stable toolchain.
    Rust branch coverage needs a nightly compiler; regions count both arms of every condition and stand in for it.

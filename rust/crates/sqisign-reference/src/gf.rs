@@ -139,6 +139,7 @@ macro_rules! level {
             }
 
             ec_api!($lvl, $order);
+            hd_api!($lvl);
 
             mod ffi {
                 use super::{c_int, Fp, Fp2};

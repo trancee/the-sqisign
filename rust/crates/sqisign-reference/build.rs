@@ -27,6 +27,7 @@ fn main() {
         "src/precomp/ref",
         "src/mp/ref",
         "src/ec/ref",
+        "src/hd/ref",
     ] {
         println!("cargo:rerun-if-changed={}", root.join(dir).display());
     }
@@ -64,6 +65,15 @@ fn sources(src: &Path, level: &str) -> Vec<PathBuf> {
     for f in ["ec", "isog", "basis", "biextension", "normalize"] {
         files.push(src.join(format!("ec/ref/lvlx/{f}.c")));
     }
+    for f in [
+        "hd",
+        "theta_structure",
+        "gluing",
+        "splitting",
+        "theta_isogenies",
+    ] {
+        files.push(src.join(format!("hd/ref/lvlx/{f}.c")));
+    }
     files
 }
 
@@ -75,6 +85,7 @@ fn include_dirs(root: &Path, level: &str) -> Vec<PathBuf> {
         "src/gf/ref/include".to_owned(),
         "src/mp/ref/include".to_owned(),
         "src/ec/ref/include".to_owned(),
+        "src/hd/ref/include".to_owned(),
         format!("src/precomp/ref/{level}/include"),
     ]
     .iter()

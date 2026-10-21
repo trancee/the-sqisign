@@ -14,6 +14,10 @@ mod ec_isog;
 mod ec_ladder;
 #[macro_use]
 mod ec;
+#[macro_use]
+mod hd_wrap;
+#[macro_use]
+mod hd;
 
 level!(p324_3, "p324_3", 6, 41, 6);
 level!(p500_27, "p500_27", 9, 64, 8);

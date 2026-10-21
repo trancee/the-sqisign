@@ -4,6 +4,10 @@
 
 #[macro_use]
 pub mod ec;
+#[macro_use]
+pub mod hd;
+#[macro_use]
+pub mod kani;
 
 /// Deterministic SplitMix64 generator; tests must be reproducible.
 pub struct Rng(u64);
