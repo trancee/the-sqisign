@@ -107,5 +107,50 @@ macro_rules! ec_helpers {
             s[0] = v;
             s
         }
+
+        /// The C mirror of a Rust value, through its canonical encoding.
+        fn c_fe(x: &F2) -> c::Fp2 {
+            c::Fp2::decode(&enc(x)).0
+        }
+
+        fn c_point(p: &Pt) -> ce::Point {
+            ce::Point {
+                x: c_fe(&p.x),
+                z: c_fe(&p.z),
+            }
+        }
+
+        fn c_basis(b: &Bs) -> ce::Basis {
+            ce::Basis {
+                p: c_point(&b.p),
+                q: c_point(&b.q),
+                pmq: c_point(&b.pmq),
+            }
+        }
+
+        fn c_curve(e: &Cv) -> ce::Curve {
+            ce::Curve {
+                a: c_fe(&e.a),
+                c: c_fe(&e.c),
+                a24: c_point(&e.a24),
+                a24_normalized: e.a24_normalized,
+            }
+        }
+
+        fn assert_basis(r: &Bs, c: &ce::Basis, what: &str) {
+            assert_point(&r.p, &c.p, what);
+            assert_point(&r.q, &c.q, what);
+            assert_point(&r.pmq, &c.pmq, what);
+        }
+
+        /// `E0 : y^2 = x^3 + x` with `A24` normalised.
+        fn e0() -> Cv {
+            let mut e = Cv {
+                c: F2::ONE,
+                ..Cv::default()
+            };
+            e.normalize_with_a24();
+            e
+        }
     };
 }

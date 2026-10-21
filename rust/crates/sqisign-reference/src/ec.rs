@@ -71,6 +71,7 @@ macro_rules! ec_api {
             }
 
             ec_ladder_api!($lvl);
+            ec_isog_api!($lvl);
 
             mod ffi {
                 use super::{c_int, Bary, Curve, Fp2, Point};

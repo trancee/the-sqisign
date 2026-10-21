@@ -68,6 +68,11 @@ impl<P: FpParams> Fp<P> {
         self.v.as_ref()
     }
 
+    /// The element with the given Montgomery limbs (vendor sat64 precomputed tables).
+    pub(crate) const fn from_montgomery(v: P::Limbs) -> Self {
+        Self { v }
+    }
+
     pub(super) fn from_raw(raw: &[u64]) -> Self {
         let mut r = Self::ZERO;
         r.v.as_mut().copy_from_slice(&raw[..P::N]);

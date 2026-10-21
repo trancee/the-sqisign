@@ -9,6 +9,8 @@
 #[macro_use]
 mod gf;
 #[macro_use]
+mod ec_isog;
+#[macro_use]
 mod ec_ladder;
 #[macro_use]
 mod ec;
