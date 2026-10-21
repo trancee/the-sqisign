@@ -3,5 +3,6 @@ html/
 latex/
 .vscode
 *.pyc
+__pycache__/
 
 *.DS_Store

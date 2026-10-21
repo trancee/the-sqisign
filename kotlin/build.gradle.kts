@@ -145,6 +145,8 @@ spotless {
             "src/jvmBenchmark/kotlin/ch/trancee/sqisign/benchmarks/DualInputs.kt",
             "src/jvmBenchmark/kotlin/ch/trancee/sqisign/benchmarks/GaussianInputs.kt",
             "src/jvmBenchmark/kotlin/ch/trancee/sqisign/benchmarks/AlgebraInputs.kt",
+            "src/commonTest/kotlin/ch/trancee/sqisign/quaternion/Dim2LatticeVectors.kt",
+            "src/jvmBenchmark/kotlin/ch/trancee/sqisign/benchmarks/Dim2LatticeInputs.kt",
         )
         ktfmt("0.65").kotlinlangStyle()
     }
@@ -198,6 +200,8 @@ tasks.withType<dev.detekt.gradle.Detekt>().configureEach {
     exclude("**/DualInputs.kt")
     exclude("**/GaussianInputs.kt")
     exclude("**/AlgebraInputs.kt")
+    exclude("**/Dim2LatticeVectors.kt")
+    exclude("**/Dim2LatticeInputs.kt")
 }
 
 jacoco {
