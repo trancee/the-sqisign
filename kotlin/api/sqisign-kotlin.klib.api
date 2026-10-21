@@ -77,3 +77,6 @@ final object org.sqisign/SqiSign { // org.sqisign/SqiSign|null[0]
     final fun sign(kotlin/ByteArray, org.sqisign/SqiSignSecretKey): kotlin/ByteArray // org.sqisign/SqiSign.sign|sign(kotlin.ByteArray;org.sqisign.SqiSignSecretKey){}[0]
     final fun verify(kotlin/ByteArray, kotlin/ByteArray, org.sqisign/SqiSignPublicKey): kotlin/Boolean // org.sqisign/SqiSign.verify|verify(kotlin.ByteArray;kotlin.ByteArray;org.sqisign.SqiSignPublicKey){}[0]
 }
+
+final fun org.sqisign/byteArray(platform.Foundation/NSData): kotlin/ByteArray // org.sqisign/byteArray|byteArray(platform.Foundation.NSData){}[0]
+final fun org.sqisign/nsData(kotlin/ByteArray): platform.Foundation/NSData // org.sqisign/nsData|nsData(kotlin.ByteArray){}[0]

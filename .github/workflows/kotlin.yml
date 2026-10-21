@@ -238,12 +238,17 @@ jobs:
         run: ./gradlew macosArm64Test iosSimulatorArm64Test compileKotlinIosArm64 assembleSqiSignReleaseXCFramework
       - name: Swift tests (macOS)
         working-directory: kotlin/swift
-        run: swift test
+        run: swift test --skip SqiSignKitBenchmarks
+      # Checks that the XCTest benchmarks run; shared runners are too noisy to compare the timings.
+      - name: Swift benchmarks smoke (macOS)
+        working-directory: kotlin/swift
+        run: swift test --filter SqiSignKitBenchmarks
       - name: Swift tests (iOS Simulator)
         working-directory: kotlin/swift
         run: |
           udid=$(xcrun simctl list devices available -j | python3 -c 'import json,sys; print(next(d["udid"] for r, ds in json.load(sys.stdin)["devices"].items() if "iOS" in r for d in ds if d["name"].startswith("iPhone")))')
-          xcodebuild test -scheme SqiSignSwiftTests-Package -destination "id=$udid" -derivedDataPath ../build/swift-dd
+          xcodebuild test -scheme SqiSignKit -destination "id=$udid" -derivedDataPath ../build/swift-dd \
+            -skip-testing:SqiSignKitBenchmarks
       - uses: actions/upload-artifact@v7
         with:
           name: SqiSign.xcframework
