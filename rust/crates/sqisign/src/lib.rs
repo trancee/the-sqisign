@@ -7,3 +7,4 @@
 
 pub mod ec;
 pub mod gf;
+pub mod hd;
