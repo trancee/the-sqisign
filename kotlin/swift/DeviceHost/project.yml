@@ -1,0 +1,38 @@
+# Host app for running the Swift tests on a physical iOS device, where SwiftPM package tests need an app host.
+# Generate with `xcodegen generate` from this directory; the generated project is not committed.
+name: SqiSignDeviceHost
+options:
+  bundleIdPrefix: org.sqisign
+  deploymentTarget:
+    iOS: "14.0"
+settings:
+  base:
+    CODE_SIGN_STYLE: Automatic
+targets:
+  SqiSignTestHost:
+    type: application
+    platform: iOS
+    sources: [HostApp.swift]
+    info:
+      path: build/HostInfo.plist
+      properties:
+        UILaunchScreen: {}
+  SqiSignDeviceTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources: [../Tests/SqiSignTests]
+    dependencies:
+      - target: SqiSignTestHost
+      - framework: ../../build/XCFrameworks/release/SqiSign.xcframework
+        embed: false
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES
+schemes:
+  SqiSignDeviceTests:
+    build:
+      targets:
+        SqiSignTestHost: all
+        SqiSignDeviceTests: [test]
+    test:
+      targets: [SqiSignDeviceTests]
