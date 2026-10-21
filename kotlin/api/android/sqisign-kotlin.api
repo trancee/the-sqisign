@@ -1,0 +1,52 @@
+public final class org/sqisign/ParameterSet : java/lang/Enum {
+	public static final field P324_3 Lorg/sqisign/ParameterSet;
+	public static final field P500_27 Lorg/sqisign/ParameterSet;
+	public static final field P664_17 Lorg/sqisign/ParameterSet;
+	public final fun getAlgorithmName ()Ljava/lang/String;
+	public static fun getEntries ()Lkotlin/enums/EnumEntries;
+	public final fun getNistLevel ()I
+	public final fun getPublicKeyBytes ()I
+	public final fun getSecretKeyBytes ()I
+	public final fun getSignatureBytes ()I
+	public static fun valueOf (Ljava/lang/String;)Lorg/sqisign/ParameterSet;
+	public static fun values ()[Lorg/sqisign/ParameterSet;
+}
+
+public final class org/sqisign/SqiSign {
+	public static final field INSTANCE Lorg/sqisign/SqiSign;
+	public final fun generateKeyPair (Lorg/sqisign/ParameterSet;)Lorg/sqisign/SqiSignKeyPair;
+	public static synthetic fun generateKeyPair$default (Lorg/sqisign/SqiSign;Lorg/sqisign/ParameterSet;ILjava/lang/Object;)Lorg/sqisign/SqiSignKeyPair;
+	public final fun sign ([BLorg/sqisign/SqiSignSecretKey;)[B
+	public final fun verify ([B[BLorg/sqisign/SqiSignPublicKey;)Z
+}
+
+public final class org/sqisign/SqiSignException : java/lang/RuntimeException {
+	public fun <init> (Ljava/lang/String;)V
+}
+
+public final class org/sqisign/SqiSignKeyPair {
+	public fun <init> (Lorg/sqisign/SqiSignPublicKey;Lorg/sqisign/SqiSignSecretKey;)V
+	public final fun getParameterSet ()Lorg/sqisign/ParameterSet;
+	public final fun getPublicKey ()Lorg/sqisign/SqiSignPublicKey;
+	public final fun getSecretKey ()Lorg/sqisign/SqiSignSecretKey;
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class org/sqisign/SqiSignPublicKey {
+	public fun <init> (Lorg/sqisign/ParameterSet;[B)V
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getEncoded ()[B
+	public final fun getParameterSet ()Lorg/sqisign/ParameterSet;
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class org/sqisign/SqiSignSecretKey : java/lang/AutoCloseable {
+	public fun <init> (Lorg/sqisign/ParameterSet;[B)V
+	public fun close ()V
+	public final fun getEncoded ()[B
+	public final fun getParameterSet ()Lorg/sqisign/ParameterSet;
+	public final fun isClosed ()Z
+	public fun toString ()Ljava/lang/String;
+}
+

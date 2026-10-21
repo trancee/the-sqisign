@@ -36,45 +36,42 @@ internal actual fun nativeSizes(set: Int, out: IntArray): Int = memScoped {
 }
 
 @OptIn(ExperimentalForeignApi::class)
-internal actual fun nativeKeypair(set: Int, pk: ByteArray, sk: ByteArray): Int =
-    pk.usePinned { p ->
+internal actual fun nativeKeypair(set: Int, pk: ByteArray, sk: ByteArray): Int = pk.usePinned { p ->
+    sk.usePinned { s ->
+        sqisign_kmp_keypair(set, p.addressOf(0).reinterpretU(), s.addressOf(0).reinterpretU())
+    }
+}
+
+@OptIn(ExperimentalForeignApi::class)
+internal actual fun nativeSign(set: Int, sig: ByteArray, msg: ByteArray, sk: ByteArray): Int = sig.usePinned { g ->
+    msg.orNonEmpty().usePinned { m ->
         sk.usePinned { s ->
-            sqisign_kmp_keypair(set, p.addressOf(0).reinterpretU(), s.addressOf(0).reinterpretU())
+            sqisign_kmp_sign(
+                set,
+                g.addressOf(0).reinterpretU(),
+                m.addressOf(0).reinterpretU(),
+                msg.size.convert(),
+                s.addressOf(0).reinterpretU(),
+            )
         }
     }
+}
 
 @OptIn(ExperimentalForeignApi::class)
-internal actual fun nativeSign(set: Int, sig: ByteArray, msg: ByteArray, sk: ByteArray): Int =
-    sig.usePinned { g ->
-        msg.orNonEmpty().usePinned { m ->
-            sk.usePinned { s ->
-                sqisign_kmp_sign(
-                    set,
-                    g.addressOf(0).reinterpretU(),
-                    m.addressOf(0).reinterpretU(),
-                    msg.size.convert(),
-                    s.addressOf(0).reinterpretU(),
-                )
-            }
+internal actual fun nativeVerify(set: Int, sig: ByteArray, msg: ByteArray, pk: ByteArray): Int = sig.usePinned { g ->
+    msg.orNonEmpty().usePinned { m ->
+        pk.usePinned { p ->
+            sqisign_kmp_verify(
+                set,
+                g.addressOf(0).reinterpretU(),
+                sig.size.convert(),
+                m.addressOf(0).reinterpretU(),
+                msg.size.convert(),
+                p.addressOf(0).reinterpretU(),
+            )
         }
     }
-
-@OptIn(ExperimentalForeignApi::class)
-internal actual fun nativeVerify(set: Int, sig: ByteArray, msg: ByteArray, pk: ByteArray): Int =
-    sig.usePinned { g ->
-        msg.orNonEmpty().usePinned { m ->
-            pk.usePinned { p ->
-                sqisign_kmp_verify(
-                    set,
-                    g.addressOf(0).reinterpretU(),
-                    sig.size.convert(),
-                    m.addressOf(0).reinterpretU(),
-                    msg.size.convert(),
-                    p.addressOf(0).reinterpretU(),
-                )
-            }
-        }
-    }
+}
 
 @OptIn(ExperimentalForeignApi::class)
 private fun CPointer<ByteVar>.reinterpretU(): CPointer<UByteVar> = reinterpret()

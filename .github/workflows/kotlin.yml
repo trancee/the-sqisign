@@ -214,6 +214,9 @@ jobs:
           distribution: temurin
           java-version: 21
       - uses: gradle/actions/setup-gradle@v6
+      # Only a macOS host compiles every target, so the klib ABI dump is checked here without inferred targets.
+      - name: Formatting, static analysis, ABI and API docs
+        run: ./gradlew spotlessCheck detekt checkKotlinAbi dokkaGenerate
       - name: Kotlin/Native tests and XCFramework
         run: ./gradlew macosArm64Test iosSimulatorArm64Test compileKotlinIosArm64 assembleSqiSignReleaseXCFramework
       - name: Swift tests (macOS)
@@ -228,4 +231,9 @@ jobs:
         with:
           name: SqiSign.xcframework
           path: kotlin/build/XCFrameworks/release/SqiSign.xcframework
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v7
+        with:
+          name: api-docs
+          path: kotlin/build/dokka/html
           if-no-files-found: error

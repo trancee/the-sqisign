@@ -79,6 +79,22 @@ combined jar. MSVC cannot compile the C core (`__int128`), so Windows uses MinGW
   symbols (`sqisign_gen_*`) collide when several variants are linked into one binary.
 - The JNI library exports only the four `Java_org_sqisign_SqiSignJni_*` symbols.
 
+### API and code checks
+
+`./gradlew check` runs these besides the tests:
+
+| Check | Task | Configuration |
+|---|---|---|
+| Binary compatibility (KGP built-in ABI validation) | `checkKotlinAbi`; accept a reviewed change with `updateKotlinAbi` | dumps in `api/` (JVM, Android, Apple klib) |
+| Formatting (Spotless 8.10.4 + ktlint 1.8.0, `intellij_idea` style) | `spotlessCheck`; fix with `spotlessApply` | `.editorconfig` |
+| Static analysis (detekt 1.23.8, default rules) | `detekt` | `detekt.yml` |
+
+Run `updateKotlinAbi` on macOS: other hosts cannot compile the Apple targets and only infer their part of
+`api/sqisign-kotlin.klib.api`. CI checks all of the above, plus `dokkaGenerate`, on macOS.
+
+API reference: `./gradlew dokkaGenerate` writes HTML to `build/dokka/html` (Dokka 2.2.0, module page from `Module.md`).
+Undocumented public declarations fail the build. CI uploads the HTML as the `api-docs` artifact.
+
 ## Tests
 
 `commonTest` runs on every target:
