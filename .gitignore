@@ -1,6 +1,9 @@
 build*/
 html/
 latex/
+.gradle/
+.kotlin/
 .vscode
+.agents/
 
 *.DS_Store
