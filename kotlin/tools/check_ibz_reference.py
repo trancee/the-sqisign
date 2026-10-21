@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: Apache-2.0
-"""Cross-check the independent ibz, number theory, fixed-point, lattice, Gram, dual and Gaussian reduction fixtures against pinned C at every level."""
+"""Cross-check the independent ibz, number theory, fixed-point, lattice, Gram, dual, Gaussian reduction and quaternion algebra fixtures against pinned C at every level."""
 
 import hashlib
 from pathlib import Path
@@ -9,6 +9,7 @@ import sys
 import tempfile
 
 from check_unsigned_reference import REFERENCE_COMMIT, REFERENCE_FILES
+from generate_algebra_vectors import OUTPUT as ALGEBRA_OUTPUT
 from generate_ibz_vectors import CAPACITIES, ROOT, records
 from generate_fixed_point_vectors import OUTPUT as FIXED_POINT_OUTPUT
 from generate_dual_vectors import OUTPUT as DUAL_OUTPUT
@@ -20,7 +21,7 @@ from generate_number_theory_vectors import OUTPUT as NUMBER_THEORY_OUTPUT
 
 INVALID_INPUTS = ("add\n", "add 9:1\n", "add 0:1 2:1\n", "add 2:x 2:1\n", "nope 2:1\n", "rand 1:0 2:1 00\n", "gcd 2:1\n",
                   "invmat 2:1 2:1 2:1 2:1\n", "prime 2:1 1\n",
-                  "shr 2:1\n", "set 1\n", "rand 2:1\n", "parse\n", "modui 2:1\n", "bits 3\n")
+                  "shr 2:1\n", "qnorm 2:1\n", "mgcd 2:1\n", "set 1\n", "rand 2:1\n", "parse\n", "modui 2:1\n", "bits 3\n")
 
 
 def compile_adapter(repository, directory, level):
@@ -56,12 +57,14 @@ def main():
             raise SystemExit(f"{path} differs from pinned C reference {REFERENCE_COMMIT}")
     for generator in ("generate_ibz_vectors.py", "generate_number_theory_vectors.py",
                       "generate_fixed_point_vectors.py", "generate_lattice_vectors.py",
-                      "generate_gram_vectors.py", "generate_dual_vectors.py", "generate_gaussian_vectors.py"):
+                      "generate_gram_vectors.py", "generate_dual_vectors.py", "generate_gaussian_vectors.py",
+                      "generate_algebra_vectors.py"):
         subprocess.run([sys.executable, "-B", str(ROOT / "tools" / generator), "--check"], check=True)
     grouped = {level: [] for level in CAPACITIES}
     for record in list(records()) + fixture_records(NUMBER_THEORY_OUTPUT) + fixture_records(FIXED_POINT_OUTPUT) + \
             fixture_records(LATTICE_OUTPUT) + fixture_records(GRAM_OUTPUT) + \
-            fixture_records(DUAL_OUTPUT) + fixture_records(GAUSSIAN_OUTPUT):
+            fixture_records(DUAL_OUTPUT) + fixture_records(GAUSSIAN_OUTPUT) + \
+            fixture_records(ALGEBRA_OUTPUT):
         query, expected = record.split(" = ")
         op, level, *arguments = query.split(" ")
         grouped[level].append((" ".join((op, *arguments)), expected.removeprefix("! ")))
@@ -80,7 +83,7 @@ def main():
                     raise SystemExit(f"C/Python ibz mismatch at {level}: {query[:80]}\n  C: {observed[:200]}\n"
                                      f"  Python: {wanted[:200]}")
             check_invalid_inputs(binary)
-    print(f"Checked {sum(len(cases) for cases in grouped.values())} ibz, number theory, fixed-point, lattice, Gram, dual and Gaussian reduction records against pinned C")
+    print(f"Checked {sum(len(cases) for cases in grouped.values())} ibz, number theory, fixed-point, lattice, Gram, dual, Gaussian reduction and quaternion algebra records against pinned C")
 
 if __name__ == "__main__":
     main()

@@ -85,6 +85,10 @@ transforms and orientation, so it returns C's basis; its second vector is
 reduced only to C's window precision;
 [`adr/0026-gaussian-o0-ideal-reduction.md`](adr/0026-gaussian-o0-ideal-reduction.md)
 records the mapping.
+Quaternion algebra elements, 4-vectors and 4x4 matrices (`algebra.c`,
+`dim4.c`) keep C's operation order, so values and `ibz_t` bit lengths match;
+[`adr/0027-quaternion-algebra-elements.md`](adr/0027-quaternion-algebra-elements.md)
+records the ported subset.
 The internal field package implements canonical prime fields for all three
 parameter sets: `Fp324` (`p324_3`), `Fp500P27` (`p500_27`), and `Fp664P17`
 (`p664_17`). Each rejects noncanonical little-endian encodings and supports
@@ -523,6 +527,13 @@ first minimum and to match the exact second norm within `2^-64` relative.
 `checkIbzReference` checks all 2602 records against the same pinned C, and
 retained `GaussianBenchmark` workloads are checked against `BigInteger`.
 
+Another 387 records from `tools/generate_algebra_vectors.py` model the
+quaternion algebra elements, 4-vectors and 4x4 matrices of `algebra.c` and
+`dim4.c` in C's operation order. Every value is checked against exact rational
+quaternion arithmetic. `checkIbzReference` checks all 2989 records against the
+same pinned C, and retained `QuaternionAlgebraBenchmark` workloads are checked
+against `BigInteger`.
+
 ## JVM benchmarks
 
 The explicitly accepted Alpha [`kotlinx-benchmark 0.5.0`](https://github.com/Kotlin/kotlinx-benchmark/releases/tag/v0.5.0)
@@ -565,6 +576,7 @@ Input preparation and parameter-name resolution occur outside timing.
 | `GramBenchmark.materialiseBlock`, `lagrangeGauss` | All parameter sets | `quat_lll_materialise_block`, or `quat_lll_gram_lehmer` with the round-0 outer passes, on a deterministic Lovász-violating block (`D_k` at the diagonal bound, `D_{k+1}` at half of it, `mu` in `[1/4, 1/2)`), including result allocation; parsing and the input form outside timing |
 | `DualBenchmark.dualReduceIdeal` | All parameter sets | `quat_lll_dual_reduce_ideal` (dual LDL initialisation, block tours, Minkowski selection and basis product) on a deterministic product of two inert `O0`-ideals, including result allocation; ideal construction and parsing outside timing |
 | `GaussianBenchmark.reduceO0Ideal` | All parameter sets | `quat_lll_reduce_O0_ideal` (Lehmer Lagrange-Gauss passes over `Z[i]`, Hermitian key and orientation) on a deterministic inert left `O0`-ideal whose norm is a product of two inert primes, with bound `ibz_get_bound(N) + 2`, including result allocation; ideal construction and parsing outside timing |
+| `QuaternionAlgebraBenchmark.multiply`, `.norm`, `.quadraticForm` | All parameter sets | `quat_alg_mul`, `quat_alg_norm` on deterministic elements with `p`-sized coordinates, and `quat_qf_eval` of a `p^2`-sized Gram form at a 64-bit vector, including result allocation; parsing outside timing |
 | `MontgomeryBenchmark.coefficient` | All parameter sets; `SHORT`, `FULL_WIDTH` | `A/C`, including inversion and canonical field result allocation |
 | `MontgomeryBenchmark.doublePoint` / `differentialAdd` | All parameter sets; `SHORT`, `FULL_WIDTH` | Complete x-only operation and projective result allocation, without affine normalization |
 | `MontgomeryBenchmark.multiply` | All parameter sets; `SHORT`, `FULL_WIDTH` | Encoded-scalar ladder and all intermediate/result allocations; no setup or affine normalization |
@@ -671,13 +683,13 @@ The public library API is unchanged; internal wide results are not exposed by it
 
 ```sh
 ./gradlew jvmTest                       # Check workload correctness before timing
-./gradlew jvmBenchmarkSmokeBenchmark    # Discovery/execution only: 340 cases
+./gradlew jvmBenchmarkSmokeBenchmark    # Discovery/execution only: 349 cases
 ./gradlew jvmBenchmarkBenchmarkJar      # Build the JMH harness before measurement
 ./gradlew jvmBenchmarkBenchmark         # Opt-in full profile on a controlled host
 ```
 
 The `smoke` profile uses one fork, one 50 ms warmup, and one 50 ms measurement
-per case. Linux CI requires the complete 340-case parameter matrix, the expected
+per case. Linux CI requires the complete 349-case parameter matrix, the expected
 mode/unit/profile, and finite positive samples. It uploads JSON reports,
 execution logs, and commit/host/JDK/Gradle metadata with the other Kotlin reports.
 The `main` measurement profile uses three forks, three 1 s warmups, and five 1 s

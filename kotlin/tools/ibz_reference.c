@@ -13,10 +13,14 @@
 #include "../../src/quaternion/ref/lvlx/lll/lll_lg2.c"
 #include "../../src/quaternion/ref/lvlx/lll/lll_dim4.c"
 #include "../../src/quaternion/ref/lvlx/lll/gaussian_xgcd.c"
+#include "../../src/quaternion/ref/lvlx/finit.c"
+#include "../../src/quaternion/ref/lvlx/algebra.c"
+#include "../../src/quaternion/ref/lvlx/dim4.c"
 
 enum
 {
-    LINE_BYTES = 16384,
+    LINE_BYTES = 65536,
+    MAX_FIELDS = 24,
     MAX_RANDOM_BYTES = 8192
 };
 
@@ -636,6 +640,159 @@ gaussian(const char *op, char **arguments)
 }
 
 static void
+decode_element(quat_alg_elem_t *x, char **arguments)
+{
+    decode(&x->denom, arguments[0]);
+    for (int i = 0; i < 4; i++)
+        decode(&x->coord.v[i], arguments[1 + i]);
+}
+
+static void
+print_values(const ibz_t *values, int count)
+{
+    for (int i = 0; i < count; i++) {
+        printf(i ? " " : "");
+        print_ibz(&values[i]);
+    }
+}
+
+static void
+print_element(const quat_alg_elem_t *x)
+{
+    print_ibz(&x->denom);
+    printf(" ");
+    print_values(x->coord.v, 4);
+}
+
+static void
+decode_matrix(ibz_mat_4x4_t *m, char **arguments)
+{
+    for (int i = 0; i < 16; i++)
+        decode(&m->m[i / 4][i % 4], arguments[i]);
+}
+
+static void
+decode_vector(ibz_vec_4_t *v, char **arguments)
+{
+    for (int i = 0; i < 4; i++)
+        decode(&v->v[i], arguments[i]);
+}
+
+static void
+print_matrix(const ibz_mat_4x4_t *m)
+{
+    for (int i = 0; i < 4; i++) {
+        printf(i ? " " : "");
+        print_values(m->m[i], 4);
+    }
+}
+
+static int
+algebra_element(const char *op, char **arguments)
+{
+    quat_alg_t alg;
+    quat_alg_elem_t a, b, r;
+    ibz_t s, d;
+    if (strcmp(op, "qmul") == 0) {
+        decode(&alg.p, arguments[0]);
+        decode_element(&a, arguments + 1);
+        decode_element(&b, arguments + 6);
+        quat_alg_mul(&r, &a, &b, &alg);
+    } else if (strcmp(op, "qadd") == 0) {
+        decode_element(&a, arguments);
+        decode_element(&b, arguments + 5);
+        quat_alg_add(&r, &a, &b);
+    } else if (strcmp(op, "qnorm") == 0) {
+        decode(&alg.p, arguments[0]);
+        decode_element(&a, arguments + 1);
+        quat_alg_norm(&s, &d, &a, &alg);
+        print_ibz(&s);
+        printf(" ");
+        print_ibz(&d);
+        return 1;
+    } else if (strcmp(op, "qnormalize") == 0) {
+        decode_element(&r, arguments);
+        quat_alg_normalize(&r);
+    } else if (strcmp(op, "qconj") == 0) {
+        decode_element(&a, arguments);
+        quat_alg_conj(&r, &a);
+    } else if (strcmp(op, "qscale") == 0) {
+        decode(&s, arguments[0]);
+        decode_element(&a, arguments + 1);
+        quat_alg_elem_scalar_mul(&r, &s, &a);
+    } else {
+        return 0;
+    }
+    print_element(&r);
+    return 1;
+}
+
+static int
+algebra_vector(const char *op, char **arguments)
+{
+    ibz_vec_4_t v, w, r;
+    ibz_mat_4x4_t m;
+    ibz_t s;
+    if (strcmp(op, "vcontent") == 0) {
+        decode_vector(&v, arguments);
+        ibz_vec_4_content(&s, &v);
+        print_ibz(&s);
+        return 1;
+    } else if (strcmp(op, "vdiv") == 0) {
+        decode(&s, arguments[0]);
+        decode_vector(&v, arguments + 1);
+        (void)ibz_vec_4_scalar_div(&r, &s, &v);
+    } else if (strcmp(op, "vsub") == 0) {
+        decode_vector(&v, arguments);
+        decode_vector(&w, arguments + 4);
+        ibz_vec_4_sub(&r, &v, &w);
+    } else if (strcmp(op, "meval") == 0) {
+        decode_matrix(&m, arguments);
+        decode_vector(&v, arguments + 16);
+        ibz_mat_4x4_eval(&r, &m, &v);
+    } else if (strcmp(op, "mevalt") == 0) {
+        decode_vector(&v, arguments);
+        decode_matrix(&m, arguments + 4);
+        ibz_mat_4x4_eval_t(&r, &v, &m);
+    } else if (strcmp(op, "qfeval") == 0) {
+        decode_matrix(&m, arguments);
+        decode_vector(&v, arguments + 16);
+        quat_qf_eval(&s, &m, &v);
+        print_ibz(&s);
+        return 1;
+    } else {
+        return 0;
+    }
+    print_values(r.v, 4);
+    return 1;
+}
+
+static int
+algebra_matrix(const char *op, char **arguments)
+{
+    ibz_mat_4x4_t m, r;
+    ibz_t s;
+    if (strcmp(op, "mgcd") == 0) {
+        decode_matrix(&m, arguments);
+        ibz_mat_4x4_gcd(&s, &m);
+        print_ibz(&s);
+        return 1;
+    } else if (strcmp(op, "mdiv") == 0) {
+        decode(&s, arguments[0]);
+        decode_matrix(&m, arguments + 1);
+        (void)ibz_mat_4x4_scalar_div(&r, &s, &m);
+    } else if (strcmp(op, "mscale") == 0) {
+        decode(&s, arguments[0]);
+        decode_matrix(&m, arguments + 1);
+        ibz_mat_4x4_scalar_mul(&r, &s, &m);
+    } else {
+        return 0;
+    }
+    print_matrix(&r);
+    return 1;
+}
+
+static void
 special(const char *op, char **arguments)
 {
     ibz_t a, b, r;
@@ -665,7 +822,8 @@ special(const char *op, char **arguments)
         finish_script();
     } else {
         if (!fixed_point(op, arguments) && !lattice(op, arguments) && !gram(op, arguments) && !dual(op, arguments) &&
-            !gaussian(op, arguments) && !number_theory(op, arguments))
+            !gaussian(op, arguments) && !algebra_element(op, arguments) && !algebra_vector(op, arguments) &&
+            !algebra_matrix(op, arguments) && !number_theory(op, arguments))
             unary(op, arguments);
         return;
     }
@@ -677,10 +835,10 @@ main(void)
 {
     static char line[LINE_BYTES];
     while (fgets(line, sizeof(line), stdin)) {
-        char *fields[17] = { NULL };
+        char *fields[MAX_FIELDS + 1] = { NULL };
         int count = 0;
         for (char *token = strtok(line, " \n"); token; token = strtok(NULL, " \n")) {
-            if (count == 16)
+            if (count == MAX_FIELDS)
                 fail("field count");
             fields[count++] = token;
         }

@@ -1373,3 +1373,32 @@ Remaining milestone 6 work: quaternion algebra elements and lattices, then
 ideals and the `lll_applications.c` reductions built on both lattice
 reductions. Everything remains variable-time and without expert review. No
 public ABI, wire-format, dependency or toolchain changes.
+
+## Quaternion decision 2026-10-21: algebra elements, 4-vectors and 4x4 matrices
+
+[`ADR 0027`](adr/0027-quaternion-algebra-elements.md) ports the
+production-reachable subset of the pinned `algebra.c` and `dim4.c`:
+
+- `QuaternionElement` with `plus`, `conjugate`, `scaledBy`, `normalized` and
+  `isZero`, and `QuaternionAlgebra(p)` with `multiply` and `norm`;
+- 4-vector `content`, `scaledBy`, `dividedBy`, `vectorMinus` and
+  `isZeroVector`;
+- 4x4 `evaluate`, `evaluateTransposed`, `quadraticForm`, `entryGcd`,
+  `matrixDividedBy`, `matrixScaledBy`, `identityMatrix` and `zeroMatrix`.
+
+Each keeps C's operation order, so values and `ibz_t` bit lengths match.
+Functions with no caller outside the C unit tests, such as the 4x4 inverse,
+are not ported. `quat_alg_make_primitive` moves to the lattice slice because
+it needs `quat_lattice_contains`.
+
+`tools/generate_algebra_vectors.py` independently models 387 records and
+checks every value against exact rational quaternion arithmetic.
+`checkIbzReference` now checks 2989 records against pinned C, adding the
+pinned `algebra.c`, `dim4.c` and `finit.c`. Structure tests bring coverage to
+100%. Nine retained `QuaternionAlgebraBenchmark` cases are checked against
+`BigInteger`, so the smoke inventory changes from 340 to 349.
+
+Remaining milestone 6 work: lattices (`lattice.c`, `dim2.c`), then ideals and
+the `lll_applications.c` reductions. Everything remains variable-time and
+without expert review. No public ABI, wire-format, dependency or toolchain
+changes.
