@@ -20,9 +20,11 @@ mod hd_wrap;
 mod hd;
 #[macro_use]
 mod verify;
+#[macro_use]
+mod mp;
 
 pub mod fips202;
 
-level!(p324_3, "p324_3", 6, 41, 6);
-level!(p500_27, "p500_27", 9, 64, 8);
-level!(p664_17, "p664_17", 11, 84, 11);
+level!(p324_3, "p324_3", 6, 41, 6, 30);
+level!(p500_27, "p500_27", 9, 64, 8, 40);
+level!(p664_17, "p664_17", 11, 84, 11, 55);
