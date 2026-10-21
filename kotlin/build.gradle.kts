@@ -224,9 +224,11 @@ val jvmNativeLibs: String? = providers.gradleProperty("sqisign.jvmNativeLibs").o
 // Android: arm64 uses the optimized arm64 build; x86_64 (emulators, Chromebooks) uses the portable reference build
 // because the broadwell build requires ADX/BMI2, which not every x86_64 device or emulator exposes.
 val androidMinSdk = 24
-val buildAndroidNative = mapOf("arm64-v8a" to "arm64", "x86_64" to "ref").map { (abi, buildType) ->
+val androidAbis = mapOf("arm64-v8a" to "arm64", "x86_64" to "ref")
+
+fun registerAndroidNative(suffix: String, extraArgs: List<String>) = androidAbis.map { (abi, buildType) ->
     registerCMake(
-        "buildNativeAndroid" + abi.split('-', '_').joinToString("") { it.replaceFirstChar(Char::uppercase) },
+        "buildNativeAndroid" + abi.split('-', '_').joinToString("") { it.replaceFirstChar(Char::uppercase) } + suffix,
         abi,
         listOf(
             androidSdkDir.zip(ndkVersion) { sdk, ndk ->
@@ -236,9 +238,13 @@ val buildAndroidNative = mapOf("arm64-v8a" to "arm64", "x86_64" to "ref").map { 
             arg("-DANDROID_PLATFORM=android-$androidMinSdk"),
             arg("-DSQISIGN_KMP_OUTPUT=jni"),
             arg("-DSQISIGN_BUILD_TYPE=$buildType"),
-        ),
+        ) + extraArgs.map(::arg),
     )
 }
+val buildAndroidNative = registerAndroidNative("", emptyList())
+
+// Test-only libsqisign_kat_jni per ABI, packaged into the device-test APK only (never the AAR).
+val buildAndroidNativeKat = registerAndroidNative("Kat", listOf("-DSQISIGN_KMP_KAT=ON"))
 
 // Apple: one merged static archive per Kotlin/Native target, embedded into the cinterop klib.
 val appleSlices = mapOf(
@@ -290,7 +296,8 @@ kotlin {
         }
     }
 
-    // drbgTest holds the keygen/sign KAT tests, which need a DRBG-seeded native library (JVM and Apple only).
+    // drbgTest declares the native KAT entry point that JVM and Apple implement; the KAT test itself lives in
+    // src/katTest, shared with the Android device tests, which define the entry point without expect/actual.
     @OptIn(ExperimentalKotlinGradlePluginApi::class)
     applyDefaultHierarchyTemplate {
         common {
@@ -357,11 +364,20 @@ kotlin {
                 implementation(kotlin("test"))
             }
         }
+        getByName("drbgTest") {
+            kotlin.srcDir("src/katTest/kotlin")
+        }
         // Host tests cannot load the Android .so, so the common suite is also compiled into the instrumented device
         // tests. KGP forbids a dependsOn edge between the two source-set trees, hence the shared source directories.
         getByName("androidDeviceTest") {
             kotlin.srcDir("src/commonTest/kotlin")
             kotlin.srcDir(generateKatVectors.flatMap { it.outputDir })
+            if (katTests) {
+                // The platform-neutral KAT test; drbgTest's expect cannot share a compilation with an actual.
+                kotlin.srcDir("src/katTest/kotlin")
+            } else {
+                kotlin.exclude("**/SqiSignKatJni.kt")
+            }
             dependencies {
                 implementation(kotlin("test"))
                 implementation(libs.androidx.test.runner)
@@ -373,6 +389,13 @@ kotlin {
 extensions.getByType<KotlinMultiplatformAndroidComponentsExtension>().onVariants { variant ->
     buildAndroidNative.forEach { task ->
         variant.sources.jniLibs?.addGeneratedSourceDirectory(task, CMakeBuild::installDir)
+    }
+    if (katTests) {
+        variant.deviceTests.values.forEach { deviceTest ->
+            buildAndroidNativeKat.forEach { task ->
+                deviceTest.sources.jniLibs?.addGeneratedSourceDirectory(task, CMakeBuild::installDir)
+            }
+        }
     }
 }
 

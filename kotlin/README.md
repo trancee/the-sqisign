@@ -17,7 +17,7 @@ All three parameter sets (`P324_3`, `P500_27`, `P664_17`; NIST levels 1, 3 and 5
 |---|---|---|---|
 | Linux, macOS, Windows (JVM 21) | `jvm` | Linux `x86_64`, `aarch64`; macOS `x86_64`, `aarch64`; Windows `x86_64` | CI, every platform |
 | Android 7.0+ (API 24) | `android` | `arm64-v8a`, `x86_64` | CI: `x86_64` emulator; locally: `arm64-v8a` emulator |
-| iOS 14+ devices | `iosArm64` | `arm64` | compiles only; a physical device has not been tested yet |
+| iOS 14+ devices | `iosArm64` | `arm64` | locally: Swift tests on an iPhone 15 (iOS 17.6.1) |
 | iOS Simulator (Apple Silicon) | `iosSimulatorArm64` | `arm64` | CI: Kotlin and Swift tests |
 | macOS 11+ (Apple Silicon) | `macosArm64` | `arm64` | CI: Kotlin and Swift tests |
 
@@ -140,17 +140,19 @@ Design decisions are recorded in [`docs/adr/`](docs/adr/). Contributor and agent
 `jvmTest` adds the JVM loader: platform directory names, the `sqisign.library.path` override and the fallback to
 `java.library.path`.
 
-`drbgTest` (JVM and Apple targets) reproduces the same KATs from their seeds: public key, secret key and signature must
-match byte for byte. It links a test-only native build (`-DSQISIGN_KMP_KAT=ON`) that replaces the system RNG with the
-NIST CTR-DRBG, seeded through `sqisign_kmp_kat_keypair_sign` (`native/include/sqisign_kmp_kat.h`):
+The seeded KAT test (`src/katTest`) reproduces the same KATs from their seeds on JVM, Apple and Android device tests:
+public key, secret key and signature must match byte for byte. It links a test-only native build
+(`-DSQISIGN_KMP_KAT=ON`) that replaces the system RNG with the NIST CTR-DRBG, seeded through
+`sqisign_kmp_kat_keypair_sign` (`native/include/sqisign_kmp_kat.h`). JVM and Apple implement the `drbgTest` entry point:
 
 - JVM: `buildNativeJvmKat` builds `sqisign_kat_jni`, a separate library exporting only
   `Java_org_sqisign_SqiSignKatJni_keypairSign`, loaded from the `jvmTest` resources (`org/sqisign/katnative/`).
 - Apple: `buildNative<Target>Kat` builds `libsqisign_kmp_kat.a`, prelinked so that it exports only
   `sqisign_kmp_kat_keypair_sign`. It is linked into the test binaries through the `sqisignKat` test cinterop.
+- Android: `buildNativeAndroid<Abi>Kat` builds `libsqisign_kat_jni.so` per ABI, packaged only into the device-test APK.
 
-Neither ends up in the published jar, AAR, klibs or XCFramework. Android device tests do not run `drbgTest`.
-`-Psqisign.katTests=false` skips it, for example when testing prebuilt libraries on a host without a C toolchain.
+None of them ends up in the published jar, AAR, klibs or XCFramework.
+`-Psqisign.katTests=false` skips them, for example when testing prebuilt libraries on a host without a C toolchain.
 
 CI runs these on the five JVM platforms, an `x86_64` Android emulator, macOS and the iOS Simulator, plus the Swift
 tests on macOS and the iOS Simulator.
@@ -163,13 +165,18 @@ swift test                                                          # macOS
 xcodebuild test -scheme SqiSignSwiftTests-Package -destination "platform=iOS Simulator,name=iPhone 17"
 ```
 
-On a physical iPhone (connected, unlocked, Developer Mode on), find its id with `xcrun xctrace list devices` and sign
-with your team:
+SwiftPM cannot run package tests on a physical iPhone, so `swift/DeviceHost` generates a small host app with
+[XcodeGen](https://github.com/yonaskolb/XcodeGen) that runs the same tests. Connect the iPhone (unlocked, Developer Mode
+on), find its id with `xcrun xctrace list devices`, and sign with your team (Xcode → Settings → Accounts):
 
 ```sh
-xcodebuild test -scheme SqiSignSwiftTests-Package -destination "id=<udid>" \
+cd swift/DeviceHost
+xcodegen generate
+xcodebuild test -project SqiSignDeviceHost.xcodeproj -scheme SqiSignDeviceTests -destination "id=<udid>" \
   -allowProvisioningUpdates DEVELOPMENT_TEAM=<team-id>
 ```
+
+On first launch, trust the developer certificate on the iPhone (Settings → General → VPN & Device Management).
 
 ## Limitations
 
@@ -181,7 +188,7 @@ xcodebuild test -scheme SqiSignSwiftTests-Package -destination "id=<udid>" \
   `encoded`, or caller code. Use platform keystores where possible.
 - The C implementation's constant-time properties have not been re-audited for these build configurations. Android
   `x86_64` uses the portable `ref` build.
-- Android `x86_64` is tested only on the CI emulator. The Swift tests have not yet run on a physical iPhone.
+- Android `x86_64` is tested only on the CI emulator. Physical-device runs (iPhone) are manual, not part of CI.
 - The Apple static library is embedded in the klib, so consumers cannot swap or deduplicate it.
 - Swift sees `KotlinByteArray` rather than `Data`, and Kotlin default arguments are not exported, so Swift callers
   always pass a parameter set.

@@ -15,7 +15,8 @@ Notation R/X/D/O as defined there.
 - Layout:
   - `src/commonMain`: public API (`SqiSign`, `ParameterSet`, keys); `expect fun native*`.
   - `src/jvmMain`, `src/androidMain`, `src/appleMain`: platform adapters only (C2).
-  - `src/commonTest`: behavior suite, also compiled into Android device tests; `src/drbgTest`: seeded KATs (JVM+Apple);
+  - `src/commonTest`: behavior suite, also compiled into Android device tests; `src/katTest`: seeded KAT test (JVM,
+    Apple, Android device); `src/drbgTest`: its `expect` (JVM+Apple); `src/androidDeviceTest`: Android KAT entry point;
     `src/jvmTest`: JVM-only adapter tests; `src/appleTest`: Apple KAT cinterop actual.
   - `src/jvmBenchmark`: JMH benchmarks; `benchmarks/`: baseline, budgets, comparison script.
   - `native/`: C glue + `CMakeLists.txt` (owned; vendor C in `../src`, `../include` X edit).
@@ -32,7 +33,7 @@ external prerequisite, X stub it.
 1. Classify: public API | platform adapter | native glue | build/CI | docs. Public API or crypto/protocol/native
    boundary => read ADRs; material decision => new/updated ADR in `docs/adr/` (O3).
 2. Red: add/adjust behavior test first (T1). Placement: shared behavior => `commonTest`; JVM loader/adapter =>
-   `jvmTest`; deterministic keygen/sign => `drbgTest`. Tests R Arrange/Act/Assert (T5); fail-closed branch => test (S5).
+   `jvmTest`; deterministic keygen/sign => `katTest`. Tests R Arrange/Act/Assert (T5); fail-closed branch => test (S5).
 3. Implement smallest complete change; shared rules in `commonMain`, platform code in adapters (C2); native status codes
    => `SqiSignException`, never platform errors (C4). X secret bytes in logs/`toString`/exceptions (S1).
 4. Green + gates (VERIFY below). Public API diff => `./gradlew updateKotlinAbi` on macOS (other hosts lack Apple klib
@@ -52,7 +53,8 @@ external prerequisite, X stub it.
 | JVM tests + coverage | `./gradlew jvmTest koverVerify` (100 % line+branch, commonMain+jvmMain) | JVM native (5 hosts) |
 | Apple tests | `./gradlew macosArm64Test iosSimulatorArm64Test compileKotlinIosArm64` | Apple |
 | XCFramework + Swift | `./gradlew assembleSqiSignReleaseXCFramework`, then `swift test` in `swift/` | Apple |
-| Android | `./gradlew bundleAndroidMainAar connectedAndroidDeviceTest` (device/emulator) | Android (x86_64 emulator) |
+| Android | `./gradlew bundleAndroidMainAar connectedAndroidDeviceTest` (device/emulator; includes seeded KATs) | Android (x86_64 emulator) |
+| iPhone (manual, T9) | `xcodegen generate` + `xcodebuild test` in `swift/DeviceHost` ([README](README.md#tests)) | none |
 | All-platform jar | `./gradlew jvmTest jvmJar -Psqisign.jvmNativeLibs=<dir> -Psqisign.katTests=false` | JVM jar |
 | Benchmark smoke | `./gradlew jvmBenchmarkSmokeBenchmark` | JVM native (linux-x86_64) |
 | Benchmark budget | [`benchmarks/README.md`](benchmarks/README.md) | manual, reference host |
