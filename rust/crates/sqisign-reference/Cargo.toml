@@ -1,0 +1,19 @@
+[package]
+name = "sqisign-reference"
+version = "0.1.0"
+description = "Test-only bindings to the vendor SQIsign C reference build, used for differential testing"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+publish = false
+build = "build.rs"
+links = "sqisign_ref"
+
+[dependencies]
+
+[build-dependencies]
+cc = "1"
+
+[lints]
+workspace = true

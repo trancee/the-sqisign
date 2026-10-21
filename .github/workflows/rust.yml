@@ -1,0 +1,76 @@
+name: Rust
+
+on:
+  push:
+    branches: ["**"]
+    paths:
+      - "rust/**"
+      - "src/**"
+      - "include/**"
+      - "KAT/**"
+      - ".github/workflows/rust.yml"
+  pull_request:
+    paths:
+      - "rust/**"
+      - "src/**"
+      - "include/**"
+      - "KAT/**"
+      - ".github/workflows/rust.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: rust-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    shell: bash
+    working-directory: rust
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  # Differential tests against the vendor C reference on each 64-bit host.
+  test:
+    name: Test (${{ matrix.platform }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: linux-x86_64
+            os: ubuntu-24.04
+          - platform: linux-aarch64
+            os: ubuntu-24.04-arm
+          - platform: macos-aarch64
+            os: macos-15
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v5
+      - name: Install pinned toolchain
+        run: rustup toolchain install
+      - name: Test
+        run: cargo test --locked
+
+  # Format, lint and the 100 % coverage gate (lines, functions, regions; ADR 0004).
+  quality:
+    name: Format, lint, coverage
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+      - name: Install pinned toolchain
+        run: rustup toolchain install
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-llvm-cov
+      - name: Format
+        run: cargo fmt --all --check
+      - name: Lint
+        run: cargo clippy --locked --all-targets -- -D warnings
+      - name: Coverage
+        run: >-
+          cargo llvm-cov --locked -p sqisign
+          --fail-under-lines 100 --fail-under-functions 100 --fail-under-regions 100
