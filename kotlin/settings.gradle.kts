@@ -15,3 +15,6 @@ dependencyResolutionManagement {
 }
 
 rootProject.name = "sqisign-kotlin"
+
+// AndroidX Microbenchmark of the Android target on a physical device; see benchmarks/README.md.
+include(":benchmark-android")

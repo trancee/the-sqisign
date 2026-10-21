@@ -129,8 +129,9 @@ them. Three more checks run outside `check`:
   `llvm-cov` in `build/native-coverage/`. It requires every function to run and at least 98 % of lines; the missed
   lines are `malloc` and upstream signing failures that tests cannot trigger. The Apple CI job runs it and uploads
   the `native-coverage` artifact. The upstream C library is not instrumented.
-- **Benchmarks:** JMH benchmarks are in `src/jvmBenchmark`. Budgets, the baseline and the comparison script are in
-  [`benchmarks/README.md`](benchmarks/README.md).
+- **Benchmarks:** JMH benchmarks are in `src/jvmBenchmark`, AndroidX Microbenchmarks in `benchmark-android/`, and
+  XCTest benchmarks in `swift/Tests/SqiSignKitBenchmarks`. Budgets, the baseline, the comparison script and device
+  results are in [`benchmarks/README.md`](benchmarks/README.md).
 - **Secret scan:** the `Secret scan` workflow runs gitleaks over the full git history on every push.
 
 Design decisions are recorded in [`docs/adr/`](docs/adr/). Contributor and agent workflow: [`AGENTS.md`](AGENTS.md).

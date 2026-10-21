@@ -18,9 +18,10 @@ Notation R/X/D/O as defined there.
   - `src/commonTest`: behavior suite, also compiled into Android device tests; `src/katTest`: seeded KAT test (JVM,
     Apple, Android device); `src/drbgTest`: its `expect` (JVM+Apple); `src/androidDeviceTest`: Android KAT entry point;
     `src/jvmTest`: JVM-only adapter tests; `src/appleTest`: Apple KAT cinterop actual.
-  - `src/jvmBenchmark`: JMH benchmarks; `benchmarks/`: baseline, budgets, comparison script.
+  - `src/jvmBenchmark`: JMH benchmarks; `benchmark-android/`: AndroidX Microbenchmarks; `benchmarks/`: baseline,
+    budgets, comparison script, device results.
   - `native/`: C glue + `CMakeLists.txt` (owned; vendor C in `../src`, `../include` X edit).
-  - `api/`: ABI dumps; `docs/adr/`: ADRs; `swift/`: Swift package tests for the XCFramework.
+  - `api/`: ABI dumps; `docs/adr/`: ADRs; `swift/`: SwiftPM `SqiSignKit` layer, tests and benchmarks (ADR 0003).
 - Generated (E6, X hand-edit): `KatVectors.kt` (`generateKatVectors` from `../KAT/*.rsp`), `api/*` (`updateKotlinAbi`).
 
 ## SETUP
@@ -59,6 +60,7 @@ external prerequisite, X stub it.
 | All-platform jar | `./gradlew jvmTest jvmJar -Psqisign.jvmNativeLibs=<dir> -Psqisign.katTests=false` | JVM jar |
 | Benchmark smoke | `./gradlew jvmBenchmarkSmokeBenchmark` | JVM native (linux-x86_64) |
 | Benchmark budget | [`benchmarks/README.md`](benchmarks/README.md) | manual, reference host |
+| Device benchmarks (informational) | `:benchmark-android:connectedReleaseAndroidTest`; scheme `SqiSignDeviceBenchmarks` ([benchmarks](benchmarks/README.md#device-benchmarks)) | dry run / macOS smoke |
 | Secret scan | `gitleaks git --redact --exit-code 1 ..` | Secret scan |
 
 `./gradlew check` aggregates spotless, detekt, ABI, Kover and host tests. Local hooks != CI proof (E7); CI workflow:
