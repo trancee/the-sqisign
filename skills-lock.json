@@ -1,0 +1,311 @@
+{
+  "version": 1,
+  "skills": {
+    "act": {
+      "source": "trancee/skills",
+      "sourceType": "github",
+      "skillPath": "act/SKILL.md",
+      "computedHash": "daf17e5a78fd4075143c2bd71db21db4341b6e2b88431207d676e6b3374c4f56"
+    },
+    "agent-skills-standard": {
+      "source": "trancee/skills",
+      "sourceType": "github",
+      "skillPath": "agent-skills-standard/SKILL.md",
+      "computedHash": "ee67c4a88dc300135dce21d21df8e37a3f85d9f40a854c79b8c7eeda768d1bee"
+    },
+    "android-ble": {
+      "source": "trancee/skills",
+      "sourceType": "github",
+      "skillPath": "android-ble/SKILL.md",
+      "computedHash": "b485aeaead838e7b4ddb0d5d0ccabb6f76c5de39db4655e20d1affa250ae3b8a"
+    },
+    "android-ble-gatt-queue": {
+      "source": "trancee/skills",
+      "sourceType": "github",
+      "skillPath": "android-ble-gatt-queue/SKILL.md",
+      "computedHash": "23ce3d8fddcc24da8d61fad6bbc34ef3c44881adde6ef8e959a1a3248aa82e44"
+    },
+    "android-ble-gatt-server": {
+      "source": "trancee/skills",
+      "sourceType": "github",
+      "skillPath": "android-ble-gatt-server/SKILL.md",
+      "computedHash": "9f6b3d140b822f00d55918a97b0a1e5ac51db719b32bc0a5b37cb40eb4611df9"
+    },
+    "android-ble-gatt-status": {
+      "source": "trancee/skills",
+      "sourceType": "github",
+      "skillPath": "android-ble-gatt-status/SKILL.md",
+      "computedHash": "9cd9edaaae0ee8e00507870fa720720224b385f9ffbb7e91588d1418576704e5"
+    },
+    "android-ble-inspector": {
+      "source": "trancee/skills",
+      "sourceType": "github",
+      "skillPath": "android-ble-inspector/SKILL.md",
+      "computedHash": "bdda086e94f30f4170054b3973b320275a2c99382e5aeb3d3a48476aaf3bb92b"
+    },
+    "android-bluetooth-sockets": {
+      "source": "trancee/skills",
+      "sourceType": "github",
+      "skillPath": "android-bluetooth-sockets/SKILL.md",
+      "computedHash": "890ac2cb1f1c323876c334d0550e1b89e0693ec13a0ab44cc1ed8de8e537460f"
+    },
+    "android-debug-bridge": {
+      "source": "trancee/skills",
+      "sourceType": "github",
+      "skillPath": "android-debug-bridge/SKILL.md",
+      "computedHash": "a6e9923503df1205dbe33ff44f437f6ac967504fbe891d951d5f495cd09c2d93"
+    },
+    "android-material3-compose": {
+      "source": "trancee/skills",
+      "sourceType": "github",
+      "skillPath": "android-material3-compose/SKILL.md",
+      "computedHash": "70bc2323e52b4bb50f2d52318dcc326922f861956ed41b7feaa038febcf54ae9"
+    },
+    "arrange-act-assert": {
+      "source": "trancee/skills",
+      "sourceType": "github",
+      "skillPath": "arrange-act-assert/SKILL.md",
+      "computedHash": "7711afa3d806cbd686616559a5cd48a974bdccfd4542abff7425a7264886a62c"
+    },
+    "ble-protocol-stack": {
+      "source": "trancee/skills",
+      "sourceType": "github",
+      "skillPath": "ble-protocol-stack/SKILL.md",
+      "computedHash": "09e3ac1ed5d25a004d58178505fc71ce6ed0e3d92562156e9d1bfe8862ce5713"
+    },
+    "ble-throughput": {
+      "source": "trancee/skills",
+      "sourceType": "github",
+      "skillPath": "ble-throughput/SKILL.md",
+      "computedHash": "1530761d1173249df36b47c0ea4849817d89542a51b2281f84c33f9bc11a251e"
+    },
+    "compose-multiplatform": {
+      "source": "trancee/skills",
+      "sourceType": "github",
+      "skillPath": "compose-multiplatform/SKILL.md",
+      "computedHash": "7d49f101f27d3f762b02315d566babd8b0b8c1afa1175dcd248341aa3bc8d7e0"
+    },
+    "corebluetooth": {
+      "source": "trancee/skills",
+      "sourceType": "github",
+      "skillPath": "corebluetooth/SKILL.md",
+      "computedHash": "91df822d52721f548afae19007171bf4452492f379107cff0d5fb57d556652ab"
+    },
+    "csidh-ctidh": {
+      "source": "trancee/skills",
+      "sourceType": "github",
+      "skillPath": "csidh-ctidh/SKILL.md",
+      "computedHash": "e6340cb36a36b924dc898b6e4836455ebce0d91d259e6babe94b026ae3e85e3e"
+    },
+    "detekt": {
+      "source": "trancee/skills",
+      "sourceType": "github",
+      "skillPath": "detekt/SKILL.md",
+      "computedHash": "ffd0fee30dacd2e54877783560564542cb6f521c59aa45ccc467823b4120b2c2"
+    },
+    "diataxis": {
+      "source": "trancee/skills",
+      "sourceType": "github",
+      "skillPath": "diataxis/SKILL.md",
+      "computedHash": "62d80a4b995b34459d8f392052e85385c94752f6d122f53377602dd509939afa"
+    },
+    "dokka": {
+      "source": "trancee/skills",
+      "sourceType": "github",
+      "skillPath": "dokka/SKILL.md",
+      "computedHash": "4a0bb8441ab910bafeb2641eb79a300027e7dea6928281790d9ad6b52098a2b8"
+    },
+    "falcon-fn-dsa": {
+      "source": "trancee/skills",
+      "sourceType": "github",
+      "skillPath": "falcon-fn-dsa/SKILL.md",
+      "computedHash": "023cfdaa47d1a815a76e0a491033352e245a8fcc6514e9d69a84ed7874018170"
+    },
+    "gobley": {
+      "source": "trancee/skills",
+      "sourceType": "github",
+      "skillPath": "gobley/SKILL.md",
+      "computedHash": "699f2991cc4f91caa1c17463a09bbd269b625dafb761929586a6ffa8607c955e"
+    },
+    "kotlin-api-reference": {
+      "source": "trancee/skills",
+      "sourceType": "github",
+      "skillPath": "kotlin-api-reference/SKILL.md",
+      "computedHash": "9a6e1b853200a7edd33527bb3b8966a9c8ef265f4970dfb3b0c68b61c7357dd7"
+    },
+    "kotlin-binary-compatibility": {
+      "source": "trancee/skills",
+      "sourceType": "github",
+      "skillPath": "kotlin-binary-compatibility/SKILL.md",
+      "computedHash": "4c6c40be88898aec37bb9e428278cd8da810f3e13a2d3c2628f0778bbfcc4c85"
+    },
+    "kotlin-coroutines": {
+      "source": "trancee/skills",
+      "sourceType": "github",
+      "skillPath": "kotlin-coroutines/SKILL.md",
+      "computedHash": "e2b7a011e9546f90560a278c76b79a06edbeb7d6faa5f30744b25a9aba4d169c"
+    },
+    "kotlin-development": {
+      "source": "trancee/skills",
+      "sourceType": "github",
+      "skillPath": "kotlin-development/SKILL.md",
+      "computedHash": "1fbc0f81abaf3965707c134245861bced3ce26dccb8219f6af3d94136b09233d"
+    },
+    "kotlin-gradle": {
+      "source": "trancee/skills",
+      "sourceType": "github",
+      "skillPath": "kotlin-gradle/SKILL.md",
+      "computedHash": "a9005396124792c260e208caad54349bc67b7161aa1fbe37112e5ca5c0f7ba3d"
+    },
+    "kotlin-multiplatform": {
+      "source": "trancee/skills",
+      "sourceType": "github",
+      "skillPath": "kotlin-multiplatform/SKILL.md",
+      "computedHash": "2bac4a322ef4bdebf66c66b02c16e3df5d96e947332f2227d21eb41f62e54440"
+    },
+    "kotlin-native-apple-interop": {
+      "source": "trancee/skills",
+      "sourceType": "github",
+      "skillPath": "kotlin-native-apple-interop/SKILL.md",
+      "computedHash": "eb9ad64e21c909f708ccc9acb0b83b8058e192e748f01af244a387b175e0c26e"
+    },
+    "kotlin-power-assert": {
+      "source": "trancee/skills",
+      "sourceType": "github",
+      "skillPath": "kotlin-power-assert/SKILL.md",
+      "computedHash": "381f7c1397a28ac6acd1cfd1e2a2c2b705fc9659d3777e1ca61211fbecb784fc"
+    },
+    "kotlinpoet": {
+      "source": "trancee/skills",
+      "sourceType": "github",
+      "skillPath": "kotlinpoet/SKILL.md",
+      "computedHash": "b223faf29d916d447397100c15bd4951221fa151c6f33d003f5c1e062e123f2c"
+    },
+    "kotlinx-benchmark": {
+      "source": "trancee/skills",
+      "sourceType": "github",
+      "skillPath": "kotlinx-benchmark/SKILL.md",
+      "computedHash": "7a5e50e797610014039a65a7f14d0d4095abad7a54737966f4c00043606dcd33"
+    },
+    "kotlinx-serialization": {
+      "source": "trancee/skills",
+      "sourceType": "github",
+      "skillPath": "kotlinx-serialization/SKILL.md",
+      "computedHash": "2222616692ff63eb8aa395d971e5c1dd497b3243b1baba88221f50be188fc192"
+    },
+    "kover": {
+      "source": "trancee/skills",
+      "sourceType": "github",
+      "skillPath": "kover/SKILL.md",
+      "computedHash": "a856d81d6bd8fc6d28af73bbd0f6efcdaae19b2a57f3310e645cc32907c3232d"
+    },
+    "ksp": {
+      "source": "trancee/skills",
+      "sourceType": "github",
+      "skillPath": "ksp/SKILL.md",
+      "computedHash": "ceca4f95c2d2e83414c98fe94ae14bbcfae3df2ad136121bd723b1dd13c153d3"
+    },
+    "lean": {
+      "source": "trancee/skills",
+      "sourceType": "github",
+      "skillPath": "lean/SKILL.md",
+      "computedHash": "6eb521112114c0a79847e202f12f91085307aeaf1733a800f160b8ea7099aaf1"
+    },
+    "libacvp-json-kotlin": {
+      "source": "trancee/skills",
+      "sourceType": "github",
+      "skillPath": "libacvp-json-kotlin/SKILL.md",
+      "computedHash": "80865a4366fb8483d493c66f035cbc3f6daa6eb1c1e372acca8d75e88d95ac38"
+    },
+    "lincheck": {
+      "source": "trancee/skills",
+      "sourceType": "github",
+      "skillPath": "lincheck/SKILL.md",
+      "computedHash": "63e1076554ccf57c36e60ecc4d7baa42e8b5b3891baa7c40cb1dfe60abb361de"
+    },
+    "maude": {
+      "source": "trancee/skills",
+      "sourceType": "github",
+      "skillPath": "maude/SKILL.md",
+      "computedHash": "0d4b9f2a80942369c489a87d96bcfd1b31629a7878a344489275cb3538caf6a7"
+    },
+    "maven-central-publishing": {
+      "source": "trancee/skills",
+      "sourceType": "github",
+      "skillPath": "maven-central-publishing/SKILL.md",
+      "computedHash": "829e1f50ab1470d62d40154508da8d5b9a85beaa7637b563c97521f79c842014"
+    },
+    "nist-cavp": {
+      "source": "trancee/skills",
+      "sourceType": "github",
+      "skillPath": "nist-cavp/SKILL.md",
+      "computedHash": "1043bf368a047663fd39531aa291d039b684620820ffe96a7bd3c535d4943b93"
+    },
+    "noise-protocol": {
+      "source": "trancee/skills",
+      "sourceType": "github",
+      "skillPath": "noise-protocol/SKILL.md",
+      "computedHash": "eac17bd88b1f277cf3cdbd0027f317036b4436d45746c6686c7d9edcfc68000c"
+    },
+    "omp-skill-hardener": {
+      "source": "trancee/skills",
+      "sourceType": "github",
+      "skillPath": "omp-skill-hardener/SKILL.md",
+      "computedHash": "8060588ce97b7383767e31887d53895dbce62fab4cf5cb75bde610da2f641e6a"
+    },
+    "remote-xcode-signing": {
+      "source": "trancee/skills",
+      "sourceType": "github",
+      "skillPath": "remote-xcode-signing/SKILL.md",
+      "computedHash": "c24bae958380c15e0e7f0266fd366ad6b463573549c2d09ff1bd75c92779cc38"
+    },
+    "ristretto255": {
+      "source": "trancee/skills",
+      "sourceType": "github",
+      "skillPath": "ristretto255/SKILL.md",
+      "computedHash": "872979480dc899f26b6a31acde1f9d9fc69d8acbdcdc363900b1038d8dee9010"
+    },
+    "skie": {
+      "source": "trancee/skills",
+      "sourceType": "github",
+      "skillPath": "skie/SKILL.md",
+      "computedHash": "84dc8c2384c8a03cc45bff5809f64f3b53cbb5f9fd990c38032356a911985227"
+    },
+    "spotless": {
+      "source": "trancee/skills",
+      "sourceType": "github",
+      "skillPath": "spotless/SKILL.md",
+      "computedHash": "e9175d009f197e789ee07f4c545b2514c7a901030191de47d353662fa2a1e52f"
+    },
+    "tamarin-prover": {
+      "source": "trancee/skills",
+      "sourceType": "github",
+      "skillPath": "tamarin-prover/SKILL.md",
+      "computedHash": "0fb251716a2718d313ec61b57b4744502e4124765d09d8b18b5462176a5b7e5b"
+    },
+    "terminal-diagrams": {
+      "source": "trancee/skills",
+      "sourceType": "github",
+      "skillPath": "terminal-diagrams/SKILL.md",
+      "computedHash": "fd7108fc557bd25d2e1d5cd322fe95d10ec14c42244eba481102896a7adc5a8d"
+    },
+    "ubique-uniffi": {
+      "source": "trancee/skills",
+      "sourceType": "github",
+      "skillPath": "ubique-uniffi/SKILL.md",
+      "computedHash": "1a269b72a1395529b52ced01d4fb877a69e6ced35105b871f76a4c3c8729db93"
+    },
+    "wycheproof": {
+      "source": "trancee/skills",
+      "sourceType": "github",
+      "skillPath": "wycheproof/SKILL.md",
+      "computedHash": "2c80e0313cd3f1bca5fd9a3053132142ddf9a25fb132c9facc71e83c63f0b003"
+    },
+    "xtool": {
+      "source": "trancee/skills",
+      "sourceType": "github",
+      "skillPath": "xtool/SKILL.md",
+      "computedHash": "afe8aaf36592b151e5a207d5ffa070cc596f05b2d94e50daf0e2a0bc3e461bba"
+    }
+  }
+}
