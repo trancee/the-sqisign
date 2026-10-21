@@ -11,6 +11,7 @@
 #include "../../src/quaternion/ref/lvlx/lll/lehmer_xgcd.c"
 #include "../../src/quaternion/ref/lvlx/integers.c"
 #include "../../src/quaternion/ref/lvlx/lll/lll_lg2.c"
+#include "../../src/quaternion/ref/lvlx/lll/lll_dim4.c"
 
 enum
 {
@@ -513,6 +514,74 @@ gram(const char *op, char **arguments)
 }
 
 static void
+print_ldl(const fp_ldl_t *st)
+{
+    for (int i = 0; i < 4; i++) {
+        printf(i ? " " : "");
+        print_ibz(&st->D[i]);
+    }
+    for (int i = 0; i < 4; i++) {
+        for (int j = 0; j < i; j++) {
+            printf(" ");
+            print_ibz(&st->L[i][j]);
+        }
+    }
+    for (int i = 0; i < 16; i++) {
+        printf(" ");
+        print_ibz(&st->Ainv[i / 4][i % 4]);
+    }
+}
+
+static int
+dual(const char *op, char **arguments)
+{
+    if (strcmp(op, "ldl") != 0 && strcmp(op, "tour") != 0 && strcmp(op, "dual") != 0)
+        return 0;
+    ibz_t twoN, E, Dq, C, B;
+    quat_alg_t alg;
+    decode(&twoN, arguments[0]);
+    decode(&E, arguments[1]);
+    decode(&Dq, arguments[2]);
+    decode(&C, arguments[3]);
+    decode(&B, arguments[4]);
+    decode(&alg.p, arguments[5]);
+    if (strcmp(op, "dual") != 0) {
+        fp_ldl_t st;
+        fp_ldl_init_dual(&st, &twoN, &B, &C, &Dq, &E, &alg.p, FP_P_BITS);
+        if (strcmp(op, "tour") == 0)
+            ct_lll_tour4(&st, FP_P_BITS);
+        print_ldl(&st);
+        return 1;
+    }
+    quat_lattice_t hnf, reduced;
+    ibz_mat_4x4_t transform;
+    ibz_t diagonal[4];
+    ibz_set(&hnf.denom, 2, 3);
+    for (int i = 0; i < 16; i++)
+        ibz_set(&hnf.basis.m[i / 4][i % 4], i % 5 == 0, 2);
+    ibz_copy(&hnf.basis.m[0][0], &twoN);
+    ibz_copy(&hnf.basis.m[1][1], &twoN);
+    ibz_copy(&hnf.basis.m[0][2], &E);
+    ibz_copy(&hnf.basis.m[0][3], &Dq);
+    ibz_copy(&hnf.basis.m[1][2], &C);
+    ibz_copy(&hnf.basis.m[1][3], &B);
+    quat_lll_dual_reduce_ideal(&reduced, diagonal, &transform, &hnf, &alg);
+    for (int i = 0; i < 16; i++) {
+        printf(i ? " " : "");
+        print_ibz(&reduced.basis.m[i / 4][i % 4]);
+    }
+    for (int i = 0; i < 4; i++) {
+        printf(" ");
+        print_ibz(&diagonal[i]);
+    }
+    for (int i = 0; i < 16; i++) {
+        printf(" ");
+        print_ibz(&transform.m[i / 4][i % 4]);
+    }
+    return 1;
+}
+
+static void
 special(const char *op, char **arguments)
 {
     ibz_t a, b, r;
@@ -541,7 +610,7 @@ special(const char *op, char **arguments)
             fail("random symmetric interval");
         finish_script();
     } else {
-        if (!fixed_point(op, arguments) && !lattice(op, arguments) && !gram(op, arguments) &&
+        if (!fixed_point(op, arguments) && !lattice(op, arguments) && !gram(op, arguments) && !dual(op, arguments) &&
             !number_theory(op, arguments))
             unary(op, arguments);
         return;

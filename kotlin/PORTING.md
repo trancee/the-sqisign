@@ -1306,3 +1306,37 @@ Remaining milestone 6 work: the dimension-4 driver
 elements and lattices, then ideals. Everything remains variable-time and
 without expert review. No public ABI, wire format, dependency or toolchain
 changes.
+
+## Quaternion decision 2026-10-21: dimension-4 dual reduction
+
+[`ADR 0025`](adr/0025-dimension-four-dual-reduction.md) ports the pinned
+`lll_dim4.c`, the reduction of `O0`-ideals given in the Hermite normal form of
+`quat_ideal_mul_O0`:
+
+- `fp_ldl_init_dual` and `fp_size_reduce_from` write and size-reduce the
+  closed-form LDL decomposition of the dual Gram;
+- `ct_lll_tour4` and `ct_lll_update_block` reduce blocks 1, 0 and 2 with the
+  Gram kernel of ADR 0024 for `CT_LLL_TOURS` tours;
+- `ct_minkowski_reduce` sorts 27 short candidates through C's 32-slot bitonic
+  network, selects four independent ones and composes their inverse
+  transpose;
+- `quat_lll_dual_reduce_ideal` returns the primal basis, the transform and the
+  scaled dual Gram diagonal.
+
+`LllConfig` derives the remaining `lll_config.h` bounds. `Ibz` gains
+`minusWithBound` and `timesWithBound`. Only the input checks of the public
+entry point are ported; C's internal assertions are asserted by the model on
+every record.
+
+`tools/generate_dual_vectors.py` independently models 30 records over ten
+honest ideals and checks unimodularity, the exact basis product, the
+`2^-lambda` dual Gram accuracy, the order and the Hadamard bound.
+`checkIbzReference` now checks 2569 records against pinned C, adding the
+pinned `lll_dim4.c`. Precondition and selection tests bring coverage to 100%.
+Three retained `DualBenchmark` cases are checked against `BigInteger`, so the
+smoke inventory changes from 334 to 337.
+
+Remaining milestone 6 work: the Gaussian reduction and the `O0`-ideal
+reduction built on it, quaternion algebra elements and lattices, then ideals.
+Everything remains variable-time and without expert review. No public ABI,
+wire format, dependency or toolchain changes.

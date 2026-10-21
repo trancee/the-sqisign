@@ -41,6 +41,13 @@ internal fun Ibz.pow(exponent: Int): Ibz {
 internal fun Ibz.plusWithBound(other: Ibz, bound: Int): Ibz =
     sum(other, subtract = false, checked = false).withBound(bound)
 
+/** The unchecked difference re-bounded to [bound], as the reference `ibz_sub` and bound. */
+internal fun Ibz.minusWithBound(other: Ibz, bound: Int): Ibz =
+    sum(other, subtract = true, checked = false).withBound(bound)
+
+/** The product re-bounded to [bound], as the reference `ibz_mul` and bound. */
+internal fun Ibz.timesWithBound(other: Ibz, bound: Int): Ibz = times(other).withBound(bound)
+
 internal fun Ibz.plusIntWithBound(value: Int, bound: Int): Ibz =
     plusWithBound(Ibz.of(capacityBits, value, Int.SIZE_BITS), bound)
 

@@ -75,6 +75,10 @@ records the ported scope. The dimension-2 Gram kernel of the dimension-4
 reduction (block materialisation and Lehmer Lagrange-Gauss passes) reproduces
 C's windows and transforms in the same way;
 [`adr/0024-dimension-two-gram-kernel.md`](adr/0024-dimension-two-gram-kernel.md)
+records the mapping. The dimension-4 dual reduction of `O0`-ideals
+(`quat_lll_dual_reduce_ideal`) reproduces C's fixed-point LDL state, block
+tours and Minkowski selection, so it returns C's basis;
+[`adr/0025-dimension-four-dual-reduction.md`](adr/0025-dimension-four-dual-reduction.md)
 records the mapping.
 The internal field package implements canonical prime fields for all three
 parameter sets: `Fp324` (`p324_3`), `Fp500P27` (`p500_27`), and `Fp664P17`
@@ -497,6 +501,15 @@ Every reduction is checked to be unimodular and to transform the form exactly.
 `checkIbzReference` checks them against the same pinned C, and retained
 `GramBenchmark` workloads are checked against `BigInteger`.
 
+Another 30 records from `tools/generate_dual_vectors.py` model the
+dimension-4 dual reduction of `lll_dim4.c` on honest products of inert
+`O0`-ideals: the initial LDL state, the state after the block tours and the
+full `quat_lll_dual_reduce_ideal` result. Every reduction is checked to be
+unimodular, to reproduce `hnf * Aout` exactly and to match the exact dual Gram
+diagonal within `2^-lambda`. `checkIbzReference` checks all 2569 records
+against the same pinned C, and retained `DualBenchmark` workloads are checked
+against `BigInteger`.
+
 ## JVM benchmarks
 
 The explicitly accepted Alpha [`kotlinx-benchmark 0.5.0`](https://github.com/Kotlin/kotlinx-benchmark/releases/tag/v0.5.0)
@@ -537,6 +550,7 @@ Input preparation and parameter-name resolution occur outside timing.
 | `IbzFixedPointBenchmark.highProduct`, `reciprocal` | All parameter sets | `floor(a * b / 2^P)` at `P + 4` bits, or five Newton rounds of the reciprocal, at the level's `FP_P_BITS` precision `P` over `P`-bit operands, including result allocation; parsing outside timing |
 | `CornacchiaBenchmark.twoSquares`, `latticeReduction` | All parameter sets | `ibz_cornacchia_prime` (square root of -1, Lehmer reduction and norm check), or the dimension-2 reduction alone from a precomputed root, over a deterministic `capacity / 4`-bit prime `1 mod 4`, including result allocation; prime and root search outside timing |
 | `GramBenchmark.materialiseBlock`, `lagrangeGauss` | All parameter sets | `quat_lll_materialise_block`, or `quat_lll_gram_lehmer` with the round-0 outer passes, on a deterministic Lovász-violating block (`D_k` at the diagonal bound, `D_{k+1}` at half of it, `mu` in `[1/4, 1/2)`), including result allocation; parsing and the input form outside timing |
+| `DualBenchmark.dualReduceIdeal` | All parameter sets | `quat_lll_dual_reduce_ideal` (dual LDL initialisation, block tours, Minkowski selection and basis product) on a deterministic product of two inert `O0`-ideals, including result allocation; ideal construction and parsing outside timing |
 | `MontgomeryBenchmark.coefficient` | All parameter sets; `SHORT`, `FULL_WIDTH` | `A/C`, including inversion and canonical field result allocation |
 | `MontgomeryBenchmark.doublePoint` / `differentialAdd` | All parameter sets; `SHORT`, `FULL_WIDTH` | Complete x-only operation and projective result allocation, without affine normalization |
 | `MontgomeryBenchmark.multiply` | All parameter sets; `SHORT`, `FULL_WIDTH` | Encoded-scalar ladder and all intermediate/result allocations; no setup or affine normalization |
@@ -643,13 +657,13 @@ The public library API is unchanged; internal wide results are not exposed by it
 
 ```sh
 ./gradlew jvmTest                       # Check workload correctness before timing
-./gradlew jvmBenchmarkSmokeBenchmark    # Discovery/execution only: 334 cases
+./gradlew jvmBenchmarkSmokeBenchmark    # Discovery/execution only: 337 cases
 ./gradlew jvmBenchmarkBenchmarkJar      # Build the JMH harness before measurement
 ./gradlew jvmBenchmarkBenchmark         # Opt-in full profile on a controlled host
 ```
 
 The `smoke` profile uses one fork, one 50 ms warmup, and one 50 ms measurement
-per case. Linux CI requires the complete 334-case parameter matrix, the expected
+per case. Linux CI requires the complete 337-case parameter matrix, the expected
 mode/unit/profile, and finite positive samples. It uploads JSON reports,
 execution logs, and commit/host/JDK/Gradle metadata with the other Kotlin reports.
 The `main` measurement profile uses three forks, three 1 s warmups, and five 1 s

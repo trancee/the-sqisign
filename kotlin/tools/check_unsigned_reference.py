@@ -41,6 +41,7 @@ REFERENCE_FILES = {
     "src/quaternion/ref/lvlx/lll/lehmer_xgcd.c": "dc205554243267f7332161bb6737599a03e4daf432faed8cf53db85f391f6e4d",
     "src/quaternion/ref/lvlx/lll/lll_lg2.c": "94acc9bb877d8538cd3f19f191e544b07f898a7d29393f42c2c8d7eac12e7afa",
     "src/quaternion/ref/lvlx/lll/lll_lg2.h": "b117dd4ce9bd23d68e5127378c1b69be1ce3da7441b9a37a12646bc243975ee0",
+    "src/quaternion/ref/lvlx/lll/lll_dim4.c": "a93a6dce5c5ddd49631fd942592e4a1e496b6c8567068cbb4d256d2c90a97ef8",
     "src/precomp/ref/p324_3/include/quaternion_constants.h": "bc1897044c71a3bdc71f19ce6a95e8e28afd65a574084eb98db3470370af7d42",
     "src/precomp/ref/p500_27/include/quaternion_constants.h": "527745ab448a8977d8aef3c9c805a39f944dfb7a4c819a068718647aee05f0d5",
     "src/precomp/ref/p664_17/include/quaternion_constants.h": "bfd50a0767c92bf4d3613a9b8d5c1c17127756c1f1a42343edb92e446b945ba4",

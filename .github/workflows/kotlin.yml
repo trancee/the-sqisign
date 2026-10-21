@@ -275,6 +275,9 @@ jobs:
               workloads[f"GramBenchmark.{operation}"] = {
                   "parameterSet": ("NIST_I", "NIST_III", "NIST_V"),
               }
+          workloads["DualBenchmark.dualReduceIdeal"] = {
+              "parameterSet": ("NIST_I", "NIST_III", "NIST_V"),
+          }
           for operation in ("coefficient", "doublePoint", "differentialAdd", "multiply",
                             "threePointMultiply", "biscalarMultiply", "deterministicDifference",
                             "referenceSquareRoot", "sharedDifference"):
