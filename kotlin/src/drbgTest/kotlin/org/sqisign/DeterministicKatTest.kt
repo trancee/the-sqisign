@@ -30,7 +30,9 @@ class DeterministicKatTest {
             val sk = ByteArray(set.secretKeyBytes)
             val sig = ByteArray(set.signatureBytes)
 
-            assertEquals(0, nativeKatKeypairSign(set.nativeId, kat.seedHex.hexToByteArray(), message, pk, sk, sig), label)
+            val seed = kat.seedHex.hexToByteArray()
+
+            assertEquals(0, nativeKatKeypairSign(set.nativeId, seed, message, pk, sk, sig), label)
             assertContentEquals(kat.publicKeyHex.hexToByteArray(), pk, "$label pk")
             assertContentEquals(kat.secretKeyHex.hexToByteArray(), sk, "$label sk")
             assertContentEquals(signedMessage.copyOfRange(0, set.signatureBytes), sig, "$label sig")

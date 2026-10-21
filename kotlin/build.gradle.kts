@@ -1,14 +1,18 @@
 import com.android.build.api.variant.KotlinMultiplatformAndroidComponentsExtension
-import java.io.File
-import javax.inject.Inject
 import org.gradle.process.ExecOperations
 import org.jetbrains.kotlin.gradle.ExperimentalKotlinGradlePluginApi
+import org.jetbrains.kotlin.gradle.dsl.abi.ExperimentalAbiValidation
 import org.jetbrains.kotlin.gradle.plugin.mpp.KotlinNativeTarget
 import org.jetbrains.kotlin.gradle.plugin.mpp.apple.XCFramework
+import java.io.File
+import javax.inject.Inject
 
 plugins {
     alias(libs.plugins.kotlin.multiplatform)
     alias(libs.plugins.android.kotlin.multiplatform.library)
+    alias(libs.plugins.dokka)
+    alias(libs.plugins.detekt)
+    alias(libs.plugins.spotless)
 }
 
 group = "org.sqisign"
@@ -52,10 +56,14 @@ abstract class CMakeBuild @Inject constructor(private val exec: ExecOperations) 
 
         val generator = if (ninja != null) listOf("-G", "Ninja", "-DCMAKE_MAKE_PROGRAM=${ninja.path}") else emptyList()
         exec.exec {
-            commandLine(listOf(cmake, "-S", sourceDir.get().asFile.path, "-B", build.path) + generator + cmakeArguments.get())
+            commandLine(
+                listOf(cmake, "-S", sourceDir.get().asFile.path, "-B", build.path) + generator + cmakeArguments.get(),
+            )
         }
         exec.exec { commandLine(cmake, "--build", build.path, "--parallel") }
-        exec.exec { commandLine(cmake, "--install", build.path, "--prefix", root.resolve(installSubdir.get()).path, "--strip") }
+        exec.exec {
+            commandLine(cmake, "--install", build.path, "--prefix", root.resolve(installSubdir.get()).path, "--strip")
+        }
     }
 }
 
@@ -110,7 +118,8 @@ abstract class GenerateKatVectors : DefaultTask() {
             |internal val KAT_VECTORS: List<KatVector> = listOf(
             |${entries.joinToString(",\n") { "    $it" }},
             |)
-            |""".trimMargin(),
+            |
+            """.trimMargin(),
         )
     }
 }
@@ -188,16 +197,15 @@ val hostCMakeArgs: Provider<List<String>> = providers.gradleProperty("sqisign.ho
     .map { it.trim().split(Regex("\\s+")).filter(String::isNotEmpty) }
     .orElse(emptyList())
 
-fun registerHostJni(taskName: String, resourceDir: String, extraArgs: List<String>) =
-    registerCMake(
-        taskName,
-        "$resourceDir/$hostOs-$hostArch",
-        listOf(
-            arg("-DSQISIGN_KMP_OUTPUT=jni"),
-            hostBuildType.map { "-DSQISIGN_BUILD_TYPE=$it" },
-            jniJavaHome.map { "-DJNI_INCLUDE_DIRS=$it/include;$it/include/$jniPlatformDir" },
-        ) + extraArgs.map(::arg),
-    ).also { task -> task.configure { cmakeArguments.addAll(hostCMakeArgs) } }
+fun registerHostJni(taskName: String, resourceDir: String, extraArgs: List<String>) = registerCMake(
+    taskName,
+    "$resourceDir/$hostOs-$hostArch",
+    listOf(
+        arg("-DSQISIGN_KMP_OUTPUT=jni"),
+        hostBuildType.map { "-DSQISIGN_BUILD_TYPE=$it" },
+        jniJavaHome.map { "-DJNI_INCLUDE_DIRS=$it/include;$it/include/$jniPlatformDir" },
+    ) + extraArgs.map(::arg),
+).also { task -> task.configure { cmakeArguments.addAll(hostCMakeArgs) } }
 
 val buildJvmNative = registerHostJni("buildNativeJvm", "org/sqisign/native", emptyList())
 
@@ -218,7 +226,9 @@ val buildAndroidNative = mapOf("arm64-v8a" to "arm64", "x86_64" to "ref").map { 
         "buildNativeAndroid" + abi.split('-', '_').joinToString("") { it.replaceFirstChar(Char::uppercase) },
         abi,
         listOf(
-            androidSdkDir.zip(ndkVersion) { sdk, ndk -> "-DCMAKE_TOOLCHAIN_FILE=$sdk/ndk/$ndk/build/cmake/android.toolchain.cmake" },
+            androidSdkDir.zip(ndkVersion) { sdk, ndk ->
+                "-DCMAKE_TOOLCHAIN_FILE=$sdk/ndk/$ndk/build/cmake/android.toolchain.cmake"
+            },
             arg("-DANDROID_ABI=$abi"),
             arg("-DANDROID_PLATFORM=android-$androidMinSdk"),
             arg("-DSQISIGN_KMP_OUTPUT=jni"),
@@ -229,30 +239,26 @@ val buildAndroidNative = mapOf("arm64-v8a" to "arm64", "x86_64" to "ref").map { 
 
 // Apple: one merged static archive per Kotlin/Native target, embedded into the cinterop klib.
 val appleSlices = mapOf(
-    "iosArm64" to listOf("-DCMAKE_SYSTEM_NAME=iOS", "-DCMAKE_OSX_SYSROOT=iphoneos", "-DCMAKE_OSX_DEPLOYMENT_TARGET=14.0"),
-    "iosSimulatorArm64" to listOf("-DCMAKE_SYSTEM_NAME=iOS", "-DCMAKE_OSX_SYSROOT=iphonesimulator", "-DCMAKE_OSX_DEPLOYMENT_TARGET=14.0"),
+    "iosArm64" to
+        listOf("-DCMAKE_SYSTEM_NAME=iOS", "-DCMAKE_OSX_SYSROOT=iphoneos", "-DCMAKE_OSX_DEPLOYMENT_TARGET=14.0"),
+    "iosSimulatorArm64" to
+        listOf("-DCMAKE_SYSTEM_NAME=iOS", "-DCMAKE_OSX_SYSROOT=iphonesimulator", "-DCMAKE_OSX_DEPLOYMENT_TARGET=14.0"),
     "macosArm64" to listOf("-DCMAKE_OSX_SYSROOT=macosx", "-DCMAKE_OSX_DEPLOYMENT_TARGET=11.0"),
 )
-val appleCMakeTaskNames = appleSlices.mapValues { (target, _) -> "buildNative" + target.replaceFirstChar(Char::uppercase) }
+val appleCMakeTaskNames = appleSlices.mapValues { (target, _) ->
+    "buildNative${target.replaceFirstChar(Char::uppercase)}"
+}
+val appleStaticArgs =
+    listOf("-DCMAKE_OSX_ARCHITECTURES=arm64", "-DSQISIGN_KMP_OUTPUT=static", "-DSQISIGN_BUILD_TYPE=arm64")
 val buildAppleNative = appleSlices.mapValues { (target, sliceArgs) ->
-    registerCMake(
-        appleCMakeTaskNames.getValue(target),
-        "",
-        (sliceArgs + listOf("-DCMAKE_OSX_ARCHITECTURES=arm64", "-DSQISIGN_KMP_OUTPUT=static", "-DSQISIGN_BUILD_TYPE=arm64"))
-            .map(::arg),
-    )
+    registerCMake(appleCMakeTaskNames.getValue(target), "", (sliceArgs + appleStaticArgs).map(::arg))
 }
 // Test-only static archives seeded by the NIST CTR-DRBG, linked into the Apple test binaries.
 val buildAppleNativeKat = appleSlices.mapValues { (target, sliceArgs) ->
     registerCMake(
         appleCMakeTaskNames.getValue(target) + "Kat",
         "",
-        (sliceArgs + listOf(
-            "-DCMAKE_OSX_ARCHITECTURES=arm64",
-            "-DSQISIGN_KMP_OUTPUT=static",
-            "-DSQISIGN_BUILD_TYPE=arm64",
-            "-DSQISIGN_KMP_KAT=ON",
-        )).map(::arg),
+        (sliceArgs + appleStaticArgs + "-DSQISIGN_KMP_KAT=ON").map(::arg),
     )
 }
 
@@ -265,6 +271,10 @@ val generateKatVectors = tasks.register<GenerateKatVectors>("generateKatVectors"
 kotlin {
     jvmToolchain(21)
     explicitApi()
+
+    // Reference dumps live in api/; checkKotlinAbi runs as part of check, updateKotlinAbi accepts a reviewed change.
+    @OptIn(ExperimentalAbiValidation::class)
+    abiValidation()
 
     jvm()
 
@@ -357,5 +367,41 @@ extensions.getByType<KotlinMultiplatformAndroidComponentsExtension>().onVariants
 if (!katTests) {
     tasks.named<Test>("jvmTest") {
         filter.excludeTestsMatching("org.sqisign.DeterministicKatTest")
+    }
+}
+
+// API reference: dokkaGenerate -> build/dokka/html. Undocumented public declarations fail the build.
+dokka {
+    moduleName.set("sqisign-kotlin")
+    dokkaPublications.html {
+        failOnWarning.set(true)
+    }
+    dokkaSourceSets.configureEach {
+        includes.from("Module.md")
+        reportUndocumented.set(true)
+        sourceLink {
+            localDirectory.set(projectDir.resolve("src"))
+            remoteUrl("https://github.com/trancee/the-sqisign/tree/main/kotlin/src")
+            remoteLineSuffix.set("#L")
+        }
+    }
+}
+
+// Static analysis over every Kotlin source set (no type resolution): ./gradlew detekt. Project overrides in detekt.yml.
+detekt {
+    buildUponDefaultConfig = true
+    config.setFrom("detekt.yml")
+    source.setFrom(fileTree("src") { include("**/*.kt") })
+}
+
+// Formatting: ./gradlew spotlessApply; spotlessCheck runs as part of check. ktlint rules come from .editorconfig.
+spotless {
+    kotlin {
+        target("src/**/*.kt")
+        ktlint(libs.versions.ktlint.get())
+    }
+    kotlinGradle {
+        target("*.gradle.kts")
+        ktlint(libs.versions.ktlint.get())
     }
 }

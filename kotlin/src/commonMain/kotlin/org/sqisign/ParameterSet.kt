@@ -10,8 +10,11 @@ public enum class ParameterSet(
     public val algorithmName: String,
     /** Claimed NIST security category. */
     public val nistLevel: Int,
+    /** Length of an encoded public key. */
     public val publicKeyBytes: Int,
+    /** Length of an encoded secret key. */
     public val secretKeyBytes: Int,
+    /** Length of a detached signature. */
     public val signatureBytes: Int,
     internal val nativeId: Int,
 ) {
