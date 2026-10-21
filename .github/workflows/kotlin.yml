@@ -170,9 +170,11 @@ jobs:
           path: kotlin/build/libs/*-jvm-*.jar
           if-no-files-found: error
 
-  # Runs the common tests on an x86_64 emulator, which uses the portable `ref` build of the C core.
+  # Runs the device tests on an x86_64 emulator twice: natively with the portable `ref` build of the C core, then with
+  # the arm64-v8a libraries (optimized `arm64` build) through the system image's ARM translation. GitHub-hosted
+  # runners cannot run an accelerated arm64 emulator; the translated run checks correctness, not performance.
   android-x86_64:
-    name: Android (x86_64 emulator)
+    name: Android (x86_64 emulator, arm64 translated)
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v5
@@ -208,6 +210,7 @@ jobs:
           script: |
             adb shell getprop ro.product.cpu.abi
             ./gradlew connectedAndroidDeviceTest
+            scripts/android-device-test-abi.sh arm64-v8a
       - uses: actions/upload-artifact@v7
         if: always()
         with:

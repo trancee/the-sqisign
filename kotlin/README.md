@@ -16,7 +16,7 @@ All three parameter sets (`P324_3`, `P500_27`, `P664_17`; NIST levels 1, 3 and 5
 | Platform | Kotlin target | Architectures | Tested |
 |---|---|---|---|
 | Linux, macOS, Windows (JVM 21) | `jvm` | Linux `x86_64`, `aarch64`; macOS `x86_64`, `aarch64`; Windows `x86_64` | CI, every platform |
-| Android 7.0+ (API 24) | `android` | `arm64-v8a`, `x86_64` | CI: `x86_64` emulator; locally: `arm64-v8a` emulator |
+| Android 7.0+ (API 24) | `android` | `arm64-v8a`, `x86_64` | CI: `x86_64` emulator, plus the `arm64-v8a` libraries through its ARM translation; locally: Nothing Phone (1) (`arm64-v8a`, Android 15) and an `arm64-v8a` emulator |
 | iOS 14+ devices | `iosArm64` | `arm64` | locally: Swift tests on an iPhone 15 (iOS 17.6.1) |
 | iOS Simulator (Apple Silicon) | `iosSimulatorArm64` | `arm64` | CI: Kotlin and Swift tests |
 | macOS 11+ (Apple Silicon) | `macosArm64` | `arm64` | CI: Kotlin and Swift tests |
@@ -161,7 +161,10 @@ None of them ends up in the published jar, AAR, klibs or XCFramework.
 `-Psqisign.katTests=false` skips them, for example when testing prebuilt libraries on a host without a C toolchain.
 
 CI runs these on the five JVM platforms, an `x86_64` Android emulator, macOS and the iOS Simulator, plus the Swift
-tests on macOS and the iOS Simulator.
+tests on macOS and the iOS Simulator. GitHub-hosted runners cannot run an accelerated `arm64-v8a` emulator, so the
+Android job also installs the device-test APK with its `arm64-v8a` libraries (`scripts/android-device-test-abi.sh
+arm64-v8a`) and runs them through the `x86_64` image's ARM translation. That checks the optimized `arm64` build for
+correctness, not speed.
 
 To run the Swift tests locally (after `assembleSqiSignReleaseXCFramework`):
 
@@ -194,7 +197,8 @@ On first launch, trust the developer certificate on the iPhone (Settings → Gen
   `encoded`, or caller code. Use platform keystores where possible.
 - The C implementation's constant-time properties have not been re-audited for these build configurations. Android
   `x86_64` uses the portable `ref` build.
-- Android `x86_64` is tested only on the CI emulator. Physical-device runs (iPhone) are manual, not part of CI.
+- Physical-device runs (iPhone, Android phone) are manual, not part of CI. Android `x86_64` is tested only on the CI
+  emulator.
 - The Apple static library is embedded in the klib, so consumers cannot swap or deduplicate it.
 - Swift sees `KotlinByteArray` rather than `Data`, and Kotlin default arguments are not exported, so Swift callers
   always pass a parameter set.

@@ -54,7 +54,7 @@ external prerequisite, X stub it.
 | C glue coverage | `scripts/native-coverage.sh` (Clang; all functions, >= 98 % lines of `native/src`) | Apple |
 | Apple tests | `./gradlew macosArm64Test iosSimulatorArm64Test compileKotlinIosArm64` | Apple |
 | XCFramework + Swift | `./gradlew assembleSqiSignReleaseXCFramework`, then `swift test` in `swift/` | Apple |
-| Android | `./gradlew bundleAndroidMainAar connectedAndroidDeviceTest` (device/emulator; includes seeded KATs) | Android (x86_64 emulator) |
+| Android | `./gradlew bundleAndroidMainAar connectedAndroidDeviceTest` (device/emulator; includes seeded KATs); other ABI: `scripts/android-device-test-abi.sh <abi>` | Android (x86_64 emulator + arm64 translated) |
 | iPhone (manual, T9) | `xcodegen generate` + `xcodebuild test` in `swift/DeviceHost` ([README](README.md#tests)) | none |
 | All-platform jar | `./gradlew jvmTest jvmJar -Psqisign.jvmNativeLibs=<dir> -Psqisign.katTests=false` | JVM jar |
 | Benchmark smoke | `./gradlew jvmBenchmarkSmokeBenchmark` | JVM native (linux-x86_64) |
