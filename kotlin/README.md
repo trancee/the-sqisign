@@ -11,6 +11,27 @@ Kotlin adds a typed API, key handling, and the platform bridges:
 
 All three parameter sets (`P324_3`, `P500_27`, `P664_17`; NIST levels 1, 3 and 5) are linked into one binary.
 
+### Supported platforms
+
+| Platform | Kotlin target | Architectures | Tested |
+|---|---|---|---|
+| Linux, macOS, Windows (JVM 21) | `jvm` | Linux `x86_64`, `aarch64`; macOS `x86_64`, `aarch64`; Windows `x86_64` | CI, every platform |
+| Android 7.0+ (API 24) | `android` | `arm64-v8a`, `x86_64` | CI: `x86_64` emulator; locally: `arm64-v8a` emulator |
+| iOS 14+ devices | `iosArm64` | `arm64` | compiles only; a physical device has not been tested yet |
+| iOS Simulator (Apple Silicon) | `iosSimulatorArm64` | `arm64` | CI: Kotlin and Swift tests |
+| macOS 11+ (Apple Silicon) | `macosArm64` | `arm64` | CI: Kotlin and Swift tests |
+
+"Apple" in source-set and CI names (`appleMain`, `appleTest`, the `Apple` CI job) means all three iOS and macOS
+targets, following Kotlin's default source-set hierarchy. It is not iOS only.
+
+Not supported:
+
+- Kotlin/Native for Linux and Windows (`linuxX64`, `linuxArm64`, `mingwX64`). Linux and Windows are supported through
+  the `jvm` target.
+- Intel Apple targets (`iosX64`, `macosX64`). Intel Macs are supported through the `jvm` target.
+- 32-bit Android ABIs (`armeabi-v7a`, `x86`).
+- JS and Wasm. These would need the C core compiled to WebAssembly.
+
 ## Usage
 
 ```kotlin
