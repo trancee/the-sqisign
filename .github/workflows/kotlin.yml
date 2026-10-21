@@ -173,6 +173,7 @@ jobs:
   # Runs the device tests on an x86_64 emulator twice: natively with the portable `ref` build of the C core, then with
   # the arm64-v8a libraries (optimized `arm64` build) through the system image's ARM translation. GitHub-hosted
   # runners cannot run an accelerated arm64 emulator; the translated run checks correctness, not performance.
+  # The AndroidX Microbenchmarks run once each in dry-run mode, which checks that they work; timings are device-only.
   android-x86_64:
     name: Android (x86_64 emulator, arm64 translated)
     runs-on: ubuntu-24.04
@@ -196,7 +197,7 @@ jobs:
           (yes || true) | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --install "ndk;$ndk" "cmake;$cmake" > /dev/null
       - name: Build AAR
         run: |
-          ./gradlew bundleAndroidMainAar assembleAndroidDeviceTest
+          ./gradlew bundleAndroidMainAar assembleAndroidDeviceTest :benchmark-android:assembleReleaseAndroidTest
           unzip -l build/outputs/aar/*.aar | grep jni/
       - name: Run device tests
         uses: reactivecircus/android-emulator-runner@v2
@@ -211,6 +212,7 @@ jobs:
             adb shell getprop ro.product.cpu.abi
             ./gradlew connectedAndroidDeviceTest
             scripts/android-device-test-abi.sh arm64-v8a
+            ./gradlew :benchmark-android:connectedReleaseAndroidTest -Pandroid.testInstrumentationRunnerArguments.androidx.benchmark.dryRunMode.enable=true
       - uses: actions/upload-artifact@v7
         if: always()
         with:
@@ -218,6 +220,7 @@ jobs:
           path: |
             kotlin/build/reports/
             kotlin/build/outputs/androidTest-results/
+            kotlin/benchmark-android/build/outputs/androidTest-results/
           if-no-files-found: ignore
 
   # Kotlin/Native tests plus the Swift consumer tests against the static XCFramework.

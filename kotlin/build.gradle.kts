@@ -443,17 +443,17 @@ dokka {
 detekt {
     buildUponDefaultConfig = true
     config.setFrom("detekt.yml")
-    source.setFrom(fileTree("src") { include("**/*.kt") })
+    source.setFrom(fileTree("src") { include("**/*.kt") }, fileTree("benchmark-android/src") { include("**/*.kt") })
 }
 
 // Formatting: ./gradlew spotlessApply; spotlessCheck runs as part of check. ktlint rules come from .editorconfig.
 spotless {
     kotlin {
-        target("src/**/*.kt")
+        target("src/**/*.kt", "benchmark-android/src/**/*.kt")
         ktlint(libs.versions.ktlint.get())
     }
     kotlinGradle {
-        target("*.gradle.kts")
+        target("*.gradle.kts", "benchmark-android/*.gradle.kts")
         ktlint(libs.versions.ktlint.get())
     }
 }
