@@ -18,6 +18,10 @@ mod ec;
 mod hd_wrap;
 #[macro_use]
 mod hd;
+#[macro_use]
+mod verify;
+
+pub mod fips202;
 
 level!(p324_3, "p324_3", 6, 41, 6);
 level!(p500_27, "p500_27", 9, 64, 8);

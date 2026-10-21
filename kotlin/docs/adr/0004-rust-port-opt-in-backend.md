@@ -35,17 +35,21 @@ an expert review has accepted the Rust code, it must not replace the reviewed C 
    every C caller aborts on it. Where a C function reports failure but its caller continues on uninitialised data
    (in `hd`, `theta_chain_compute_and_eval*` when `gluing_start_chain` fails, and for chain lengths `n < 2`), the
    Rust function returns `None` instead of reproducing the undefined behaviour.
+   Verification keeps the C acceptance rules: a non-canonical half of an encoded GF(p^2) element decodes to 0 (C
+   `fp2_from_bytes` ignores its decode mask), and the top two bits of a response matrix entry are malleable for some
+   signatures, as in C, because SQIsign is not strongly unforgeable (upstream SQISign/the-sqisign#18). Unlike C, the
+   Rust API also rejects a public key of the wrong length.
 4. Correctness evidence, in this order:
    - differential tests of every ported module against the vendor C `ref` build, compiled from `src/` into a test-only
      crate (`sqisign-reference`) and compared through the byte encodings;
    - the 300 NIST KAT entries in `KAT/`: verification of every signature, and byte-exact key generation and signing
      with the NIST AES-256 CTR-DRBG in test-only code (the production API takes no seed, as in ADR 0002);
-   - malformed, truncated and boundary inputs for every decoder (T10).
-
+   - malformed, truncated and boundary inputs for every decoder, and every single-bit flip of a KAT signature (T10);
    - a targeted mutation check of the decision points of every ported module. Survivors are either killed by a new
      test or recorded with the reason they are not: equivalent mutants (for example a different split of the doubling
-     work in `hd` chain set-up), or checks the tests cannot reach but that mirror the C code (for example the `tt2.t`
-     half of the `hd` gluing check).
+     work in `hd` chain set-up, or comparing challenge words that are always zero in verification), or checks the tests
+     cannot reach but that mirror the C code (for example the `tt2.t` half of the `hd` gluing check, or rejecting the
+     singular public keys `A = ±2`, which fail later in verification anyway).
 
    Coverage (T3) is gated at 100% lines, functions and regions with `cargo llvm-cov` on the pinned stable toolchain.
    Rust branch coverage needs a nightly compiler; regions count both arms of every condition and stand in for it.
@@ -54,6 +58,9 @@ an expert review has accepted the Rust code, it must not replace the reviewed C 
    cinterop definitions and the Kotlin API do not change.
 6. The C backend stays the default and the only release backend until an expert review of the Rust port is recorded
    in a new version of this ADR.
+7. SHAKE256 (Keccak-f[1600]) is ported in-crate rather than taken from a hashing crate, keeping the Rust core free of
+   third-party dependencies (E3). It is tested against FIPS 202 vectors and against the vendor
+   `src/common/generic/fips202.c`.
 
 ## Alternatives
 

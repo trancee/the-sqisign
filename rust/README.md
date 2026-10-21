@@ -16,7 +16,7 @@ and the reasons C stays the default backend are in
 | `ec`: points, curves, ladders (`ec.c`) | ported; differential tests against C `ref` for all three primes |
 | `ec`: isogenies, bases, pairings, normalisation (`isog.c`, `basis.c`, `biextension.c`, `normalize.c`) | ported; differential tests against C `ref` for all three primes |
 | `hd`: theta structures, gluing, (2,2)-isogeny chains, splitting | ported; differential tests against C `ref` for all three primes, Kani chains for two |
-| verification | not started |
+| verification (`verify`, encodings, SHAKE256) | ported; all 300 NIST KAT signatures verify, differential tests against C `ref` for all three primes, including every single-bit signature flip |
 | `mp`, `quaternion`, `id2iso`, signing | not started |
 | C ABI + Kotlin backend (`sqisign.backend=rust`) | not started |
 

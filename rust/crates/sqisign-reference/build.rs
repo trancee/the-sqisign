@@ -28,6 +28,8 @@ fn main() {
         "src/mp/ref",
         "src/ec/ref",
         "src/hd/ref",
+        "src/verification/ref",
+        "src/sqisign.c",
     ] {
         println!("cargo:rerun-if-changed={}", root.join(dir).display());
     }
@@ -50,6 +52,18 @@ fn main() {
             .warnings(false)
             .compile(&format!("sqisign_ref_{level}"));
     }
+
+    // After the level libraries, which use it: GNU ld resolves static
+    // libraries in link order.
+    let common_out = out.join("common");
+    std::fs::create_dir_all(&common_out).expect("create common out dir");
+    cc::Build::new()
+        .out_dir(&common_out)
+        .file(src.join("common/generic/fips202.c"))
+        .include(src.join("common/generic/include"))
+        .std("c11")
+        .warnings(false)
+        .compile("sqisign_ref_common");
 }
 
 fn sources(src: &Path, level: &str) -> Vec<PathBuf> {
@@ -74,6 +88,10 @@ fn sources(src: &Path, level: &str) -> Vec<PathBuf> {
     ] {
         files.push(src.join(format!("hd/ref/lvlx/{f}.c")));
     }
+    for f in ["common", "encode_public", "verify"] {
+        files.push(src.join(format!("verification/ref/lvlx/{f}.c")));
+    }
+    files.push(src.join("sqisign.c"));
     files
 }
 
@@ -86,6 +104,7 @@ fn include_dirs(root: &Path, level: &str) -> Vec<PathBuf> {
         "src/mp/ref/include".to_owned(),
         "src/ec/ref/include".to_owned(),
         "src/hd/ref/include".to_owned(),
+        "src/verification/ref/include".to_owned(),
         format!("src/precomp/ref/{level}/include"),
     ]
     .iter()
