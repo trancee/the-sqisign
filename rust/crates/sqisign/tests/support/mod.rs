@@ -2,6 +2,9 @@
 
 #![allow(dead_code)]
 
+#[macro_use]
+pub mod ec;
+
 /// Deterministic SplitMix64 generator; tests must be reproducible.
 pub struct Rng(u64);
 

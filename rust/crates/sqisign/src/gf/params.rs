@@ -17,6 +17,8 @@ pub trait FpParams: 'static {
     const T: u32;
     /// Bit length of `p`.
     const BITS: u32 = consts::bits(Self::C, Self::T);
+    /// Words of a scalar modulo the curve order (`NWORDS_ORDER`): `ceil(BITS / 64)`.
+    const ORDER_WORDS: usize = (Self::BITS as usize).div_ceil(64);
     /// Length of the canonical little-endian encoding.
     const ENCODED_BYTES: usize = (Self::BITS as usize).div_ceil(8);
     /// All-zero limbs.

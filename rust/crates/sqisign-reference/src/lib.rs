@@ -8,7 +8,11 @@
 
 #[macro_use]
 mod gf;
+#[macro_use]
+mod ec_ladder;
+#[macro_use]
+mod ec;
 
-level!(p324_3, "p324_3", 6, 41);
-level!(p500_27, "p500_27", 9, 64);
-level!(p664_17, "p664_17", 11, 84);
+level!(p324_3, "p324_3", 6, 41, 6);
+level!(p500_27, "p500_27", 9, 64, 8);
+level!(p664_17, "p664_17", 11, 84, 11);

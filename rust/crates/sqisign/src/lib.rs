@@ -5,4 +5,5 @@
 
 #![forbid(unsafe_code)]
 
+pub mod ec;
 pub mod gf;

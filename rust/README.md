@@ -13,7 +13,9 @@ and the reasons C stays the default backend are in
 | Module | State |
 |---|---|
 | `gf`: GF(p), GF(p^2) | ported; differential tests against C `ref` for all three primes |
-| `ec`, `hd`, verification | not started |
+| `ec`: points, curves, ladders (`ec.c`) | ported; differential tests against C `ref` for all three primes |
+| `ec`: isogenies, bases, biextension, normalisation | not started |
+| `hd`, verification | not started |
 | `mp`, `quaternion`, `id2iso`, signing | not started |
 | C ABI + Kotlin backend (`sqisign.backend=rust`) | not started |
 

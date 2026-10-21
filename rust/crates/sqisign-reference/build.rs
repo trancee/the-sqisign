@@ -20,32 +20,51 @@ fn main() {
         _ => "TARGET_OTHER",
     };
 
-    for dir in ["include", "src/common", "src/gf/ref", "src/precomp/ref"] {
+    for dir in [
+        "include",
+        "src/common",
+        "src/gf/ref",
+        "src/precomp/ref",
+        "src/mp/ref",
+        "src/ec/ref",
+    ] {
         println!("cargo:rerun-if-changed={}", root.join(dir).display());
     }
 
     for level in LEVELS {
-        let gf = src.join("gf/ref");
         let lvl_out = out.join(level);
         std::fs::create_dir_all(&lvl_out).expect("create level out dir");
         cc::Build::new()
             .out_dir(&lvl_out)
-            .files([
-                gf.join("lvlx/fp.c"),
-                gf.join("lvlx/fp2.c"),
-                gf.join(level).join(format!("fp_{level}.c")),
-            ])
+            .files(sources(&src, level))
             .includes(include_dirs(&root, level))
             .define("SQISIGN_BUILD_TYPE_REF", None)
             .define("SQISIGN_GF_IMPL_REF", None)
             .define("SQISIGN_NAMESPACE_GENERIC_AS_VARIANT", None)
             .define("SQISIGN_VARIANT", level)
             .define("RADIX_64", None)
+            .define("NDEBUG", None)
             .define(target, None)
             .std("c11")
             .warnings(false)
             .compile(&format!("sqisign_ref_{level}"));
     }
+}
+
+fn sources(src: &Path, level: &str) -> Vec<PathBuf> {
+    let mut files = vec![
+        src.join("gf/ref/lvlx/fp.c"),
+        src.join("gf/ref/lvlx/fp2.c"),
+        src.join(format!("gf/ref/{level}/fp_{level}.c")),
+        src.join("mp/ref/lvlx/mp.c"),
+        src.join("mp/ref/lvlx/modqx.c"),
+        src.join(format!("precomp/ref/{level}/e0_basis.c")),
+        src.join(format!("precomp/ref/{level}/ec_params.c")),
+    ];
+    for f in ["ec", "isog", "basis", "biextension", "normalize"] {
+        files.push(src.join(format!("ec/ref/lvlx/{f}.c")));
+    }
+    files
 }
 
 fn include_dirs(root: &Path, level: &str) -> Vec<PathBuf> {
@@ -55,6 +74,7 @@ fn include_dirs(root: &Path, level: &str) -> Vec<PathBuf> {
         "src/common/ref/include".to_owned(),
         "src/gf/ref/include".to_owned(),
         "src/mp/ref/include".to_owned(),
+        "src/ec/ref/include".to_owned(),
         format!("src/precomp/ref/{level}/include"),
     ]
     .iter()
