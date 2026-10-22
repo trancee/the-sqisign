@@ -95,6 +95,7 @@ macro_rules! mp_helpers {
         }
 
         /// Interesting bounds around `b`.
+        #[allow(dead_code)]
         fn bounds(b: usize) -> Vec<usize> {
             let mut v = vec![1, 2, 31, 32, 63, 64, 65, 128, CAP - 1, CAP];
             v.extend([b.saturating_sub(64), b - 1, b, b + 1, b + 64]);

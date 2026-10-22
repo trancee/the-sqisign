@@ -18,7 +18,8 @@ and the reasons C stays the default backend are in
 | `hd`: theta structures, gluing, (2,2)-isogeny chains, splitting | ported; differential tests against C `ref` for all three primes, Kani chains for two |
 | verification (`verify`, encodings, SHAKE256) | ported; all 300 NIST KAT signatures verify, differential tests against C `ref` for all three primes, including every single-bit signature flip |
 | `mp`: integers, arithmetic, bounds, bit queries (`mp.c` core) | ported; differential tests against C `ref` for all three capacities |
-| `mp`: division, gcd, modular arithmetic, primality, sampling | not started |
+| `mp`: division, reduction, square root (`mp.c` division section) | ported; differential tests against C `ref` for all three capacities |
+| `mp`: gcd, modular arithmetic, primality, sampling | not started |
 | `quaternion`, `id2iso`, signing | not started |
 | C ABI + Kotlin backend (`sqisign.backend=rust`) | not started |
 
