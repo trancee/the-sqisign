@@ -29,6 +29,8 @@ fn main() {
         "src/ec/ref",
         "src/hd/ref",
         "src/verification/ref",
+        "src/quaternion/ref",
+        "src/id2iso/ref",
         "src/sqisign.c",
     ] {
         println!("cargo:rerun-if-changed={}", root.join(dir).display());
@@ -89,6 +91,9 @@ fn sources(src: &Path, level: &str) -> Vec<PathBuf> {
         src.join("mp/ref/lvlx/modqx.c"),
         src.join(format!("precomp/ref/{level}/e0_basis.c")),
         src.join(format!("precomp/ref/{level}/ec_params.c")),
+        src.join(format!("precomp/ref/{level}/endomorphism_action.c")),
+        src.join(format!("precomp/ref/{level}/quaternion_data.c")),
+        src.join(format!("precomp/ref/{level}/torsion_constants.c")),
     ];
     for f in ["ec", "isog", "basis", "biextension", "normalize"] {
         files.push(src.join(format!("ec/ref/lvlx/{f}.c")));
@@ -101,6 +106,28 @@ fn sources(src: &Path, level: &str) -> Vec<PathBuf> {
         "theta_isogenies",
     ] {
         files.push(src.join(format!("hd/ref/lvlx/{f}.c")));
+    }
+    for f in [
+        "algebra",
+        "dim2",
+        "dim4",
+        "finit",
+        "ideal",
+        "integers",
+        "lattice",
+        "lll_applications",
+        "protocol",
+        "qlapoty",
+        "stdorder",
+        "lll/gaussian_xgcd",
+        "lll/lehmer_xgcd",
+        "lll/lll_dim4",
+        "lll/lll_lg2",
+    ] {
+        files.push(src.join(format!("quaternion/ref/lvlx/{f}.c")));
+    }
+    for f in ["id2iso", "dim2id2iso"] {
+        files.push(src.join(format!("id2iso/ref/lvlx/{f}.c")));
     }
     for f in ["common", "encode_public", "verify"] {
         files.push(src.join(format!("verification/ref/lvlx/{f}.c")));
@@ -119,6 +146,9 @@ fn include_dirs(root: &Path, level: &str) -> Vec<PathBuf> {
         "src/ec/ref/include".to_owned(),
         "src/hd/ref/include".to_owned(),
         "src/verification/ref/include".to_owned(),
+        "src/quaternion/ref/include".to_owned(),
+        "src/quaternion/ref/lvlx/internal_quaternion_headers".to_owned(),
+        "src/id2iso/ref/include".to_owned(),
         format!("src/precomp/ref/{level}/include"),
     ]
     .iter()

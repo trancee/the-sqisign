@@ -95,6 +95,22 @@ impl<P: MpParams> Ibz<P> {
         }
     }
 
+    /// The precomputed constant `{.bitlen = bitlen, .limbs = limbs}`, whose
+    /// `limbs` are already reduced to the bound (a vendor `precomp` table).
+    ///
+    /// # Panics
+    ///
+    /// At compile time, if `limbs` exceeds the capacity.
+    pub(crate) const fn from_raw(bitlen: usize, limbs: &[u64]) -> Self {
+        let mut r = Self::small(0, bitlen);
+        let mut i = 0;
+        while i < limbs.len() {
+            r.limbs[i] = limbs[i];
+            i += 1;
+        }
+        r
+    }
+
     /// 0 (C `ibz_const_zero`).
     pub const ZERO: Self = Self::small(0, 1);
     /// 1 (C `ibz_const_one`).

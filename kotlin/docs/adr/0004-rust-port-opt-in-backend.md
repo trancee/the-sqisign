@@ -51,17 +51,29 @@ an expert review has accepted the Rust code, it must not replace the reviewed C 
      multiplication carry guard, whose bound only has to keep writes inside the limb array, or Lehmer step bounds in
      `mp` gcd, which only change how Euclid's steps are batched, or the dividend `2^127 - 1` of the `mp`
      reciprocal seed, a prime, so it floors like `2^127 - 2` for every 64-bit divisor, or `mp` primality checks
-     that only run after BPSW has decided, such as the drawn witness range or an extra Miller-Rabin squaring), or
+     that only run after BPSW has decided, such as the drawn witness range or an extra Miller-Rabin squaring, or the
+     `quat` matrix sign normalisation, whose comparison never meets its excluded midpoint, or the `qlapoty` swap of
+     the Cornacchia pair, which its later parity normalisation undoes, or working bounds of `qlapoty` that only have
+     to keep values inside the capacity), or
      checks the tests cannot reach but that mirror the C code (for example the `tt2.t` half of the `hd` gluing
      check, rejecting the singular public keys `A = ±2`, which fail later in verification anyway, or the `mp`
      Lucas-Selfridge search limit and shared-factor exit, which only a base-2 strong pseudoprime with every factor
-     above the sieve bound could reach).
+     above the sieve bound could reach, or the `qlapoty` second-loop step and end conditions and the `z = 2`
+     square-root case, which no sampled norm equation reached).
 
    Coverage (T3) is gated at 100% lines, functions and regions with `cargo llvm-cov` on the pinned stable toolchain.
    Rust branch coverage needs a nightly compiler; regions count both arms of every condition and stand in for it.
 5. The Kotlin project selects the backend at build time with the Gradle property `sqisign.backend` (`c` default,
-   `rust` opt-in). The Rust backend exports the same C ABI as `kotlin/native/include/sqisign_kmp.h`, so the JNI glue,
-   cinterop definitions and the Kotlin API do not change.
+   `rust` opt-in), passed to `kotlin/native/CMakeLists.txt` as `SQISIGN_KMP_BACKEND`. The Rust backend
+   (`kotlin/native/rust.cmake`) builds the `sqisign-capi` crate as a static library for the CMake target's Rust triple
+   (fat LTO, one codegen unit) and links it where the C build links the vendor libraries. The crate exports the
+   `sqisign_kmp_*` functions of `kotlin/native/include/sqisign_kmp.h` with the same status codes and length rules, so
+   the JNI glue, the KAT glue, the cinterop definitions and the Kotlin API do not change. Its 48-byte key generation
+   and signing seeds come from the vendor `randombytes`, linked from the same vendor sources as the C backend
+   (`randombytes_system.c` for the shipped libraries, the NIST CTR-DRBG for the KAT libraries); this keeps the KAT
+   seam of ADR 0002 and adds no randomness crate. A panic (for example a well-sized but malformed secret key, on
+   which C has undefined behaviour) is caught at the ABI boundary and returned as `SQISIGN_KMP_ERROR`; secret seeds
+   and key buffers are cleared with volatile writes there.
 6. The C backend stays the default and the only release backend until an expert review of the Rust port is recorded
    in a new version of this ADR.
 7. SHAKE256 (Keccak-f[1600]) is ported in-crate rather than taken from a hashing crate, keeping the Rust core free of
@@ -105,6 +117,52 @@ an expert review has accepted the Rust code, it must not replace the reviewed C 
     Failed square roots return `None` instead of the C partly written output. `ibz_pow_mod` and `ibz_sqrt_m1_mod`
     have no production callers and are not ported. Drawn witnesses need `self` 65 bits below capacity: C then
     overflows its sampling buffer under `NDEBUG`, Rust panics, and the tests stay inside the C domain.
+11. The quaternion module (`src/quaternion`) is ported only where signing, key generation or the secret-key encoding
+    reach it, following the C operation order so every result carries the C bound. Its vectors and matrices are
+    fixed-size arrays of `Ibz` returned by value instead of the C output parameters. Where C leaves an output
+    untouched on failure (`ibz_mat_2x2_inv_with_det_as_denom` on a singular matrix), Rust returns `None`. Functions
+    that need a later layer (`ibz_cornacchia_prime` needs 2-dimensional LLL, `quat_alg_make_primitive` needs lattice
+    membership) are ported with that layer. Functions only called from C assertions (`ibz_mat_4x4_is_triangular`)
+    are not ported. The precomputed `QUATALG_PINFTY` and `MAXORD_O0` are built from the field prime and from
+    `quat_lattice_O0_set`, which C precomputes with the same values and bounds; the tests compare them with the C data.
+    The constant-time reductions (`lll/`) keep the C fixed-point precisions, working bounds and data-independent
+    control flow, including the mask-based candidate selection and the bitonic sort. Outputs C computes but never
+    reads (the Gram exponent and step count of the 2x2 Lehmer step) are dropped. The reductions are specified only
+    for products of two `O0` ideals of bounded norm, the signing-path input, so the tests draw those inputs with the
+    C generators (`ibz_generate_random_prime`, `quat_random_ideal_O0_given_prime_norm`, `quat_ideal_mul_O0`).
+12. `O0` ideals (`ideal.c`, `quat_represent_integer`, `quat_lattice_sample_from_ball`, `quat_response_element`) take
+    their randomness through a `Draw`, the caller's stream plus the default stream that C reaches implicitly
+    (`ibz_probab_prime`, `ibz_sqrt_mod_p`, `PRNG_default_domain`), so seeded runs draw the same bytes as C.
+    `quat_ideal_create_O0_inert_odd` writes its output only when its final gcd is 1; the vendor Gaussian gcd clamps
+    remainder bounds to the divisor's and can miss a split factor, so this fails for some inputs (for example a `gen`
+    with zero `j`-part), and Rust returns `None` for the unwritten ideal. Every C caller of
+    `quat_ideal_small_equivalent_coprime` passes `equiv` aliasing `ideal`, so Rust keeps the input ideal there. The
+    split norm of `quat_ideal_create_O0_odd` need not divide the norm, also at signing sizes (1 of 4 sampled
+    `quat_random_ideal_O0_given_arbitrary_odd_norm` calls at the 324-bit prime); C asserts it does, and its `NDEBUG`
+    build, which Rust follows, continues with the truncated quotient. Where that quotient is zero (seen for ideal norms
+    far below `p`), C divides by zero; Rust panics. `quat_ideal_shortest_equivalent` is ported without its unused `gen`
+    output (its only caller passes `NULL`), and checks that cannot fail are dropped: the `assert`-only
+    `quat_alg_make_primitive` in `quat_ideal_create_O0_odd`, and zero-generator checks on elements whose sampled
+    coordinates are at least 1.
+13. The norm equation (`qlapoty.c`) draws only from the default stream, as C does through `ibz_rand_interval` and
+    `ibz_probab_prime`. It keeps two C behaviours the comments do not describe: the `initialize_bounds` power loop
+    squares, so it computes `(2 ± i)^(2^(f-1))`, and `quat_qlapoty_loop_one` with a short interval fixes the Gaussian
+    factor and retries forever if that factor is rejected (as C does; the tests avoid moduli divisible by 5). Where C
+    returns 0 (`quat_qlapoty_initialize_bounds`, `quat_qlapoty_loop_two`, `quat_qlapoty_normeq`, `quat_qlapoty`), Rust
+    returns `None`. The port found a fault in the earlier Rust `ibz_cornacchia_prime`: it always swapped the reduced
+    pair, but C swaps only when `x > y`, and a `qlapoty` input at the 664-bit prime reaches the unswapped case; it is
+    now a regression input of the Cornacchia tests.
+
+14. The ideal-to-isogeny translation (`id2iso.c`, `dim2id2iso.c`) is ported for the functions key generation and
+    signing call. Its randomness comes from the default stream, as in C. Where C reports failure through a flag and
+    its callers stop (`dim2id2iso_ideal_to_isogeny_qlapoty`, `dim2id2iso_arbitrary_isogeny_evaluation`), Rust
+    returns `None`; where C aborts (a failed norm equation) or only asserts (a non-cyclic kernel ideal in
+    `id2iso_kernel_dlogs_to_ideal_even`), Rust panics, which signing never reaches on a valid secret key.
+15. Key generation and signing (`keygen.c`, `sign.c`, `encode_secret.c`, `sqisign.c`) take the 48-byte seed that C's
+    `prng_seed` draws from `randombytes`, so the production API takes no seed only at the C ABI (item 5). With the
+    seeds the NIST DRBG produces, they reproduce every key pair and signature of the 300 KAT entries byte for byte.
+    C continues past some failures of negligible probability with unwritten outputs (undefined behaviour); Rust
+    makes every such failure a signing failure (`None`), which the C ABI reports as `SQISIGN_KMP_ERROR`.
 
 ## Alternatives
 
@@ -123,6 +181,10 @@ an expert review has accepted the Rust code, it must not replace the reviewed C 
 - The port also inherits C behaviour on inputs outside the documented domain, for example `pairing_dlog_2_tate`
   with `e = 1` can return logarithms that do not satisfy the relation. The differential tests pin this behaviour; the
   callers never use such inputs.
+- The vendor Gaussian gcd (`ibz_vec_2_gaussian_gcd`) clamps remainder bounds, so ideal construction can fail or skip
+  a C assertion; the port follows the `NDEBUG` build and matches it in the tests, including at signing-path norm
+  sizes. It panics only where C divides by zero, seen for small ideal norms; no such case was found at the
+  signing-path sizes, which is evidence, not proof.
 - Two backends double the platform test matrix while both exist.
 
 ## Migration

@@ -2,6 +2,8 @@
 
 /// One KAT entry.
 pub struct Kat {
+    /// The seed of the NIST DRBG.
+    pub seed: Vec<u8>,
     /// The message.
     pub msg: Vec<u8>,
     /// The encoded public key.
@@ -37,6 +39,7 @@ pub fn load(name: &str) -> Vec<Kat> {
             .expect("count");
         assert_eq!(count, out.len(), "KAT entries in order");
         let kat = Kat {
+            seed: unhex(&field("seed = ", entry).expect("seed")),
             msg: unhex(&field("msg = ", entry).expect("msg")),
             pk: unhex(&field("pk = ", entry).expect("pk")),
             sk: unhex(&field("sk = ", entry).expect("sk")),
