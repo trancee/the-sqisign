@@ -70,10 +70,16 @@ macro_rules! mp_api {
                 ext!($lvl; ibz_mod2exp(r: *mut Ibz, a: *const Ibz, e: u32));
                 ext!($lvl; ibz_divides(a: *const Ibz, b: *const Ibz) -> c_int);
                 ext!($lvl; ibz_sqrt_floor(r: *mut Ibz, a: *const Ibz));
+                ext!($lvl; ibz_gcd(g: *mut Ibz, a: *const Ibz, b: *const Ibz));
+                ext!($lvl; ibz_xgcd(g: *mut Ibz, u: *mut Ibz, v: *mut Ibz, a: *const Ibz, b: *const Ibz));
+                ext!($lvl; ibz_invmod(r: *mut Ibz, a: *const Ibz, m: *const Ibz) -> c_int);
+                ext!($lvl; ibz_crt(x: *mut Ibz, a1: *const Ibz, a2: *const Ibz, m1: *const Ibz, m2: *const Ibz));
+                ext!($lvl; ibz_legendre(a: *const Ibz, p: *const Ibz) -> c_int);
+                ext!($lvl; ibz_invmat(r1: *mut Ibz, r2: *mut Ibz, s1: *mut Ibz, s2: *mut Ibz, e: c_int) -> c_int);
             }
 
             mp_unary!(ibz_neg => neg, ibz_abs => abs, ibz_sqrt_floor => sqrt_floor);
-            mp_binary!(ibz_add => add, ibz_sub => sub, ibz_mul => mul, ibz_mod => modulo);
+            mp_binary!(ibz_add => add, ibz_sub => sub, ibz_mul => mul, ibz_mod => modulo, ibz_gcd => gcd);
             mp_query!(c_int; ibz_two_adic => two_adic, ibz_is_zero => is_zero,
                       ibz_is_one => is_one, ibz_is_positive => is_positive,
                       ibz_is_even => is_even, ibz_is_odd => is_odd, ibz_bitsize => bitsize,
@@ -210,6 +216,43 @@ macro_rules! mp_api {
                 // SAFETY: valid values.
                 unsafe { ffi::ibz_mod2exp(&mut r, a, e) };
                 r
+            }
+
+            /// C `ibz_xgcd`: `(g, u, v)`.
+            pub fn xgcd(a: &Ibz, b: &Ibz) -> (Ibz, Ibz, Ibz) {
+                let (mut g, mut u, mut v) = (Ibz::default(), Ibz::default(), Ibz::default());
+                // SAFETY: distinct valid values.
+                unsafe { ffi::ibz_xgcd(&mut g, &mut u, &mut v, a, b) };
+                (g, u, v)
+            }
+
+            /// C `ibz_invmod`: the inverse and the status.
+            pub fn invmod(a: &Ibz, m: &Ibz) -> (Ibz, c_int) {
+                let mut r = Ibz::default();
+                // SAFETY: valid values.
+                let ok = unsafe { ffi::ibz_invmod(&mut r, a, m) };
+                (r, ok)
+            }
+
+            /// C `ibz_crt`.
+            pub fn crt(a1: &Ibz, a2: &Ibz, m1: &Ibz, m2: &Ibz) -> Ibz {
+                let mut r = Ibz::default();
+                // SAFETY: valid values.
+                unsafe { ffi::ibz_crt(&mut r, a1, a2, m1, m2) };
+                r
+            }
+
+            /// C `ibz_legendre`.
+            pub fn legendre(a: &Ibz, p: &Ibz) -> c_int {
+                // SAFETY: valid values.
+                unsafe { ffi::ibz_legendre(a, p) }
+            }
+
+            /// C `ibz_invmat`, in place on `[[r1, r2], [s1, s2]]`.
+            pub fn invmat(m: &mut [[Ibz; 2]; 2], e: c_int) -> c_int {
+                let [[r1, r2], [s1, s2]] = m;
+                // SAFETY: distinct valid values.
+                unsafe { ffi::ibz_invmat(r1, r2, s1, s2, e) }
             }
 
             /// C `ibz_divides`.
