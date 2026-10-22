@@ -11,6 +11,8 @@ pub mod kani;
 pub mod kat;
 #[macro_use]
 pub mod mp;
+#[macro_use]
+pub mod quat;
 
 /// Deterministic SplitMix64 generator; tests must be reproducible.
 pub struct Rng(u64);

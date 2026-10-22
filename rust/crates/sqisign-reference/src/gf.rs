@@ -145,6 +145,12 @@ macro_rules! level {
             hd_api!($lvl);
             verify_api!($lvl, $order);
             mp_api!($lvl, $nlimbs);
+            quat_api!($lvl);
+            lattice_api!($lvl);
+            lll_api!($lvl);
+            ideal_api!($lvl);
+            qlapoty_api!($lvl);
+            id2iso_api!($lvl);
 
             mod ffi {
                 use super::{c_int, Fp, Fp2};

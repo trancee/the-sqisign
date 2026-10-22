@@ -30,6 +30,18 @@ mod mp_modq;
 mod mp_macros;
 #[macro_use]
 mod mp;
+#[macro_use]
+mod quat;
+#[macro_use]
+mod quat_lattice;
+#[macro_use]
+mod quat_ideal;
+#[macro_use]
+mod quat_lll;
+#[macro_use]
+mod quat_qlapoty;
+#[macro_use]
+mod id2iso;
 
 pub mod fips202;
 

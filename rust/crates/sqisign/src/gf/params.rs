@@ -38,7 +38,7 @@ pub trait FpParams: 'static {
 macro_rules! prime {
     ($(#[$doc:meta])* $name:ident, n = $n:literal, c = $c:literal, t = $t:literal) => {
         $(#[$doc])*
-        #[derive(Debug)]
+        #[derive(Clone, Copy, Debug)]
         pub enum $name {}
 
         const _: () = consts::check_shape::<$n>($c, $t);
