@@ -49,7 +49,8 @@ an expert review has accepted the Rust code, it must not replace the reviewed C 
      test or recorded with the reason they are not: equivalent mutants (for example a different split of the doubling
      work in `hd` chain set-up, comparing challenge words that are always zero in verification, or the `mp`
      multiplication carry guard, whose bound only has to keep writes inside the limb array, or Lehmer step bounds in
-     `mp` gcd, which only change how Euclid's steps are batched), or checks the tests
+     `mp` gcd, which only change how Euclid's steps are batched, or the dividend `2^127 - 1` of the `mp`
+     reciprocal seed, a prime, so it floors like `2^127 - 2` for every 64-bit divisor), or checks the tests
      cannot reach but that mirror the C code (for example the `tt2.t` half of the `hd` gluing check, or rejecting the
      singular public keys `A = ±2`, which fail later in verification anyway).
 
@@ -79,7 +80,11 @@ an expert review has accepted the Rust code, it must not replace the reviewed C 
    check on the smaller cofactor, which the larger one implies, are dropped. `ibz_legendre` loops forever in C when
    the operands share a factor; Rust returns 0, the Jacobi symbol. `ibz_invmat` truncates bounds in C; Rust
    reduces the entries modulo `2^max(e, 1)` first, which gives the same results. `ibz_invmod` and `ibz_invmat`
-   return the value with a success flag, since callers use the value either way.
+   return the value with a success flag, since callers use the value either way. The constant-time layer (`ibz_ct_*`) has one masked
+   shift for `ibz_ct_shift`, `ibz_ct_shl`, `ibz_ct_highmul_p` and `ibz_ct_highmul_s` (C has a left-only and a
+   right-only variant with the same results), tested against all four. Two C steps that cannot change a result
+   are dropped: clearing the product sign for a zero operand, and widening bounds inside the `ibz_ct_fp_recip`
+   Newton loop, whose products depend only on the values.
 
 ## Alternatives
 

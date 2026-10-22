@@ -21,6 +21,8 @@ mod hd;
 #[macro_use]
 mod verify;
 #[macro_use]
+mod mp_ct;
+#[macro_use]
 mod mp;
 
 pub mod fips202;
