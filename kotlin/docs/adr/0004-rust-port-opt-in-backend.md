@@ -69,7 +69,11 @@ an expert review has accepted the Rust code, it must not replace the reviewed C 
    results (`ibz_set_bound`/`ibz_set_bound_ct`, `ibz_bitsize`/`ibz_bitsize_ct`), Rust has one constant-time function,
    tested against both. Not ported: the `normalise` branch for `-2^(bitlen-1)`, which cannot execute; `ibz_swap`
    (Rust moves); and the string functions (`ibz_print`, `ibz_convert_to_str`, `ibz_size_in_base`,
-   `ibz_set_from_str`), whose only non-debug use, parsing `QUAT_SQRT_P_HEX`, becomes a precomputed constant.
+   `ibz_set_from_str`), whose only non-debug use, parsing `QUAT_SQRT_P_HEX`, becomes a precomputed constant;
+   and `ibz_mod_ui` and `ibz_pow`, which have no production callers. Division and square root (`ibz_div`,
+   `ibz_sqrt_floor`) are variable-time in C too; Rust uses Knuth's algorithm D and integer Newton iteration instead
+   of the C Burnikel-Ziegler and reciprocal methods. Both compute the same exact result, which the differential
+   tests compare.
 
 ## Alternatives
 

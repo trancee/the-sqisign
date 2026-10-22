@@ -65,10 +65,15 @@ macro_rules! mp_api {
                                                      bound: c_int));
                 ext!($lvl; ibz_extract_u64(a: *const Ibz, offset: c_int) -> u64);
                 ext!($lvl; ibz_extract_i64(a: *const Ibz, offset: c_int) -> i64);
+                ext!($lvl; ibz_div(q: *mut Ibz, r: *mut Ibz, a: *const Ibz, b: *const Ibz));
+                ext!($lvl; ibz_mod(r: *mut Ibz, a: *const Ibz, b: *const Ibz));
+                ext!($lvl; ibz_mod2exp(r: *mut Ibz, a: *const Ibz, e: u32));
+                ext!($lvl; ibz_divides(a: *const Ibz, b: *const Ibz) -> c_int);
+                ext!($lvl; ibz_sqrt_floor(r: *mut Ibz, a: *const Ibz));
             }
 
-            mp_unary!(ibz_neg => neg, ibz_abs => abs);
-            mp_binary!(ibz_add => add, ibz_sub => sub, ibz_mul => mul);
+            mp_unary!(ibz_neg => neg, ibz_abs => abs, ibz_sqrt_floor => sqrt_floor);
+            mp_binary!(ibz_add => add, ibz_sub => sub, ibz_mul => mul, ibz_mod => modulo);
             mp_query!(c_int; ibz_two_adic => two_adic, ibz_is_zero => is_zero,
                       ibz_is_one => is_one, ibz_is_positive => is_positive,
                       ibz_is_even => is_even, ibz_is_odd => is_odd, ibz_bitsize => bitsize,
@@ -189,6 +194,28 @@ macro_rules! mp_api {
             pub fn extract_u64(a: &Ibz, offset: c_int) -> u64 {
                 // SAFETY: valid value.
                 unsafe { ffi::ibz_extract_u64(a, offset) }
+            }
+
+            /// C `ibz_div`: quotient and remainder.
+            pub fn div(a: &Ibz, b: &Ibz) -> (Ibz, Ibz) {
+                let (mut q, mut r) = (Ibz::default(), Ibz::default());
+                // SAFETY: distinct valid values.
+                unsafe { ffi::ibz_div(&mut q, &mut r, a, b) };
+                (q, r)
+            }
+
+            /// C `ibz_mod2exp`.
+            pub fn mod2exp(a: &Ibz, e: u32) -> Ibz {
+                let mut r = Ibz::default();
+                // SAFETY: valid values.
+                unsafe { ffi::ibz_mod2exp(&mut r, a, e) };
+                r
+            }
+
+            /// C `ibz_divides`.
+            pub fn divides(a: &Ibz, b: &Ibz) -> c_int {
+                // SAFETY: valid values.
+                unsafe { ffi::ibz_divides(a, b) }
             }
 
             /// C `ibz_extract_i64`.

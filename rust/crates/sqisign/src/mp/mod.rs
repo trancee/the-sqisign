@@ -10,6 +10,7 @@
 
 mod arith;
 mod bits;
+mod div;
 
 use core::cmp::Ordering;
 use core::fmt;
