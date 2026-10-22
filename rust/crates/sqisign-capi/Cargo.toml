@@ -1,0 +1,21 @@
+[package]
+name = "sqisign-capi"
+version = "0.1.0"
+description = "The sqisign_kmp C ABI of the Kotlin bindings over the Rust port"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+publish = false
+
+[lib]
+crate-type = ["staticlib", "rlib"]
+
+[dependencies]
+sqisign = { path = "../sqisign" }
+
+[dev-dependencies]
+sqisign-reference = { path = "../sqisign-reference" }
+
+[lints]
+workspace = true

@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["crates/sqisign", "crates/sqisign-reference"]
+members = ["crates/sqisign", "crates/sqisign-capi", "crates/sqisign-reference"]
 
 [workspace.package]
 edition = "2021"
