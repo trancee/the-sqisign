@@ -84,6 +84,13 @@ The CMake used is, in order of preference: `sqisign.cmakeBinDir`, the Android SD
 from `PATH`. On the host, `sqisign.hostBuildType` overrides the optimized build (`arm64` on aarch64 hosts, `ref`
 otherwise). `sqisign.hostCMakeArgs` passes extra CMake arguments to the host build.
 
+### Rust backend (opt-in, unreviewed)
+
+`-Psqisign.backend=rust` builds every native library from the Rust port in `../rust` instead of the vendor C code
+([ADR 0004](docs/adr/0004-rust-port-opt-in-backend.md)); `c` is the default and the only release backend. The Kotlin
+API, the JNI and cinterop glue and the tests are the same. It needs rustup and, for cross builds, the Rust targets
+listed in [`../rust/README.md`](../rust/README.md#use-it-from-the-kotlin-project).
+
 ### JVM jar for several platforms
 
 The jar loads `/org/sqisign/native/<os>-<arch>/` (`linux`, `macos`, `windows` × `x86_64`, `aarch64`) for the running
