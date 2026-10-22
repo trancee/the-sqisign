@@ -60,6 +60,23 @@ an expert review has accepted the Rust code, it must not replace the reviewed C 
      Lucas-Selfridge search limit and shared-factor exit, which only a base-2 strong pseudoprime with every factor
      above the sieve bound could reach, or the `qlapoty` second-loop step and end conditions and the `z = 2`
      square-root case, which no sampled norm equation reached).
+   - the `static` word-level steps of the C lattice reduction (`fast_log2_ratio`, `partial_gram_msb`,
+     `partial_xgcd_msb`, `sizered_msb`, `partial_xgcd_lehmer`, `sizered_lehmer`, `LG_gaussian_inner`) are exported to
+     the test crate only, by generated units that `#include` the unchanged vendor file, and compared with their Rust
+     ports on inputs sized around every threshold; with property tests of `ct_shr_sat64` and `ct_isqrt_32` they
+     killed 12 boundary survivors. The `quat` ideal, LLL, ideal-to-isogeny and signing survivors left are equivalent
+     (an ideal of norm 1 is `O0` for any generator; `2x` never equals an odd norm; `p = 3 mod 4` fixes the residue of
+     the sampled norm; `x == y` is impossible for an odd prime; ties of `ct_min`/`ct_max`; window offsets, extra
+     shifts and right shifts that are zero on both sides of their boundary; a Gram stored lower-triangular with zeros
+     above the diagonal; `i ^ j != i` for `j > 0`; a fifth Minkowski slot that never passes its test; the C
+     `clz_c` stop, implied by `clz_a` once `a <= c`; the all-ones square-root window below `-48`; a const write the
+     next one overwrites), working bounds with slack (value-preserving one-bit wider bounds in ideal equivalence,
+     response sampling, Gram materialisation and secret-key decoding, a block Gram scaled two bits coarser, which
+     still selects the same transforms, and Lagrange-Gauss outer iteration counts,
+     whose proven worst cases the reductions finish inside), or unreached (a response norm exactly equal to the
+     radius, and the signing retry when the auxiliary ideal norm is not coprime to the secret or challenge norm).
+     One stays unresolved: `partial_xgcd_lehmer` at `rho == DIM2_THRESHOLD`, where only the word step's swap
+     permission differs, which 1,000 threshold-sized samples did not distinguish.
 
    Coverage (T3) is gated at 100% lines, functions and regions with `cargo llvm-cov` on the pinned stable toolchain.
    Rust branch coverage needs a nightly compiler; regions count both arms of every condition and stand in for it.
