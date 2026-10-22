@@ -266,6 +266,8 @@ macro_rules! mp_api {
                 // SAFETY: valid value.
                 unsafe { ffi::ibz_extract_i64(a, offset) }
             }
+
+            mp_ct_api!($lvl);
         }
     };
 }
