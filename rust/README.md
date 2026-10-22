@@ -31,6 +31,27 @@ and the reasons C stays the default backend are in
 | key generation, signing, secret-key encoding (`keygen.c`, `sign.c`, `encode_secret.c`, `sqisign.c`) | ported; byte-exact key pairs and signatures for all 300 NIST KAT entries |
 | C ABI (`sqisign-capi`) + Kotlin backend (`sqisign.backend=rust`) | ported; the `sqisign_kmp_*` functions of `kotlin/native/include/sqisign_kmp.h`, KAT entries byte-exact through the ABI, the Kotlin test suites pass on the Rust backend |
 
+## Performance
+
+The port has not been optimised: it is 2.1–3.2× slower than the C `ref` build it follows, and 3.1–5.2× slower than the
+C `arm64` build that the Kotlin project ships for that architecture. Measured with the Kotlin JMH benchmarks
+(`./gradlew jvmBenchmarkBenchmark`, `main` profile; mean ms/op) on an Apple M1 under background load, so compare the
+ratios, not the absolute values with the [reference baseline](../kotlin/benchmarks/README.md):
+
+| Parameter set | Operation | C `arm64` | C `ref` | Rust | Rust / C `ref` |
+|---|---|---|---|---|---|
+| `P324_3` | Key generation | 9.11 | 12.6 | 39.6 | 3.13 |
+| | Signing | 27.1 | 36.8 | 112 | 3.04 |
+| | Verification | 3.33 | 5.19 | 16.5 | 3.18 |
+| `P500_27` | Key generation | 35.3 | 52.9 | 113 | 2.14 |
+| | Signing | 96.8 | 140 | 322 | 2.29 |
+| | Verification | 8.53 | 16.4 | 44.2 | 2.70 |
+| `P664_17` | Key generation | 62.4 | 80.0 | 200 | 2.50 |
+| | Signing | 189 | 243 | 579 | 2.38 |
+| | Verification | 19.5 | 29.5 | 80.5 | 2.73 |
+
+Backends selected with `-Psqisign.backend=c|rust` and, for C, `-Psqisign.hostBuildType=arm64|ref`.
+
 ## Build and test
 
 Requirements: rustup (it installs the toolchain pinned in `rust-toolchain.toml`) and a C compiler with `__int128`
