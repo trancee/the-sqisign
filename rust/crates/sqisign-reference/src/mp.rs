@@ -268,6 +268,7 @@ macro_rules! mp_api {
             }
 
             mp_ct_api!($lvl);
+            prng_api!($lvl);
         }
     };
 }

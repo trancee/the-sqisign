@@ -65,7 +65,12 @@ fn main() {
     cc::Build::new()
         .out_dir(&common_out)
         .file(src.join("common/generic/fips202.c"))
-        .file(src.join("common/generic/randombytes_system.c"))
+        // The NIST CTR-DRBG `randombytes` of the KAT build, so tests can
+        // seed the C PRNG reproducibly.
+        .file(src.join("common/ref/randombytes_ctrdrbg.c"))
+        .file(src.join("common/ref/aes_c.c"))
+        .define("RANDOMBYTES_C", None)
+        .include(src.join("common/ref/include"))
         .include(src.join("common/generic/include"))
         .include(root.join("include"))
         .std("c11")
