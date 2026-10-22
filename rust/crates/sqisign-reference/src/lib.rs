@@ -25,6 +25,10 @@ pub mod prng;
 #[macro_use]
 mod mp_ct;
 #[macro_use]
+mod mp_modq;
+#[macro_use]
+mod mp_macros;
+#[macro_use]
 mod mp;
 
 pub mod fips202;

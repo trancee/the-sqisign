@@ -50,9 +50,12 @@ an expert review has accepted the Rust code, it must not replace the reviewed C 
      work in `hd` chain set-up, comparing challenge words that are always zero in verification, or the `mp`
      multiplication carry guard, whose bound only has to keep writes inside the limb array, or Lehmer step bounds in
      `mp` gcd, which only change how Euclid's steps are batched, or the dividend `2^127 - 1` of the `mp`
-     reciprocal seed, a prime, so it floors like `2^127 - 2` for every 64-bit divisor), or checks the tests
-     cannot reach but that mirror the C code (for example the `tt2.t` half of the `hd` gluing check, or rejecting the
-     singular public keys `A = ±2`, which fail later in verification anyway).
+     reciprocal seed, a prime, so it floors like `2^127 - 2` for every 64-bit divisor, or `mp` primality checks
+     that only run after BPSW has decided, such as the drawn witness range or an extra Miller-Rabin squaring), or
+     checks the tests cannot reach but that mirror the C code (for example the `tt2.t` half of the `hd` gluing
+     check, rejecting the singular public keys `A = ±2`, which fail later in verification anyway, or the `mp`
+     Lucas-Selfridge search limit and shared-factor exit, which only a base-2 strong pseudoprime with every factor
+     above the sieve bound could reach).
 
    Coverage (T3) is gated at 100% lines, functions and regions with `cargo llvm-cov` on the pinned stable toolchain.
    Rust branch coverage needs a nightly compiler; regions count both arms of every condition and stand in for it.
@@ -93,6 +96,15 @@ an expert review has accepted the Rust code, it must not replace the reviewed C 
    bytes and returns the same values; the rejection retry (probability about `2^-64`) is unit-tested on fixed
    bytes. The `sqisign-reference` crate links the vendor NIST CTR-DRBG `randombytes` (`common/ref`) instead of
    system randomness, so the C PRNG can be seeded reproducibly in the differential tests.
+10. Primality and modular square roots (`ibz_probab_prime`, `ibz_sqrt_m1_mod_verified`, `ibz_sqrt_mod_p`) use a
+    64-bit Montgomery context with fully reduced residues instead of the C 61-bit `modqx` radix with lazy residues:
+    C reduces every residue it returns or compares, and the results depend only on the inputs and the PRNG bytes, so
+    Rust follows the C steps (sieve to 509, Miller-Rabin to base 2, strong Lucas-Selfridge, then `reps - 24` drawn
+    witnesses; Tonelli-Shanks with a drawn non-residue) and draws the same bytes. Rust also returns `false` where the
+    C Montgomery context does not fit (`(bitsize + 63) / 61 >= MODQLIMBS`), a cutoff tested on primes on both sides.
+    Failed square roots return `None` instead of the C partly written output. `ibz_pow_mod` and `ibz_sqrt_m1_mod`
+    have no production callers and are not ported. Drawn witnesses need `self` 65 bits below capacity: C then
+    overflows its sampling buffer under `NDEBUG`, Rust panics, and the tests stay inside the C domain.
 
 ## Alternatives
 
