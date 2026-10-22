@@ -85,6 +85,14 @@ an expert review has accepted the Rust code, it must not replace the reviewed C 
    right-only variant with the same results), tested against all four. Two C steps that cannot change a result
    are dropped: clearing the product sign for a zero operand, and widening bounds inside the `ibz_ct_fp_recip`
    Newton loop, whose products depend only on the values.
+9. The SHAKE256 PRNG (`common/generic/prng.c`) has no global state: a `Prng` owns the 48-byte root seed and the
+   default stream, and each `Domain` stream (`SHAKE256(seed || separator)`) is an owned value passed to the sampling
+   functions, so the C unseeded and malformed-separator errors cannot occur and separators are an enum. The seed
+   comes from the caller (C `randombytes`); the seed is cleared on drop, best effort without `unsafe` volatile
+   writes. `ibz_rand_interval*` keep the C draw width, masking and rejection, so a seeded run consumes the same
+   bytes and returns the same values; the rejection retry (probability about `2^-64`) is unit-tested on fixed
+   bytes. The `sqisign-reference` crate links the vendor NIST CTR-DRBG `randombytes` (`common/ref`) instead of
+   system randomness, so the C PRNG can be seeded reproducibly in the differential tests.
 
 ## Alternatives
 
