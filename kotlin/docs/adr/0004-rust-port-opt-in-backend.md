@@ -48,7 +48,8 @@ an expert review has accepted the Rust code, it must not replace the reviewed C 
    - a targeted mutation check of the decision points of every ported module. Survivors are either killed by a new
      test or recorded with the reason they are not: equivalent mutants (for example a different split of the doubling
      work in `hd` chain set-up, comparing challenge words that are always zero in verification, or the `mp`
-     multiplication carry guard, whose bound only has to keep writes inside the limb array), or checks the tests
+     multiplication carry guard, whose bound only has to keep writes inside the limb array, or Lehmer step bounds in
+     `mp` gcd, which only change how Euclid's steps are batched), or checks the tests
      cannot reach but that mirror the C code (for example the `tt2.t` half of the `hd` gluing check, or rejecting the
      singular public keys `A = ±2`, which fail later in verification anyway).
 
@@ -73,7 +74,12 @@ an expert review has accepted the Rust code, it must not replace the reviewed C 
    and `ibz_mod_ui` and `ibz_pow`, which have no production callers. Division and square root (`ibz_div`,
    `ibz_sqrt_floor`) are variable-time in C too; Rust uses Knuth's algorithm D and integer Newton iteration instead
    of the C Burnikel-Ziegler and reciprocal methods. Both compute the same exact result, which the differential
-   tests compare.
+   tests compare. The gcd functions (`ibz_gcd`, `ibz_xgcd`, `ibz_invmod`) use the same Lehmer
+   double-digit algorithm as C, so the cofactors are identical; the C branches that cannot execute and the bound
+   check on the smaller cofactor, which the larger one implies, are dropped. `ibz_legendre` loops forever in C when
+   the operands share a factor; Rust returns 0, the Jacobi symbol. `ibz_invmat` truncates bounds in C; Rust
+   reduces the entries modulo `2^max(e, 1)` first, which gives the same results. `ibz_invmod` and `ibz_invmat`
+   return the value with a success flag, since callers use the value either way.
 
 ## Alternatives
 

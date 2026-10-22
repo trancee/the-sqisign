@@ -9,11 +9,11 @@
 use super::{nlimbs, Ibz, MpParams, MAX_IBZ_LIMBS};
 
 /// Unsigned scratch words, one more than the widest integer.
-const W: usize = MAX_IBZ_LIMBS + 1;
-type Words = [u64; W];
+pub(super) const W: usize = MAX_IBZ_LIMBS + 1;
+pub(super) type Words = [u64; W];
 
 /// The number of significant words of `x`, at least 1.
-fn len(x: &[u64]) -> usize {
+pub(super) fn len(x: &[u64]) -> usize {
     x.iter().rposition(|&w| w != 0).map_or(1, |i| i + 1)
 }
 
@@ -31,7 +31,7 @@ fn shl(x: &[u64], n: usize, s: u32) -> Words {
 
 /// Unsigned `u / v` with `v != 0` (Knuth, TAOCP 4.3.1, algorithm D):
 /// quotient and remainder.
-fn divrem(u: &[u64], v: &[u64]) -> (Words, Words) {
+pub(super) fn divrem(u: &[u64], v: &[u64]) -> (Words, Words) {
     let (m, n) = (len(u), len(v));
     let (mut q, mut r) = ([0; W], [0; W]);
     if m < n {
@@ -92,7 +92,7 @@ fn divrem(u: &[u64], v: &[u64]) -> (Words, Words) {
 
 impl<P: MpParams> Ibz<P> {
     /// `|self|` as unsigned words.
-    fn magnitude(&self) -> Words {
+    pub(super) fn magnitude(&self) -> Words {
         let mut r = [0; W];
         let n = nlimbs(self.bitlen);
         r[..n].copy_from_slice(&self.abs().limbs[..n]);
@@ -100,7 +100,7 @@ impl<P: MpParams> Ibz<P> {
     }
 
     /// `|q|` or `|r|` with the bound `bitlen`, negated if `neg`.
-    fn signed(w: &Words, bitlen: usize, neg: bool) -> Self {
+    pub(super) fn signed(w: &Words, bitlen: usize, neg: bool) -> Self {
         let mut r = Self::ZERO;
         r.bitlen = bitlen;
         r.limbs.copy_from_slice(&w[..MAX_IBZ_LIMBS]);
@@ -150,7 +150,6 @@ impl<P: MpParams> Ibz<P> {
         r.set_bound(exp + 1);
         let (q, rem) = (exp / 64, exp % 64);
         r.limbs[q] &= (1 << rem) - 1;
-        r.limbs[q + 1..nlimbs(exp + 1)].fill(0);
         r
     }
 

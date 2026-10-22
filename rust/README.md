@@ -19,7 +19,8 @@ and the reasons C stays the default backend are in
 | verification (`verify`, encodings, SHAKE256) | ported; all 300 NIST KAT signatures verify, differential tests against C `ref` for all three primes, including every single-bit signature flip |
 | `mp`: integers, arithmetic, bounds, bit queries (`mp.c` core) | ported; differential tests against C `ref` for all three capacities |
 | `mp`: division, reduction, square root (`mp.c` division section) | ported; differential tests against C `ref` for all three capacities |
-| `mp`: gcd, modular arithmetic, primality, sampling | not started |
+| `mp`: gcd, extended gcd, inverses, CRT, Jacobi symbol, 2x2 inverse mod 2^e (`mp.c` gcd section) | ported; differential tests against C `ref` for all three capacities |
+| `mp`: modular arithmetic, primality, constant-time helpers, sampling | not started |
 | `quaternion`, `id2iso`, signing | not started |
 | C ABI + Kotlin backend (`sqisign.backend=rust`) | not started |
 

@@ -11,6 +11,8 @@
 mod arith;
 mod bits;
 mod div;
+mod gcd;
+mod modular;
 
 use core::cmp::Ordering;
 use core::fmt;
