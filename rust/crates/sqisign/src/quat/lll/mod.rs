@@ -9,6 +9,8 @@ mod ldl_update;
 mod lehmer;
 mod minkowski;
 mod mk_select;
+#[cfg(test)]
+mod probe;
 mod word;
 mod zi_inner;
 

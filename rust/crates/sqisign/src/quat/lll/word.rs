@@ -133,3 +133,28 @@ pub fn div_nonzero(x: u64, y: u64) -> u64 {
 pub fn clrsb(x: i64) -> i32 {
     (x ^ (x >> 63)).leading_zeros() as i32 - 1
 }
+
+#[cfg(test)]
+mod tests {
+    use super::{isqrt_32, shr_sat64};
+
+    #[test]
+    fn shr_sat64_is_zero_from_64() {
+        for s in 0..130 {
+            assert_eq!(
+                shr_sat64(u64::MAX, s),
+                u64::MAX.checked_shr(s).unwrap_or(0),
+                "{s}"
+            );
+        }
+    }
+
+    #[test]
+    fn isqrt_32_is_the_floor_square_root() {
+        for t in 1..=0xffffu32 {
+            assert_eq!(isqrt_32(t * t), t.into(), "{t}^2");
+            assert_eq!(isqrt_32(t * t - 1), (t - 1).into(), "{t}^2 - 1");
+        }
+        assert_eq!(isqrt_32(u32::MAX), 0xffff);
+    }
+}

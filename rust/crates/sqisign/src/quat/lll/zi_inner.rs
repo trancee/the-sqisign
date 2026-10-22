@@ -176,3 +176,59 @@ pub fn inner(v: [Z64; 4], swap: bool, from_v1: i32, from_v2: i32) -> [[Z32; 2]; 
     }
     [[u00, u01], [u10, u11]]
 }
+
+#[cfg(test)]
+mod tests {
+    use super::super::probe::{Rng, RUNS};
+    use super::{inner, Zw, THRESHOLD, UP_SHIFT, W};
+    use sqisign_reference::p324_3::lll as c;
+
+    /// A Gaussian window whose larger part has `bits` bits.
+    fn window(bits: u32, rng: &mut Rng) -> [i64; 2] {
+        let top = |rng: &mut Rng| {
+            let x = (1u64 << (bits - 1)) | (rng.next() & ((1u64 << (bits - 1)) - 1));
+            rng.signed(x << 1)
+        };
+        let small = |rng: &mut Rng| {
+            let x = rng.next() >> (65 - bits);
+            rng.signed(x << 1)
+        };
+        if rng.below(2) == 0 {
+            [top(rng), small(rng)]
+        } else {
+            [small(rng), top(rng)]
+        }
+    }
+
+    /// Windows sized around the stopping shift, either vector first.
+    #[test]
+    fn inner_matches_c_near_its_stopping_shift() {
+        let stop_bits = 64 - UP_SHIFT - (THRESHOLD + (64 - UP_SHIFT - W));
+        let mut rng = Rng::new(7);
+        for _ in 0..RUNS / 10 {
+            let size = |rng: &mut Rng| {
+                match rng.below(2) {
+                    0 => rng.around(i64::from(stop_bits)) as u32,
+                    _ => 2 + rng.below(61) as u32,
+                }
+                .clamp(2, 62)
+            };
+            let (s1, s2) = (size(&mut rng), size(&mut rng));
+            let v = [
+                window(s1, &mut rng),
+                window(s2, &mut rng),
+                window(s1, &mut rng),
+                window(s2, &mut rng),
+            ];
+            let swap = rng.below(2) == 0;
+            let (f1, f2) = (rng.below(3) as i32 - 1, rng.below(3) as i32 - 1);
+            let z = v.map(|[re, im]| Zw { re, im });
+            let m = inner(z, swap, f1, f2).map(|row| row.map(|x| [x.re, x.im]));
+            assert_eq!(
+                m,
+                c::gaussian_inner(v, swap, f1, f2),
+                "{v:?} {swap} {f1} {f2}"
+            );
+        }
+    }
+}

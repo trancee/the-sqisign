@@ -193,3 +193,94 @@ pub fn lehmer<P: LllConfig>(g: &mut Gram2<P>, outer: usize) -> Mat2<P> {
     }
     u
 }
+
+#[cfg(test)]
+mod tests {
+    use super::super::config::LllConfig;
+    use super::super::probe::{same, to_c, Rng, RUNS};
+    use super::{lehmer, log2_ratio, partial_msb, Gram2, THRESHOLD};
+    use crate::gf::P324;
+    use sqisign_reference::p324_3::lll as c;
+
+    #[test]
+    fn log2_ratio_matches_c() {
+        let mut rng = Rng::new(1);
+        for _ in 0..RUNS {
+            let b = rng.word();
+            let a = rng.near(b);
+            let clz_b = (b | 1).leading_zeros();
+            assert_eq!(
+                log2_ratio(a, b, clz_b),
+                c::fast_log2_ratio(a, b, clz_b),
+                "{a:#x} {b:#x}"
+            );
+        }
+    }
+
+    #[test]
+    fn partial_msb_matches_c() {
+        let mut rng = Rng::new(2);
+        for _ in 0..RUNS {
+            let a = rng.word();
+            let c_ = rng.near(a);
+            let b = match rng.below(3) {
+                0 => rng.signed(a),
+                1 => {
+                    let x = rng.near(a) << 1;
+                    rng.signed(x)
+                }
+                _ => {
+                    let x = rng.word();
+                    rng.signed(x)
+                }
+            };
+            let swap = rng.below(2) == 0;
+            assert_eq!(
+                partial_msb(a, b, c_, swap),
+                c::partial_gram_msb(a, b, c_, swap),
+                "{a:#x} {b:#x} {c_:#x} {swap}"
+            );
+        }
+    }
+
+    /// A positive definite Gram `[[a, b], [b, c]]` of `GRAM_TOT` bits whose
+    /// diagonal sizes differ by about the Euclid/division threshold.
+    #[test]
+    fn lehmer_matches_c_near_the_threshold() {
+        let tot = <P324 as LllConfig>::GRAM_TOT;
+        let mut rng = Rng::new(6);
+        for _ in 0..RUNS / 100 {
+            let small = 1 + rng.below(tot as u64 - 40) as usize;
+            let large = rng.around((small + THRESHOLD as usize) as i64).min(tot - 1);
+            let (ga, gc) = if rng.below(2) == 0 {
+                (small, large)
+            } else {
+                (large, small)
+            };
+            let gb = rng.below(((ga + gc) / 2) as u64) as usize;
+            let b = rng.value(gb, tot);
+            let b = if rng.below(2) == 0 { b } else { -b };
+            let mut g = Gram2::<P324> {
+                a: rng.value(ga, tot),
+                b,
+                c: rng.value(gc, tot),
+            };
+            let outer = 1 + rng.below(4) as usize;
+            let x = c::Gram2 {
+                a: to_c(&g.a),
+                b: to_c(&g.b),
+                c: to_c(&g.c),
+                e: 0,
+            };
+            let u = lehmer(&mut g, outer);
+            let (x, xu) = c::gram_lehmer(&x, outer as i32);
+            same(&g.a, &x.a);
+            same(&g.b, &x.b);
+            same(&g.c, &x.c);
+            u.iter()
+                .flatten()
+                .zip(xu.iter().flatten())
+                .for_each(|(r, x)| same(r, x));
+        }
+    }
+}
