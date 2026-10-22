@@ -52,8 +52,9 @@ jobs:
       - uses: actions/checkout@v5
       - name: Install pinned toolchain
         run: rustup toolchain install
+      # Signing is slow without optimisation; the coverage job runs the unoptimised build.
       - name: Test
-        run: cargo test --locked
+        run: cargo test --locked --release
 
   # Format, lint and the 100 % coverage gate (lines, functions, regions; ADR 0004).
   quality:
@@ -72,5 +73,5 @@ jobs:
         run: cargo clippy --locked --all-targets -- -D warnings
       - name: Coverage
         run: >-
-          cargo llvm-cov --locked -p sqisign
+          cargo llvm-cov --locked -p sqisign -p sqisign-capi
           --fail-under-lines 100 --fail-under-functions 100 --fail-under-regions 100
