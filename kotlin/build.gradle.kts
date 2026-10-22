@@ -129,12 +129,22 @@ abstract class GenerateKatVectors : DefaultTask() {
 
 val repoRoot: Directory = layout.projectDirectory.dir("..")
 val nativeDir: Directory = layout.projectDirectory.dir("native")
+
+// The core behind the native API: the vendor C code (default) or the opt-in Rust port (ADR 0004).
+val nativeBackend: String = providers.gradleProperty("sqisign.backend").getOrElse("c").also {
+    require(it == "c" || it == "rust") { "sqisign.backend must be c or rust, not '$it'" }
+}
 val nativeSources = files(
     nativeDir,
     repoRoot.file("CMakeLists.txt"),
     repoRoot.dir(".cmake"),
     repoRoot.dir("include"),
     repoRoot.dir("src"),
+    if (nativeBackend == "rust") {
+        repoRoot.dir("rust").asFileTree.matching { exclude("target/**") }
+    } else {
+        emptyList<File>()
+    },
 )
 
 val androidSdkDir: Provider<String> = providers.environmentVariable("ANDROID_HOME")
@@ -164,6 +174,7 @@ fun registerCMake(taskName: String, prefixSubdir: String, arguments: List<Provid
         cmakeBinDir.set(cmakeBin)
         arguments.forEach { cmakeArguments.add(it) }
         cmakeArguments.add("-DCMAKE_BUILD_TYPE=Release")
+        cmakeArguments.add("-DSQISIGN_KMP_BACKEND=$nativeBackend")
         installSubdir.set(prefixSubdir)
         buildDir.set(layout.buildDirectory.dir("sqisign/cmake/$taskName"))
         installDir.set(cmakeInstallDir(taskName))

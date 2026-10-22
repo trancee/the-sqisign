@@ -10,6 +10,7 @@ on:
       - ".cmake/**"
       - "CMakeLists.txt"
       - "KAT/**"
+      - "rust/**"
       - ".github/workflows/kotlin.yml"
   pull_request:
     paths:
@@ -19,6 +20,7 @@ on:
       - ".cmake/**"
       - "CMakeLists.txt"
       - "KAT/**"
+      - "rust/**"
       - ".github/workflows/kotlin.yml"
   workflow_dispatch:
 
@@ -35,6 +37,43 @@ defaults:
     working-directory: kotlin
 
 jobs:
+  # The opt-in Rust backend (ADR 0004): the same Kotlin suites, including the seeded KATs, against the Rust port.
+  rust-backend:
+    name: Rust backend (${{ matrix.platform }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: linux-x86_64
+            os: ubuntu-24.04
+            tasks: jvmTest bundleAndroidMainAar
+            rust-targets: aarch64-linux-android x86_64-linux-android
+          - platform: macos-aarch64
+            os: macos-15
+            tasks: jvmTest macosArm64Test iosSimulatorArm64Test
+            rust-targets: aarch64-apple-darwin aarch64-apple-ios-sim
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: 21
+      - uses: gradle/actions/setup-gradle@v6
+      - name: Install pinned Rust toolchain and targets
+        working-directory: rust
+        run: |
+          rustup toolchain install
+          rustup target add ${{ matrix.rust-targets }}
+      - name: Install NDK and CMake
+        if: matrix.platform == 'linux-x86_64'
+        run: |
+          ndk=$(grep '^sqisign.ndkVersion=' gradle.properties | cut -d= -f2)
+          cmake=$(grep '^sqisign.cmakeVersion=' gradle.properties | cut -d= -f2)
+          (yes || true) | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --install "ndk;$ndk" "cmake;$cmake" > /dev/null
+      - name: Test
+        run: ./gradlew ${{ matrix.tasks }} -Psqisign.backend=rust
+
   # Builds the JNI library on each JVM platform and runs the common tests against it.
   jvm-native:
     name: JVM native (${{ matrix.platform }})
