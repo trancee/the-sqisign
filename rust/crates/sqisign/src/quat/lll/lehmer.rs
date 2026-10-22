@@ -224,3 +224,86 @@ pub fn dim2_sum_of_squares<P: MpParams>(p: &Ibz<P>, r: &Ibz<P>) -> (Ibz<P>, Ibz<
     partial_xgcd_lehmer(&mut q, outer_its(det), det);
     (q[1].abs(), q[3].abs())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::super::probe::{same, to_c, Rng, I, RUNS};
+    use super::super::val_bits;
+    use super::{outer_its, partial_xgcd_lehmer, sizered_lehmer, THRESHOLD};
+    use super::{partial_xgcd_msb, sizered_msb};
+    use sqisign_reference::p324_3::lll as c;
+
+    #[test]
+    fn partial_xgcd_msb_matches_c() {
+        let mut rng = Rng::new(3);
+        for _ in 0..RUNS {
+            let a = rng.word();
+            let b = rng.near(a);
+            let sqrta = rng.near(b);
+            let swap = rng.below(2) == 0;
+            assert_eq!(
+                partial_xgcd_msb(a, b, sqrta, swap),
+                c::partial_xgcd_msb(a, b, sqrta, swap),
+                "{a:#x} {b:#x} {sqrta:#x} {swap}"
+            );
+        }
+    }
+
+    #[test]
+    fn sizered_msb_matches_c() {
+        let mut rng = Rng::new(4);
+        for _ in 0..RUNS {
+            let b = rng.word() >> 1 | 1 << 62;
+            let a = rng.near(b) >> 1;
+            let (x, y) = (rng.near(b), rng.near(a));
+            let (d, c_) = (rng.signed(x), rng.signed(y));
+            assert_eq!(
+                sizered_msb(a, b, c_, d),
+                c::sizered_msb(a, b, c_, d),
+                "{a:#x} {b:#x} {c_:#x} {d:#x}"
+            );
+        }
+    }
+
+    /// `[A, B, 0, D]` with `A * D < 2^det`, `B < A`, the size gap of `A`
+    /// and `B` around the Euclid/division threshold or `B` around the
+    /// scale where the square-root window stops the reduction.
+    fn basis(rng: &mut Rng) -> ([I; 4], usize) {
+        let ga = 40 + rng.below(400) as usize;
+        let gd = 1 + rng.below(400) as usize;
+        let det = ga + gd + rng.below(3) as usize;
+        let shift_k = (ga + gd) as i64 / 2 - i64::from(THRESHOLD) / 2;
+        let gb = match rng.below(3) {
+            0 => rng.around(ga as i64 - i64::from(THRESHOLD) + 1),
+            1 => rng.around(shift_k - 14),
+            _ => 1 + rng.below(ga as u64) as usize,
+        }
+        .min(ga - 1);
+        let bound = val_bits(det);
+        let q = [
+            rng.value(ga, bound),
+            rng.value(gb, bound),
+            I::ZERO,
+            rng.value(gd, bound),
+        ];
+        let mut q = q;
+        q[2].set_bound(bound);
+        (q, det)
+    }
+
+    #[test]
+    fn lehmer_steps_match_c_near_their_thresholds() {
+        let mut rng = Rng::new(5);
+        for _ in 0..RUNS / 100 {
+            let (q, det) = basis(&mut rng);
+            let outer = outer_its(det);
+            let mut r = q;
+            partial_xgcd_lehmer(&mut r, outer, det);
+            let x = c::partial_xgcd_lehmer(&q.each_ref().map(to_c), outer as i32, det as i32);
+            r.iter().zip(&x).for_each(|(r, x)| same(r, x));
+            sizered_lehmer(&mut r, outer, det);
+            let x = c::sizered_lehmer(&x, outer as i32, det as i32);
+            r.iter().zip(&x).for_each(|(r, x)| same(r, x));
+        }
+    }
+}

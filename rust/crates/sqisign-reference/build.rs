@@ -42,6 +42,7 @@ fn main() {
         cc::Build::new()
             .out_dir(&lvl_out)
             .files(sources(&src, level))
+            .files(lll_shims(&src, &lvl_out, level))
             .includes(include_dirs(&root, level))
             .define("SQISIGN_BUILD_TYPE_REF", None)
             .define("SQISIGN_GF_IMPL_REF", None)
@@ -119,10 +120,7 @@ fn sources(src: &Path, level: &str) -> Vec<PathBuf> {
         "protocol",
         "qlapoty",
         "stdorder",
-        "lll/gaussian_xgcd",
-        "lll/lehmer_xgcd",
         "lll/lll_dim4",
-        "lll/lll_lg2",
     ] {
         files.push(src.join(format!("quaternion/ref/lvlx/{f}.c")));
     }
@@ -134,6 +132,58 @@ fn sources(src: &Path, level: &str) -> Vec<PathBuf> {
     }
     files.push(src.join("sqisign.c"));
     files
+}
+
+/// `gaussian_xgcd.c`, `lehmer_xgcd.c` and `lll_lg2.c`, each compiled through a generated unit
+/// that includes it and exports its `static` word-level steps as
+/// `sqisign_<level>_ref_test_*`, for differential tests of their boundaries.
+fn lll_shims(src: &Path, out: &Path, level: &str) -> Vec<PathBuf> {
+    let units: [(&str, &[&str]); 3] = [
+        (
+            "gaussian_xgcd",
+            &[
+                "int TEST(LG_gaussian_inner)(const i64_complex_t v[4], i32_complex_t m[2][2], \
+               uint64_t w, int32_t f1, int32_t f2) { \
+               return LG_gaussian_inner(v[0], v[1], v[2], v[3], m, w, f1, f2); }",
+            ],
+        ),
+        (
+            "lehmer_xgcd",
+            &[
+                "int TEST(partial_xgcd_msb)(uint64_t a, uint64_t b, uint64_t s, int32_t m[2][2], \
+                 uint64_t w) { return partial_xgcd_msb(a, b, s, m, w); }",
+                "int32_t TEST(sizered_msb)(uint64_t a, uint64_t b, int64_t c, int64_t d) { \
+                 return sizered_msb(a, b, c, d); }",
+                "void TEST(partial_xgcd_lehmer)(ibz_t *a, ibz_t *b, ibz_t *c, ibz_t *d, int o, \
+                 int det) { partial_xgcd_lehmer(a, b, c, d, o, det); }",
+                "void TEST(sizered_lehmer)(ibz_t *a, ibz_t *b, ibz_t *c, ibz_t *d, int o, \
+                 int det) { sizered_lehmer(a, b, c, d, o, det); }",
+            ],
+        ),
+        (
+            "lll_lg2",
+            &[
+                "int TEST(fast_log2_ratio)(uint64_t a, uint64_t b, int clz_b) { \
+                 return fast_log2_ratio(a, b, clz_b); }",
+                "int TEST(partial_gram_msb)(uint64_t a, int64_t b, uint64_t c, int32_t m[2][2], \
+                 uint64_t w) { return partial_gram_msb(a, b, c, m, w); }",
+            ],
+        ),
+    ];
+    units
+        .iter()
+        .map(|(name, wrappers)| {
+            let unit = out.join(format!("{name}_shim.c"));
+            let body = format!(
+                "#include \"{}\"\n#define TEST(f) sqisign_{level}_ref_test_##f\n{}\n",
+                src.join(format!("quaternion/ref/lvlx/lll/{name}.c"))
+                    .display(),
+                wrappers.join("\n")
+            );
+            std::fs::write(&unit, body).expect("write LLL shim");
+            unit
+        })
+        .collect()
 }
 
 fn include_dirs(root: &Path, level: &str) -> Vec<PathBuf> {
