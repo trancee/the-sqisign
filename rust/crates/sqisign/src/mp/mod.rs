@@ -282,10 +282,18 @@ impl<P: MpParams> Eq for Ibz<P> {}
 
 #[cfg(test)]
 mod tests {
-    use super::nlimbs;
+    use super::{nlimbs, Ibz};
+    use crate::gf::P324;
 
     #[test]
     fn nlimbs_rounds_up() {
         assert_eq!([0, 1, 64, 65, 128].map(nlimbs), [0, 1, 1, 2, 2]);
+    }
+
+    /// `from_raw` otherwise only runs in const items, at compile time.
+    #[test]
+    fn from_raw_keeps_the_bound_and_limbs() {
+        let x = Ibz::<P324>::from_raw(66, &[5, 3]);
+        assert_eq!((x.bound(), x.limbs()), (66, &[5, 3][..]));
     }
 }
