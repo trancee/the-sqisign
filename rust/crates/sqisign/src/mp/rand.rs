@@ -5,8 +5,9 @@ use crate::prng::Domain;
 
 impl<P: MpParams> Ibz<P> {
     /// A uniform value in `[a, b]`, `a <= b`, bounded by the bound of `b`,
-    /// which must therefore also hold `a` (C `ibz_rand_interval_with_domain`). Draws `b.bound() + 64` bits per
-    /// attempt and reduces them modulo `b - a + 1`.
+    /// which must therefore also hold `a`, and must leave 64 bits of
+    /// capacity (C `ibz_rand_interval_with_domain`). Draws `b.bound() + 64`
+    /// bits per attempt and reduces them modulo `b - a + 1`.
     pub fn rand_interval(a: &Self, b: &Self, domain: &mut Domain) -> Self {
         let bma = *b - *a + Self::ONE;
         let numbits = b.bitlen + 64;

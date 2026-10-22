@@ -14,6 +14,8 @@ mod ct;
 mod div;
 mod gcd;
 mod modular;
+mod monty;
+mod prime;
 mod rand;
 
 use core::cmp::Ordering;
