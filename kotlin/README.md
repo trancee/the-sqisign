@@ -177,7 +177,7 @@ CI runs these on the five JVM platforms, an `x86_64` Android emulator, macOS and
 tests on macOS and the iOS Simulator. GitHub-hosted runners cannot run an accelerated `arm64-v8a` emulator, so the
 Android job also installs the device-test APK with its `arm64-v8a` libraries (`scripts/android-device-test-abi.sh
 arm64-v8a`) and runs them through the `x86_64` image's ARM translation. That checks the optimized `arm64` build for
-correctness, not speed.
+correctness, not speed. The emulator job runs once per backend, `c` and `rust`.
 
 To run the Swift tests locally (after `assembleSqiSignReleaseXCFramework`):
 

@@ -213,8 +213,13 @@ jobs:
   # the arm64-v8a libraries (optimized `arm64` build) through the system image's ARM translation. GitHub-hosted
   # runners cannot run an accelerated arm64 emulator; the translated run checks correctness, not performance.
   # The AndroidX Microbenchmarks run once each in dry-run mode, which checks that they work; timings are device-only.
+  # Both backends: `c` (the release backend) and the opt-in `rust` port (ADR 0004).
   android-x86_64:
-    name: Android (x86_64 emulator, arm64 translated)
+    name: Android (x86_64 emulator, arm64 translated, ${{ matrix.backend }} backend)
+    strategy:
+      fail-fast: false
+      matrix:
+        backend: [c, rust]
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v5
@@ -228,6 +233,12 @@ jobs:
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
+      - name: Install pinned Rust toolchain and targets
+        if: matrix.backend == 'rust'
+        working-directory: rust
+        run: |
+          rustup toolchain install
+          rustup target add aarch64-linux-android x86_64-linux-android
       - name: Install NDK and CMake
         run: |
           ndk=$(grep '^sqisign.ndkVersion=' gradle.properties | cut -d= -f2)
@@ -236,7 +247,7 @@ jobs:
           (yes || true) | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --install "ndk;$ndk" "cmake;$cmake" > /dev/null
       - name: Build AAR
         run: |
-          ./gradlew bundleAndroidMainAar assembleAndroidDeviceTest :benchmark-android:assembleReleaseAndroidTest
+          ./gradlew bundleAndroidMainAar assembleAndroidDeviceTest :benchmark-android:assembleReleaseAndroidTest -Psqisign.backend=${{ matrix.backend }}
           unzip -l build/outputs/aar/*.aar | grep jni/
       - name: Run device tests
         uses: reactivecircus/android-emulator-runner@v2
@@ -249,13 +260,13 @@ jobs:
           working-directory: kotlin
           script: |
             adb shell getprop ro.product.cpu.abi
-            ./gradlew connectedAndroidDeviceTest
+            ./gradlew connectedAndroidDeviceTest -Psqisign.backend=${{ matrix.backend }}
             scripts/android-device-test-abi.sh arm64-v8a
-            ./gradlew :benchmark-android:connectedReleaseAndroidTest -Pandroid.testInstrumentationRunnerArguments.androidx.benchmark.dryRunMode.enable=true
+            ./gradlew :benchmark-android:connectedReleaseAndroidTest -Psqisign.backend=${{ matrix.backend }} -Pandroid.testInstrumentationRunnerArguments.androidx.benchmark.dryRunMode.enable=true
       - uses: actions/upload-artifact@v7
         if: always()
         with:
-          name: android-x86_64-reports
+          name: android-x86_64-${{ matrix.backend }}-reports
           path: |
             kotlin/build/reports/
             kotlin/build/outputs/androidTest-results/
