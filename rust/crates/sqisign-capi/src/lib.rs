@@ -69,11 +69,7 @@ fn with_seed(f: impl FnOnce(&[u8; SEED_BYTES]) -> c_int) -> c_int {
     let mut seed = Seed([0; SEED_BYTES]);
     // SAFETY: `seed` holds the `SEED_BYTES` bytes written.
     let drawn = unsafe { randombytes(seed.0.as_mut_ptr(), SEED_BYTES as c_ulonglong) } == 0;
-    if drawn {
-        f(&seed.0)
-    } else {
-        SQISIGN_KMP_ERROR
-    }
+    drawn.then_some(&seed.0).map_or(SQISIGN_KMP_ERROR, f)
 }
 
 /// `len` bytes at `p`, or none for `len == 0` (where `p` may be null).

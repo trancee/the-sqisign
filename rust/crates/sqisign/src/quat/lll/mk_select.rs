@@ -3,13 +3,14 @@
 //! `lll/lll_dim4.c`, part 3).
 
 use super::word::select32;
+use crate::barrier::barrier;
 
 /// A candidate's coordinates in the reduced basis.
 pub type T4 = [i8; 4];
 
 /// `a` if `cond`, else `b` (C `ct_sel8`).
 fn sel8(cond: bool, a: i8, b: i8) -> i8 {
-    let m = -i8::from(cond);
+    let m = barrier(-i8::from(cond));
     (a & m) | (b & !m)
 }
 
@@ -30,7 +31,7 @@ pub fn select_basis(sorted: &[T4]) -> [T4; 4] {
         let t12 = a1 * v2 - a2 * v1;
         let t13 = a1 * v3 - a3 * v1;
         let t23 = a2 * v3 - a3 * v2;
-        let test1 = (t01 | t02 | t03 | t12 | t13 | t23) != 0;
+        let test1 = barrier(i32::from((t01 | t02 | t03 | t12 | t13 | t23) != 0));
 
         let m01 = a0 * b1 - a1 * b0;
         let m02 = a0 * b2 - a2 * b0;
@@ -42,30 +43,28 @@ pub fn select_basis(sorted: &[T4]) -> [T4; 4] {
         let s013 = v0 * m13 - v1 * m03 + v3 * m01;
         let s023 = v0 * m23 - v2 * m03 + v3 * m02;
         let s123 = v1 * m23 - v2 * m13 + v3 * m12;
-        let test2 = (s012 | s013 | s023 | s123) != 0;
+        let test2 = barrier(i32::from((s012 | s013 | s023 | s123) != 0));
 
         let k012 = c0 * m12 - c1 * m02 + c2 * m01;
         let k013 = c0 * m13 - c1 * m03 + c3 * m01;
         let k023 = c0 * m23 - c2 * m03 + c3 * m02;
         let k123 = c1 * m23 - c2 * m13 + c3 * m12;
-        let test3 = v3 * k012 - v2 * k013 + v1 * k023 - v0 * k123 != 0;
+        let test3 = barrier(i32::from(
+            v3 * k012 - v2 * k013 + v1 * k023 - v0 * k123 != 0,
+        ));
 
         let test = select32(
             slots == 0,
             1,
             select32(
                 slots == 1,
-                test1.into(),
-                select32(
-                    slots == 2,
-                    test2.into(),
-                    select32(slots == 3, test3.into(), 0),
-                ),
+                test1,
+                select32(slots == 2, test2, select32(slots == 3, test3, 0)),
             ),
         );
-        let accept = i32::from(slots < 4) & test;
+        let accept = barrier(i32::from(slots < 4)) & test;
         for (dest, row) in out.iter_mut().enumerate() {
-            let take = accept & i32::from(slots == dest as i32) != 0;
+            let take = barrier(accept & barrier(i32::from(slots == dest as i32))) != 0;
             for (o, &c) in row.iter_mut().zip(cand) {
                 *o = sel8(take, c, *o);
             }

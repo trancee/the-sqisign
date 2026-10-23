@@ -40,6 +40,7 @@ Run from `rust/`.
 | Lint | `cargo clippy --all-targets -- -D warnings` | Rust |
 | Tests | `cargo test` | Rust |
 | Coverage | `cargo llvm-cov -p sqisign --fail-under-lines 100 --fail-under-functions 100 --fail-under-regions 100` | Rust |
+| Constant-time branches | `python3 scripts/ct_branches.py` (and `--target x86_64-unknown-linux-gnu`); new constant-time code => add to its `GATED` | Rust |
 | Secret scan | `gitleaks git --redact --exit-code 1 ..` | Secret scan |
 
 Coverage scope: `crates/sqisign` only; `sqisign-reference` is test infrastructure. Branch coverage needs nightly, so

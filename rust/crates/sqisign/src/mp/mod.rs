@@ -18,6 +18,7 @@ mod monty;
 mod prime;
 mod rand;
 
+use crate::barrier::barrier;
 use core::cmp::Ordering;
 use core::fmt;
 use core::marker::PhantomData;
@@ -200,6 +201,7 @@ impl<P: MpParams> Ibz<P> {
     /// Swaps `a` and `b` if `cond` is all ones, keeps them if it is 0 (C
     /// `ibz_cswap`; other masks are meaningless there). Constant time.
     pub fn cswap(a: &mut Self, b: &mut Self, cond: u64) {
+        let cond = barrier(cond);
         for (x, y) in a.limbs.iter_mut().zip(&mut b.limbs).take(P::IBZ_LIMBS) {
             let t = cond & (*x ^ *y);
             *x ^= t;

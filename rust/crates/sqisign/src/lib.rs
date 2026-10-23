@@ -5,6 +5,7 @@
 
 #![forbid(unsafe_code)]
 
+mod barrier;
 pub mod ec;
 pub mod gf;
 pub mod hd;

@@ -75,3 +75,22 @@ jobs:
         run: >-
           cargo llvm-cov --locked -p sqisign -p sqisign-capi
           --fail-under-lines 100 --fail-under-functions 100 --fail-under-regions 100
+
+  # No conditional branch in constant-time code of the shipped build (ADR 0004 item 16).
+  ct-branches:
+    name: Constant-time branches (${{ matrix.platform }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: linux-x86_64
+            os: ubuntu-24.04
+          - platform: macos-aarch64
+            os: macos-15
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v5
+      - name: Install pinned toolchain
+        run: rustup toolchain install
+      - name: Check
+        run: python3 scripts/ct_branches.py

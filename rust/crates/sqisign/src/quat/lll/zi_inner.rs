@@ -5,6 +5,7 @@ use super::word::{
     abs64, mask_if, max0, max_u64, min_u32, mul_high, select32, select_u32, shr_sat64, sqr_high,
     swap_i32, swap_i64, swap_u64,
 };
+use crate::barrier::barrier;
 
 pub const THRESHOLD: i32 = 27;
 pub const W: i32 = 2 * THRESHOLD + 5;
@@ -77,7 +78,7 @@ fn clz(a: Z64) -> u32 {
 /// `ceil_log2_diff_u64`).
 fn ceil_log2_diff(a: u64, b: u64) -> i32 {
     let d = (b | 1).leading_zeros() as i32 - (a | 1).leading_zeros() as i32;
-    let neg = 0u32.wrapping_sub(d as u32 >> 31);
+    let neg = barrier(0u32.wrapping_sub(d as u32 >> 31));
     let sb = b.wrapping_shl(d as u32 & !neg);
     let sa = a.wrapping_shl(d.wrapping_neg() as u32 & neg);
     d + (sb.wrapping_sub(sa) >> 63) as i32
@@ -118,7 +119,7 @@ pub fn inner(v: [Z64; 4], swap: bool, from_v1: i32, from_v2: i32) -> [[Z32; 2]; 
         let mut bs2 = max0(min_u32(clz(b), clz(d)) as i32 - UP_SHIFT);
         let stop1 = mask_if(bs1 > stop_at) & mask_if(bf1 > 0);
         let stop2 = mask_if(bs2 > stop_at) & mask_if(bf2 > 0);
-        valid &= !(stop1 | stop2);
+        valid = barrier(valid & !(stop1 | stop2));
         let (mut ab, mut bb) = (shl64(a, bs1 as u32), shl64(b, bs2 as u32));
         let (mut cb, mut db) = (shl64(c, bs1 as u32), shl64(d, bs2 as u32));
         let mut na = norm64(ab).wrapping_add(norm64(cb));
@@ -127,9 +128,9 @@ pub fn inner(v: [Z64; 4], swap: bool, from_v1: i32, from_v2: i32) -> [[Z32; 2]; 
         let v1_right = select32(rel < 0, -2 * rel, 0) as u32;
         let v2_right = select32(rel > 0, 2 * rel, 0) as u32;
         let diff = shr_sat64(na, v1_right).wrapping_sub(shr_sat64(nb, v2_right));
-        let swap_mask = 0u64.wrapping_sub(diff >> 63) & valid;
-        valid &= !swap_mask | global;
-        let actual = swap_mask & global;
+        let swap_mask = barrier(0u64.wrapping_sub(diff >> 63) & valid);
+        valid = barrier(valid & (!swap_mask | global));
+        let actual = barrier(swap_mask & global);
         swap_u64(actual, &mut na, &mut nb);
         swap64(actual, &mut a, &mut b);
         swap64(actual, &mut c, &mut d);
@@ -160,7 +161,7 @@ pub fn inner(v: [Z64; 4], swap: bool, from_v1: i32, from_v2: i32) -> [[Z32; 2]; 
             re: round_ratio((x as u64).wrapping_shl(sl_x) as i64, nb_adj),
             im: round_ratio((y as u64).wrapping_shl(sl_x) as i64, nb_adj),
         };
-        valid &= !(mask_if(q.re == 0) & mask_if(q.im == 0));
+        valid = barrier(valid & !(mask_if(q.re == 0) & mask_if(q.im == 0)));
         sub_mul(&mut a, q, shl64(b, k), valid);
         sub_mul(&mut c, q, shl64(d, k), valid);
         let (t10, t11) = (mul32(q, shl32(u10, k)), mul32(q, shl32(u11, k)));

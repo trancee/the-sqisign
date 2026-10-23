@@ -1,11 +1,12 @@
 //! Branch-free machine-word helpers of the lattice reductions (vendor
 //! `mp_ct.h`). Shifts wrap their amount like the C code's defined range.
 
+use crate::barrier::barrier;
 use crate::mp::{Ibz, MpParams};
 
 /// All ones if `x != 0`, else 0 (C `ct_mask`).
 pub fn mask(x: u64) -> u64 {
-    0u64.wrapping_sub((x | x.wrapping_neg()) >> 63)
+    barrier(0u64.wrapping_sub((x | x.wrapping_neg()) >> 63))
 }
 
 /// All ones if `cond`, else 0.
@@ -20,12 +21,12 @@ pub fn neg_mask<P: MpParams>(x: &Ibz<P>) -> u64 {
 
 /// `max(e, 0)` (C `ct_max0`).
 pub fn max0(e: i32) -> i32 {
-    e & !(e >> 31)
+    e & !barrier(e >> 31)
 }
 
 /// `a` if `cond`, else `b` (C `ct_select32`).
 pub fn select32(cond: bool, a: i32, b: i32) -> i32 {
-    let m = -i32::from(cond);
+    let m = barrier(-i32::from(cond));
     (a & m) | (b & !m)
 }
 
@@ -41,7 +42,7 @@ pub fn min(a: i32, b: i32) -> i32 {
 
 /// `a` if `cond`, else `b` (C `ct_select_u32`).
 pub fn select_u32(cond: bool, a: u32, b: u32) -> u32 {
-    let m = 0u32.wrapping_sub(u32::from(cond));
+    let m = barrier(0u32.wrapping_sub(u32::from(cond)));
     (a & m) | (b & !m)
 }
 
@@ -58,21 +59,21 @@ pub fn max_u64(a: u64, b: u64) -> u64 {
 
 /// Swaps `a` and `b` under the all-ones `m` (C `ct_swap_u64`).
 pub fn swap_u64(m: u64, a: &mut u64, b: &mut u64) {
-    let t = (*a ^ *b) & m;
+    let t = (*a ^ *b) & barrier(m);
     *a ^= t;
     *b ^= t;
 }
 
 /// Swaps `a` and `b` under the all-ones `m` (C `ct_swap_i64`).
 pub fn swap_i64(m: u64, a: &mut i64, b: &mut i64) {
-    let t = (*a ^ *b) & m as i64;
+    let t = (*a ^ *b) & barrier(m) as i64;
     *a ^= t;
     *b ^= t;
 }
 
 /// Swaps `a` and `b` under the all-ones `m` (C `ct_swap_i32`).
 pub fn swap_i32(m: u32, a: &mut i32, b: &mut i32) {
-    let t = (*a ^ *b) & m as i32;
+    let t = (*a ^ *b) & barrier(m) as i32;
     *a ^= t;
     *b ^= t;
 }
@@ -98,7 +99,7 @@ pub fn isqrt_32(n: u32) -> u64 {
     let mut res = 0u32;
     for bit in (0..16).rev() {
         let t = res | (1 << bit);
-        let m = 0u32.wrapping_sub(u32::from(t * t <= n));
+        let m = barrier(0u32.wrapping_sub(u32::from(t * t <= n)));
         res = (m & t) | (!m & res);
     }
     res.into()

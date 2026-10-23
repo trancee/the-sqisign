@@ -63,7 +63,7 @@ fn partial_msb(mut a: u64, mut b: i64, mut c: u64, swap: bool) -> [[i32; 2]; 2] 
     let global_swap = mask_if(swap);
     let limit = (64 - W + THRESHOLD) as u32;
     for _ in 0..THRESHOLD / 2 + 2 {
-        valid &= !mask_if(a == 0 || c == 0);
+        valid &= !mask_if((a == 0) | (c == 0));
         let negate = (mask_if(b < 0) & valid) as u32;
         let b_abs = abs64(b);
         b = b_abs as i64;
