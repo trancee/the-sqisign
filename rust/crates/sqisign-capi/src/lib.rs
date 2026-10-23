@@ -64,11 +64,16 @@ impl Drop for Seed {
 }
 
 /// Runs `f` on a fresh seed from `randombytes`, clearing the seed after.
-fn with_seed(f: impl FnOnce([u8; SEED_BYTES]) -> c_int) -> c_int {
+/// The seed is lent, never copied, so the cleared buffer is the only one.
+fn with_seed(f: impl FnOnce(&[u8; SEED_BYTES]) -> c_int) -> c_int {
     let mut seed = Seed([0; SEED_BYTES]);
     // SAFETY: `seed` holds the `SEED_BYTES` bytes written.
     let drawn = unsafe { randombytes(seed.0.as_mut_ptr(), SEED_BYTES as c_ulonglong) } == 0;
-    drawn.then_some(seed.0).map_or(SQISIGN_KMP_ERROR, f)
+    if drawn {
+        f(&seed.0)
+    } else {
+        SQISIGN_KMP_ERROR
+    }
 }
 
 /// `len` bytes at `p`, or none for `len == 0` (where `p` may be null).
@@ -214,7 +219,10 @@ pub unsafe extern "C" fn sqisign_kmp_verify(
 #[no_mangle]
 pub unsafe extern "C" fn sqisign_kmp_secure_clear(mem: *mut c_void, len: usize) {
     let p = mem.cast::<u8>();
-    for i in (0..len).filter(|_| !p.is_null()) {
+    if p.is_null() {
+        return;
+    }
+    for i in 0..len {
         // SAFETY: the caller's contract.
         unsafe { write_volatile(p.add(i), 0) };
     }

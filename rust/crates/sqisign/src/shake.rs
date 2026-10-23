@@ -75,7 +75,19 @@ struct Sponge {
     pos: usize,
 }
 
+/// Clears the state, from which the absorbed input (for the PRNG, the
+/// secret seed) can be recovered (C `prng_domain_clear`).
+impl Drop for Sponge {
+    fn drop(&mut self) {
+        self.clear();
+    }
+}
+
 impl Sponge {
+    fn clear(&mut self) {
+        crate::wipe::wipe(&mut self.s);
+    }
+
     fn xor_byte(&mut self, i: usize, b: u8) {
         self.s[i / 8] ^= u64::from(b) << (8 * (i % 8));
     }
@@ -120,7 +132,10 @@ impl Shake256 {
 
     /// Pads the input and switches to squeezing (C `shake256_inc_finalize`).
     pub fn finalize(self) -> Shake256Reader {
-        let mut st = self.0;
+        let mut st = Sponge {
+            s: self.0.s,
+            pos: self.0.pos,
+        };
         st.xor_byte(st.pos, 0x1f);
         st.xor_byte(RATE - 1, 0x80);
         st.pos = RATE;
@@ -145,7 +160,7 @@ impl Shake256Reader {
 
 #[cfg(test)]
 mod tests {
-    use super::Shake256;
+    use super::{Shake256, Shake256Reader, Sponge};
 
     fn shake(input: &[u8], n: usize) -> Vec<u8> {
         let mut h = Shake256::new();
@@ -177,5 +192,14 @@ mod tests {
             hex(&out[480..]),
             "6a1a9d7846436e4dca5728b6f760eef0ca92bf0be5615e96959d767197a0beeb"
         );
+    }
+
+    #[test]
+    fn clear_zeroes_the_state() {
+        let mut h = Shake256::new();
+        h.absorb(b"secret");
+        let Shake256Reader(mut st) = h.finalize();
+        st.clear();
+        assert_eq!(st.s, Sponge { s: [0; 25], pos: 0 }.s);
     }
 }

@@ -29,9 +29,9 @@ macro_rules! sign_suite {
             fn kats_match() {
                 for (i, k) in kat::load($kat).iter().take($count).enumerate() {
                     let (ks, ss) = seeds(&k.seed);
-                    let (pk, sk) = sign::keypair::<P>(ks);
+                    let (pk, sk) = sign::keypair::<P>(&ks);
                     assert_eq!((&pk, &sk), (&k.pk, &k.sk), "key pair {i}");
-                    let sm = sign::sign_attached::<P>(&sk, &k.msg, ss).expect("a signature");
+                    let sm = sign::sign_attached::<P>(&sk, &k.msg, &ss).expect("a signature");
                     assert_eq!(sm, k.sm, "signature {i}");
                     assert!(verify::verify::<P>(
                         &sm[..sm.len() - k.msg.len()],
@@ -58,7 +58,7 @@ macro_rules! sign_suite {
                 for len in [0, n - 1, n + 1] {
                     let sk = vec![0; len];
                     assert!(SecretKey::<P>::decode(&sk).is_none());
-                    assert!(sign::sign::<P>(&sk, &k.msg, [0; 48]).is_none());
+                    assert!(sign::sign::<P>(&sk, &k.msg, &[0; 48]).is_none());
                 }
             }
         }

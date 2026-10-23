@@ -37,15 +37,18 @@ fn time(n: usize, mut f: impl FnMut(usize)) -> Vec<Duration> {
 
 fn run<P: SignParams>(op: &str, n: usize) {
     let msg = [0x5au8; 32];
-    let (pk, sk) = sign::keypair::<P>(seed(0));
-    let sig = sign::sign::<P>(&sk, &msg, seed(1)).expect("signing failed");
+    let (pk, sk) = sign::keypair::<P>(&seed(0));
+    let sig = sign::sign::<P>(&sk, &msg, &seed(1)).expect("signing failed");
     if matches!(op, "keygen" | "all") {
-        report("keygen", time(n, |i| drop(sign::keypair::<P>(seed(i + 2)))));
+        report(
+            "keygen",
+            time(n, |i| drop(sign::keypair::<P>(&seed(i + 2)))),
+        );
     }
     if matches!(op, "sign" | "all") {
         report(
             "sign",
-            time(n, |i| drop(sign::sign::<P>(&sk, &msg, seed(i + 2)))),
+            time(n, |i| drop(sign::sign::<P>(&sk, &msg, &seed(i + 2)))),
         );
     }
     if matches!(op, "verify" | "all") {

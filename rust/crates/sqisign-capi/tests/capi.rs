@@ -146,3 +146,10 @@ fn secure_clear_zeroes() {
     }
     assert_eq!(buf, [0; 37]);
 }
+
+/// Like the C glue, a null pointer returns at once whatever the length.
+#[test]
+fn secure_clear_returns_at_once_on_null() {
+    // SAFETY: a null pointer, which the contract allows with any length.
+    unsafe { sqisign_kmp_secure_clear(ptr::null_mut(), usize::MAX) };
+}

@@ -104,7 +104,7 @@ fn scalar<P: SignParams>(x: &Ibz<P>) -> Scalar {
 
 impl<P: SignParams> SecretKey<P> {
     /// A key pair from the seed `seed` (C `protocols_keygen`).
-    pub fn generate(seed: [u8; SEED_BYTES]) -> Self {
+    pub fn generate(seed: &[u8; SEED_BYTES]) -> Self {
         let mut prng = Prng::new(seed);
         // Every attempt continues the keygen stream, as in C.
         let mut stream = prng.domain(Separator::Keygen);
@@ -168,7 +168,7 @@ impl<P: SignParams> SecretKey<P> {
 
     /// The signature of `msg` from the seed `seed`, or `None` if signing
     /// fails (C `protocols_sign`).
-    pub fn sign(&self, msg: &[u8], seed: [u8; SEED_BYTES]) -> Option<Signature<P>> {
+    pub fn sign(&self, msg: &[u8], seed: &[u8; SEED_BYTES]) -> Option<Signature<P>> {
         let mut prng = Prng::new(seed);
         // C asserts the commitment succeeds and continues with unwritten
         // outputs otherwise.
