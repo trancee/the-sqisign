@@ -10,13 +10,12 @@ use crate::ec::{Basis, Curve, IsogEven};
 use crate::hd::{CoupleCurve, KernelCouplePoints};
 use crate::shake::Shake256;
 
-/// The first `ORDER_WORDS` words of `x` with the top bit cleared, the
-/// non-negative value C reads with `ibz_copy_digits`.
+/// The first `ORDER_WORDS` words of `x`, the non-negative value C reads with
+/// `ibz_copy_digits`, which adds a zero sign limb.
 fn order_value<P: SqisignParams>(x: &Scalar) -> Scalar {
     let n = P::ORDER_WORDS;
     let mut v = Scalar::default();
     v[..n].copy_from_slice(&x[..n]);
-    v[n - 1] &= u64::MAX >> 1;
     v
 }
 
@@ -166,10 +165,10 @@ mod tests {
         assert!(!ok([plus(mid, 1), one, one, one]));
         assert!(!ok([zero, mid, plus(mid, 1), one]));
         assert!(!ok([one, one, one, bound]));
-        // The bit C's signed reading drops, 2^(64 ORDER_WORDS - 1), is ignored.
+        // C reads all `64 ORDER_WORDS` bits unsigned (`ibz_copy_digits`).
         let mut top = one;
         top[<P324 as crate::gf::FpParams>::ORDER_WORDS - 1] = 1 << 63;
-        assert!(ok([top, one, one, one]));
+        assert!(!ok([top, one, one, one]));
     }
 
     /// A ladder on a basis with `P - Q = (0 : 1)` fails.
