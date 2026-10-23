@@ -198,6 +198,13 @@ impl<P: SignParams> SecretKey<P> {
             prng.default_domain(),
             P::RESPONSE_BITS - 1,
         );
+        // The norm form of a valid secret ideal is positive definite, so the
+        // response norm is positive. A malformed secret key can make it
+        // negative, and C then tries about `aux_norm / p` times to represent
+        // the huge auxiliary norm.
+        if !r.norm.is_positive() {
+            return None;
+        }
         let pow = Ibz::ONE.mul_2exp(P::RESPONSE_BITS);
         let mut aux_norm = pow - r.norm;
         aux_norm.set_bound(P::RESPONSE_BITS + 1);

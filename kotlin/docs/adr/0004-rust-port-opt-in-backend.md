@@ -43,7 +43,8 @@ an expert review has accepted the Rust code, it must not replace the reviewed C 
    - differential tests of every ported module against the vendor C `ref` build, compiled from `src/` into a test-only
      crate (`sqisign-reference`) and compared through the byte encodings (integers: bound and significant limbs);
    - the 300 NIST KAT entries in `KAT/`: verification of every signature, and byte-exact key generation and signing
-     with the NIST AES-256 CTR-DRBG in test-only code (the production API takes no seed, as in ADR 0002);
+     with the NIST AES-256 CTR-DRBG in test-only code (the production API takes no seed, as in ADR 0002); signing
+     checks all 300 entries in optimised builds and the first 100, 20 and 10 in the unoptimised coverage build;
    - malformed, truncated and boundary inputs for every decoder, and every single-bit flip of a KAT signature (T10);
    - a targeted mutation check of the decision points of every ported module. Survivors are either killed by a new
      test or recorded with the reason they are not: equivalent mutants (for example a different split of the doubling
@@ -180,7 +181,10 @@ an expert review has accepted the Rust code, it must not replace the reviewed C 
     `prng_seed` draws from `randombytes`, so the production API takes no seed only at the C ABI (item 5). With the
     seeds the NIST DRBG produces, they reproduce every key pair and signature of the 300 KAT entries byte for byte.
     C continues past some failures of negligible probability with unwritten outputs (undefined behaviour); Rust
-    makes every such failure a signing failure (`None`), which the C ABI reports as `SQISIGN_KMP_ERROR`.
+    makes every such failure a signing failure (`None`), which the C ABI reports as `SQISIGN_KMP_ERROR`. Rust also
+    fails signing when the response element has negative norm. The norm form of a valid secret ideal is positive
+    definite, so this needs a malformed secret key; C then represents a huge auxiliary norm in about `aux_norm / p`
+    attempts, which do not end in practice.
 
 ## Alternatives
 
