@@ -72,6 +72,9 @@ C `arm64` results from the same phone:
 | | Signing | 348 | 532 | 1.53 |
 | | Verification | 36.1 | 68.7 | 1.90 |
 
+Both tables predate the constant-time barriers ([ADR 0004](../kotlin/docs/adr/0004-rust-port-opt-in-backend.md) item
+16), which add about 6–10 % (`timing` example, `P324_3`, Apple M1).
+
 Without Gradle, `cargo run --release -p sqisign --example timing -- p324 all 20` times key generation, signing and
 verification with fixed seeds (median and minimum; parameter sets `p324`, `p500`, `p664`).
 
@@ -84,6 +87,7 @@ Requirements: rustup (it installs the toolchain pinned in `rust-toolchain.toml`)
 cd rust
 cargo test --release
 cargo llvm-cov -p sqisign -p sqisign-capi --fail-under-lines 100 --fail-under-functions 100 --fail-under-regions 100
+python3 scripts/ct_branches.py
 ```
 
 The signing tests are slow in debug builds; `--release` runs the suite in minutes.
