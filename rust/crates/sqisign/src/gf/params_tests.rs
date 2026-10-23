@@ -145,3 +145,9 @@ fn shape_rejects_wide_cofactor() {
 fn shape_rejects_missing_spare_bits() {
     consts::check_shape::<6>(3, 381);
 }
+
+#[test]
+#[should_panic(expected = "top limb")]
+fn shape_rejects_spare_limbs() {
+    consts::check_shape::<7>(3, 324);
+}
