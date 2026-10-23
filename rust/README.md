@@ -33,22 +33,24 @@ and the reasons C stays the default backend are in
 
 ## Performance
 
-The port has not been optimised: it is 2.1–3.2× slower than the C `ref` build it follows, and 3.1–5.2× slower than the
-C `arm64` build that the Kotlin project ships for that architecture. Measured with the Kotlin JMH benchmarks
-(`./gradlew jvmBenchmarkBenchmark`, `main` profile; mean ms/op) on an Apple M1 under background load, so compare the
-ratios, not the absolute values with the [reference baseline](../kotlin/benchmarks/README.md):
+The field kernels are unrolled per prime and the primality tests size their residues to the modulus, but the port stays
+in safe Rust without assembly: it is 0.90–1.27× the time of the C `ref` build it follows, and 1.41–1.71× that of the C
+`arm64` build that the Kotlin project ships for that architecture. Measured with the Kotlin JMH benchmarks (`./gradlew
+jvmBenchmarkBenchmark`, `main` profile; mean ms/op, the three backends run back to back) on an Apple M1 under heavy
+background load, so compare the ratios, not the absolute values with the [reference
+baseline](../kotlin/benchmarks/README.md):
 
 | Parameter set | Operation | C `arm64` | C `ref` | Rust | Rust / C `ref` |
 |---|---|---|---|---|---|
-| `P324_3` | Key generation | 9.11 | 12.6 | 39.6 | 3.13 |
-| | Signing | 27.1 | 36.8 | 112 | 3.04 |
-| | Verification | 3.33 | 5.19 | 16.5 | 3.18 |
-| `P500_27` | Key generation | 35.3 | 52.9 | 113 | 2.14 |
-| | Signing | 96.8 | 140 | 322 | 2.29 |
-| | Verification | 8.53 | 16.4 | 44.2 | 2.70 |
-| `P664_17` | Key generation | 62.4 | 80.0 | 200 | 2.50 |
-| | Signing | 189 | 243 | 579 | 2.38 |
-| | Verification | 19.5 | 29.5 | 80.5 | 2.73 |
+| `P324_3` | Key generation | 41.9 | 54.6 | 69.5 | 1.27 |
+| | Signing | 115 | 152 | 194 | 1.27 |
+| | Verification | 15.2 | 22.3 | 23.5 | 1.05 |
+| `P500_27` | Key generation | 145 | 219 | 226 | 1.03 |
+| | Signing | 402 | 572 | 568 | 0.99 |
+| | Verification | 38.1 | 72.8 | 65.3 | 0.90 |
+| `P664_17` | Key generation | 258 | 372 | 440 | 1.18 |
+| | Signing | 809 | 1104 | 1355 | 1.23 |
+| | Verification | 90.4 | 134 | 149 | 1.12 |
 
 Backends selected with `-Psqisign.backend=c|rust` and, for C, `-Psqisign.hostBuildType=arm64|ref`.
 
@@ -59,15 +61,18 @@ C `arm64` results from the same phone:
 
 | Parameter set | Operation | C `arm64` | Rust | Rust / C |
 |---|---|---|---|---|
-| `P324_3` | Key generation | 15.5 | 53.4 | 3.44 |
-| | Signing | 45.4 | 149 | 3.29 |
-| | Verification | 5.81 | 22.7 | 3.90 |
-| `P500_27` | Key generation | 47.1 | 134 | 2.85 |
-| | Signing | 151 | 387 | 2.56 |
-| | Verification | 15.2 | 54.1 | 3.56 |
-| `P664_17` | Key generation | 103 | 263 | 2.55 |
-| | Signing | 348 | 756 | 2.17 |
-| | Verification | 36.1 | 105 | 2.91 |
+| `P324_3` | Key generation | 15.5 | 25.7 | 1.66 |
+| | Signing | 45.4 | 71.8 | 1.58 |
+| | Verification | 5.81 | 9.61 | 1.65 |
+| `P500_27` | Key generation | 47.1 | 77.8 | 1.65 |
+| | Signing | 151 | 242 | 1.60 |
+| | Verification | 15.2 | 27.0 | 1.78 |
+| `P664_17` | Key generation | 103 | 172 | 1.67 |
+| | Signing | 348 | 532 | 1.53 |
+| | Verification | 36.1 | 68.7 | 1.90 |
+
+Without Gradle, `cargo run --release -p sqisign --example timing -- p324 all 20` times key generation, signing and
+verification with fixed seeds (median and minimum; parameter sets `p324`, `p500`, `p664`).
 
 ## Build and test
 

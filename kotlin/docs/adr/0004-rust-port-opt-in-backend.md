@@ -202,9 +202,9 @@ an expert review has accepted the Rust code, it must not replace the reviewed C 
   a C assertion; the port follows the `NDEBUG` build and matches it in the tests, including at signing-path norm
   sizes. It panics only where C divides by zero, seen for small ideal norms; no such case was found at the
   signing-path sizes, which is evidence, not proof.
-- The unoptimised port is 2.1–3.2× slower than the C `ref` build and 3.1–5.2× slower than the shipped C `arm64`
-  build in the JMH benchmarks ([`rust/README.md`](../../../rust/README.md#performance)), so it would fail the 10 %
-  budget (P4) today.
+- The port takes 0.90–1.27× the time of the C `ref` build and 1.41–1.71× that of the shipped C `arm64` build in the JMH
+  benchmarks, and 1.53–1.90× that of C `arm64` on an Android device
+  ([`rust/README.md`](../../../rust/README.md#performance)), so it would still fail the 10 % budget (P4) today.
 - Two backends double the platform test matrix while both exist.
 
 ## Migration
