@@ -15,8 +15,9 @@ find_program(SQISIGN_KMP_CARGO cargo HINTS "$ENV{HOME}/.cargo/bin" REQUIRED)
 find_program(SQISIGN_KMP_RUSTC rustc HINTS "$ENV{HOME}/.cargo/bin" REQUIRED)
 set(SQISIGN_KMP_RUST_DIR "${SQISIGN_ROOT}/rust")
 
-# The Rust target triple. Empty means the host, which covers the desktop JNI builds (on Windows, the MinGW host must
-# pass SQISIGN_KMP_RUST_TARGET=x86_64-pc-windows-gnu when Rust's default host is MSVC).
+# The Rust target triple. Empty means the host, which covers the Linux and macOS JNI builds. Windows JNI builds use
+# MinGW clang (llvm-mingw, e.g. MSYS2 CLANG64), whose UCRT, libunwind and compiler-rt runtime matches Rust's
+# *-pc-windows-gnullvm targets rather than the default MSVC host or the GCC-based *-pc-windows-gnu.
 set(SQISIGN_KMP_RUST_TARGET "" CACHE STRING "Rust target triple (empty: derived from the CMake target)")
 set(SQISIGN_KMP_RUST_ENV "")
 if(SQISIGN_KMP_RUST_TARGET)
@@ -49,6 +50,11 @@ elseif(APPLE AND CMAKE_OSX_ARCHITECTURES)
         set(SQISIGN_KMP_TRIPLE ${arch}-apple-darwin)
         set(SQISIGN_KMP_RUST_ENV MACOSX_DEPLOYMENT_TARGET=${CMAKE_OSX_DEPLOYMENT_TARGET})
     endif()
+elseif(MINGW AND CMAKE_C_COMPILER_ID STREQUAL "Clang")
+    if(NOT CMAKE_SYSTEM_PROCESSOR MATCHES "^(AMD64|x86_64)$")
+        message(FATAL_ERROR "No Rust target for MinGW processor ${CMAKE_SYSTEM_PROCESSOR}")
+    endif()
+    set(SQISIGN_KMP_TRIPLE x86_64-pc-windows-gnullvm)
 else()
     set(SQISIGN_KMP_TRIPLE "")
 endif()
