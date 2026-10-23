@@ -52,6 +52,23 @@ ratios, not the absolute values with the [reference baseline](../kotlin/benchmar
 
 Backends selected with `-Psqisign.backend=c|rust` and, for C, `-Psqisign.hostBuildType=arm64|ref`.
 
+On the Nothing Phone (1) used for the [device benchmarks](../kotlin/benchmarks/README.md#device-benchmarks)
+(`arm64-v8a`, Android 15, `cpuLocked: true`), `ANDROID_SERIAL=<serial> ./gradlew
+:benchmark-android:connectedReleaseAndroidTest -Psqisign.backend=rust` gives these medians in ms, against the committed
+C `arm64` results from the same phone:
+
+| Parameter set | Operation | C `arm64` | Rust | Rust / C |
+|---|---|---|---|---|
+| `P324_3` | Key generation | 15.5 | 53.4 | 3.44 |
+| | Signing | 45.4 | 149 | 3.29 |
+| | Verification | 5.81 | 22.7 | 3.90 |
+| `P500_27` | Key generation | 47.1 | 134 | 2.85 |
+| | Signing | 151 | 387 | 2.56 |
+| | Verification | 15.2 | 54.1 | 3.56 |
+| `P664_17` | Key generation | 103 | 263 | 2.55 |
+| | Signing | 348 | 756 | 2.17 |
+| | Verification | 36.1 | 105 | 2.91 |
+
 ## Build and test
 
 Requirements: rustup (it installs the toolchain pinned in `rust-toolchain.toml`) and a C compiler with `__int128`
