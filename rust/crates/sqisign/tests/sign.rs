@@ -25,9 +25,16 @@ macro_rules! sign_suite {
 
             type P = $params;
 
+            /// Every KAT entry when optimised (the CI test job); the first
+            /// `$count` otherwise, where signing is slow (the coverage job).
             #[test]
             fn kats_match() {
-                for (i, k) in kat::load($kat).iter().take($count).enumerate() {
+                let n = if cfg!(debug_assertions) {
+                    $count
+                } else {
+                    usize::MAX
+                };
+                for (i, k) in kat::load($kat).iter().take(n).enumerate() {
                     let (ks, ss) = seeds(&k.seed);
                     let (pk, sk) = sign::keypair::<P>(&ks);
                     assert_eq!((&pk, &sk), (&k.pk, &k.sk), "key pair {i}");
@@ -83,3 +90,20 @@ sign_suite!(
     "PQCsignKAT_549_SQIsign_p664_17.rsp",
     10
 );
+
+/// A secret key whose secret part is xorshift bytes (seed 3) gives a
+/// response of negative norm; signing fails at once, where C spends about
+/// `aux_norm / p` attempts representing the huge auxiliary norm.
+#[test]
+fn hostile_secret_key_fails_fast() {
+    type P = sqisign::gf::P324;
+    let (pk, mut sk) = sqisign::sign::keypair::<P>(&[1; 48]);
+    let mut x = 3u64;
+    for b in &mut sk[pk.len()..] {
+        x ^= x << 13;
+        x ^= x >> 7;
+        x ^= x << 17;
+        *b = x as u8;
+    }
+    assert!(sqisign::sign::sign::<P>(&sk, b"msg", &[3; 48]).is_none());
+}
