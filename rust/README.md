@@ -34,7 +34,9 @@ and the reasons C stays the default backend are in
 
 ## Performance
 
-The field kernels are unrolled per prime and the primality tests size their residues to the modulus, but the port stays
+The field kernels are unrolled per prime, the primality tests size their residues to the modulus and integers are
+stored at their parameter set's capacity (30, 40 or 55 limbs, which made `p324` signing 2–4 % faster than a shared
+55-limb array; measured after the tables below with the `timing` example), but the port stays
 in safe Rust without assembly: it is 0.90–1.27× the time of the C `ref` build it follows, and 1.41–1.71× that of the C
 `arm64` build that the Kotlin project ships for that architecture. Measured with the Kotlin JMH benchmarks (`./gradlew
 jvmBenchmarkBenchmark`, `main` profile; mean ms/op, the three backends run back to back) on an Apple M1 under heavy

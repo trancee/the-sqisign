@@ -31,7 +31,7 @@ impl<P: MpParams> Ibz<P> {
     /// (under `NDEBUG`) draws again.
     fn candidate(bytes: &[u8], numbits: usize, bma: &Self) -> Option<Self> {
         let mut t = Self::ZERO;
-        for (limb, chunk) in t.limbs.iter_mut().zip(bytes.chunks(8)) {
+        for (limb, chunk) in t.limbs.as_mut().iter_mut().zip(bytes.chunks(8)) {
             let mut w = [0; 8];
             w[..chunk.len()].copy_from_slice(chunk);
             *limb = u64::from_le_bytes(w);

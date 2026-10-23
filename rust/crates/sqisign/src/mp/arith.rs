@@ -33,8 +33,9 @@ impl<P: MpParams> Ibz<P> {
         let mut carry = u128::from(mask & 1);
         for (o, &w) in r
             .limbs
+            .as_mut()
             .iter_mut()
-            .zip(&self.limbs)
+            .zip(self.limbs.as_ref())
             .take(nlimbs(self.bitlen))
         {
             let t = u128::from(w ^ mask) + carry;

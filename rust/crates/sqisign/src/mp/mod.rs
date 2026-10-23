@@ -21,12 +21,27 @@ mod rand;
 use crate::barrier::barrier;
 use core::cmp::Ordering;
 use core::fmt;
-use core::marker::PhantomData;
+use core::ops::{IndexMut, Range, RangeFrom, RangeTo};
 
 use crate::gf::{FpParams, P324, P500, P664};
 
-/// Limbs of the widest [`Ibz`] (C `IBZ_NLIMBS` of `p664_17`).
+/// Limbs of the widest [`Ibz`] (C `IBZ_NLIMBS` of `p664_17`), which sizes the
+/// scratch buffers shared by all parameter sets.
 pub const MAX_IBZ_LIMBS: usize = 55;
+
+/// The limb array of an [`Ibz`]: `[u64; IBZ_LIMBS]`, indexable like a slice.
+pub trait Limbs:
+    Copy
+    + AsRef<[u64]>
+    + AsMut<[u64]>
+    + IndexMut<usize, Output = u64>
+    + IndexMut<Range<usize>, Output = [u64]>
+    + IndexMut<RangeFrom<usize>, Output = [u64]>
+    + IndexMut<RangeTo<usize>, Output = [u64]>
+{
+}
+
+impl<const N: usize> Limbs for [u64; N] {}
 
 /// Integer capacity of a parameter set (vendor `encoded_sizes.h`).
 pub trait MpParams: FpParams {
@@ -34,19 +49,35 @@ pub trait MpParams: FpParams {
     const IBZ_LIMBS: usize;
     /// Largest bound (C `IBZ_MAX_BITS`).
     const IBZ_MAX_BITS: usize = 64 * Self::IBZ_LIMBS;
+    /// `[u64; IBZ_LIMBS]`, so an [`Ibz`] carries no unused limbs.
+    type IbzLimbs: Limbs;
+    /// The limbs of 0, 1, 2 and 3, for the constants [`Ibz::ZERO`] to
+    /// [`Ibz::THREE`].
+    const SMALL_LIMBS: [Self::IbzLimbs; 4];
 }
 
-impl MpParams for P324 {
-    const IBZ_LIMBS: usize = 30;
+/// `[0, 1, 2, 3]` as `N`-limb integers.
+const fn small_limbs<const N: usize>() -> [[u64; N]; 4] {
+    let mut s = [[0; N]; 4];
+    s[1][0] = 1;
+    s[2][0] = 2;
+    s[3][0] = 3;
+    s
 }
 
-impl MpParams for P500 {
-    const IBZ_LIMBS: usize = 40;
+macro_rules! mp_params {
+    ($p:ty, $limbs:literal) => {
+        impl MpParams for $p {
+            const IBZ_LIMBS: usize = $limbs;
+            type IbzLimbs = [u64; $limbs];
+            const SMALL_LIMBS: [Self::IbzLimbs; 4] = small_limbs();
+        }
+    };
 }
 
-impl MpParams for P664 {
-    const IBZ_LIMBS: usize = 55;
-}
+mp_params!(P324, 30);
+mp_params!(P500, 40);
+mp_params!(P664, 55);
 
 /// Limbs holding `bits` bits (C `NUM_LIMBS`).
 const fn nlimbs(bits: usize) -> usize {
@@ -54,19 +85,18 @@ const fn nlimbs(bits: usize) -> usize {
 }
 
 /// A bounded signed integer (C `ibz_t`).
-pub struct Ibz<P> {
+pub struct Ibz<P: MpParams> {
     bitlen: usize,
-    limbs: [u64; MAX_IBZ_LIMBS],
-    _p: PhantomData<P>,
+    limbs: P::IbzLimbs,
 }
 
-impl<P> Clone for Ibz<P> {
+impl<P: MpParams> Clone for Ibz<P> {
     fn clone(&self) -> Self {
         *self
     }
 }
 
-impl<P> Copy for Ibz<P> {}
+impl<P: MpParams> Copy for Ibz<P> {}
 
 impl<P: MpParams> Default for Ibz<P> {
     /// Zero (C `ibz_init`).
@@ -84,18 +114,7 @@ impl<P: MpParams> fmt::Debug for Ibz<P> {
     }
 }
 
-impl<P: MpParams> Ibz<P> {
-    /// `v` with the bound `bitlen`.
-    const fn small(v: u64, bitlen: usize) -> Self {
-        let mut limbs = [0; MAX_IBZ_LIMBS];
-        limbs[0] = v;
-        Self {
-            bitlen,
-            limbs,
-            _p: PhantomData,
-        }
-    }
-
+impl<P: MpParams<IbzLimbs = [u64; N]>, const N: usize> Ibz<P> {
     /// The precomputed constant `{.bitlen = bitlen, .limbs = limbs}`, whose
     /// `limbs` are already reduced to the bound (a vendor `precomp` table).
     ///
@@ -103,23 +122,45 @@ impl<P: MpParams> Ibz<P> {
     ///
     /// At compile time, if `limbs` exceeds the capacity.
     pub(crate) const fn from_raw(bitlen: usize, limbs: &[u64]) -> Self {
-        let mut r = Self::small(0, bitlen);
+        let mut l = [0; N];
         let mut i = 0;
         while i < limbs.len() {
-            r.limbs[i] = limbs[i];
+            l[i] = limbs[i];
             i += 1;
         }
+        Self { bitlen, limbs: l }
+    }
+}
+
+impl<P: MpParams> Ibz<P> {
+    /// `v` with the bound `bitlen`.
+    fn small(v: u64, bitlen: usize) -> Self {
+        let mut r = Self::ZERO;
+        r.bitlen = bitlen;
+        r.limbs[0] = v;
         r
     }
 
     /// 0 (C `ibz_const_zero`).
-    pub const ZERO: Self = Self::small(0, 1);
+    pub const ZERO: Self = Self {
+        bitlen: 1,
+        limbs: P::SMALL_LIMBS[0],
+    };
     /// 1 (C `ibz_const_one`).
-    pub const ONE: Self = Self::small(1, 2);
+    pub const ONE: Self = Self {
+        bitlen: 2,
+        limbs: P::SMALL_LIMBS[1],
+    };
     /// 2 (C `ibz_const_two`).
-    pub const TWO: Self = Self::small(2, 3);
+    pub const TWO: Self = Self {
+        bitlen: 3,
+        limbs: P::SMALL_LIMBS[2],
+    };
     /// 3 (C `ibz_const_three`).
-    pub const THREE: Self = Self::small(3, 3);
+    pub const THREE: Self = Self {
+        bitlen: 3,
+        limbs: P::SMALL_LIMBS[3],
+    };
 
     /// `x` truncated to `bitlen` bits, `bitlen` clamped to `[1, 32]` (C
     /// `ibz_set`).
@@ -202,7 +243,7 @@ impl<P: MpParams> Ibz<P> {
     /// `ibz_cswap`; other masks are meaningless there). Constant time.
     pub fn cswap(a: &mut Self, b: &mut Self, cond: u64) {
         let cond = barrier(cond);
-        for (x, y) in a.limbs.iter_mut().zip(&mut b.limbs).take(P::IBZ_LIMBS) {
+        for (x, y) in a.limbs.as_mut().iter_mut().zip(b.limbs.as_mut()) {
             let t = cond & (*x ^ *y);
             *x ^= t;
             *y ^= t;
@@ -284,12 +325,18 @@ impl<P: MpParams> Eq for Ibz<P> {}
 
 #[cfg(test)]
 mod tests {
-    use super::{nlimbs, Ibz};
+    use super::{nlimbs, small_limbs, Ibz};
     use crate::gf::P324;
 
     #[test]
     fn nlimbs_rounds_up() {
         assert_eq!([0, 1, 64, 65, 128].map(nlimbs), [0, 1, 1, 2, 2]);
+    }
+
+    /// `small_limbs` otherwise only runs in const items, at compile time.
+    #[test]
+    fn small_limbs_are_zero_to_three() {
+        assert_eq!(small_limbs::<2>(), [[0, 0], [1, 0], [2, 0], [3, 0]]);
     }
 
     /// `from_raw` otherwise only runs in const items, at compile time.
