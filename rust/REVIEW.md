@@ -58,35 +58,70 @@ is pinned in [`rust-toolchain.toml`](rust-toolchain.toml). Large precomputed tab
 | 2 | Every single-bit flip of KAT signatures, wrong keys and curves, truncated and malformed inputs | `crates/sqisign/tests/verify_reject.rs`, `crates/sqisign-capi/tests/capi.rs` |
 | 2 | `#![forbid(unsafe_code)]` | `crates/sqisign/src/lib.rs` |
 | 1, 2 | The Kotlin test suites pass on the Rust backend: JVM on Linux, macOS and Windows, macOS, iOS Simulator, Android emulator and an `arm64-v8a` phone | `.github/workflows/kotlin.yml` job `rust-backend`, [`README.md`](README.md#status) |
-| 3 | Code inspection only (see Gaps) | — |
+| 3 | Optimisation barriers on the constant-time masks, as C's `ct_barrier_*`; the shipped build (fat LTO, one codegen unit) has no conditional branch in the gated constant-time code of `gf`, `mp` and `quat/lll`, checked by disassembly on `aarch64` and `x86_64` | [`scripts/ct_branches.py`](scripts/ct_branches.py), CI job `Constant-time branches` |
+| 3 | dudect-style timing test (Welch's t, fixed against random inputs) of `gf` and the `ibz_ct_*` layer, run on an Apple M1 (see Gaps) | `crates/sqisign/examples/dudect.rs` |
 
 ## Reproducing
 
 From `rust/`, with a C11 compiler that has `__int128` (Clang or GCC) for the reference crate:
 
 ```sh
-cargo test --release                # KATs and differential tests (tens of minutes)
+cargo test --release                # KATs and differential tests
 cargo clippy --all-targets -- -D warnings
 cargo llvm-cov -p sqisign --fail-under-lines 100 --fail-under-functions 100 --fail-under-regions 100
 cargo run --release -p sqisign --example timing -- p324 all 20
+python3 scripts/ct_branches.py      # add --target x86_64-unknown-linux-gnu for the other architecture
+CARGO_PROFILE_RELEASE_LTO=fat CARGO_PROFILE_RELEASE_CODEGEN_UNITS=1 \
+  cargo run --release -p sqisign --example dudect -- 100000
 ```
 
 From `kotlin/`, `./gradlew jvmTest -Psqisign.backend=rust` runs the Kotlin suites against the Rust backend.
 
 ## Gaps known before review
 
-- **No measured timing analysis.** Claim 3 rests on inspection and on following the C control flow; ADR 0004 requires a
-  measured analysis (for example dudect-style tests of the field and constant-time integer code on each target) as
-  part of this review.
-- **Compiler-dependent constant time.** Branch-free Rust source can still be compiled to branches; the generated code
-  for `gf` and `mp/ct.rs` has not been inspected on every target.
-- **Weaker clearing inside the core than in C.** The `sqisign` crate clears the PRNG root seed on drop, best effort
-  without volatile writes (no `unsafe`). The derived SHAKE256 `Domain` streams are not cleared, while C clears them
-  (`prng_domain_clear` in `keygen.c`, `sign.c`). Other intermediate secrets were not compared.
+- **Timing measured on one machine only.** The dudect example was run on an Apple M1 (macOS, shipped profile, three runs
+  of 100,000 samples per operation and parameter set). Uncropped, every |t| stayed below 4.5 (largest 2.84, `fp sub`).
+  Cropped at the 95th percentile, three operations exceeded it: `fp mul` on `P324_3` (class 0 = zero) in 2 of 3 runs
+  (7.52, 7.00; the third 3.95), `fp add` on `P664_17` once (6.13), and `ibz ct_shift` with a secret shift amount in 3 of
+  9 runs (largest 6.92). None of these paths branches or indexes memory on secret data: `gf/fp.rs` is gated (below), and
+  the disassembly of `shift_words` (`mp/ct.rs`) branches only on the public length, word index and stage, the amount
+  reaching only masks and register shift counts. The cause of these cropped-only signals is not known. On the M1, a
+  single fixed input repeated through a batch ran measurably faster through branch-free code, so the harness alternates
+  two fixed values (for the shift amount this halved the signal against a fixed amount of 0). The example was not run on
+  `x86_64`, on an Android device or on 32-bit targets, and it measures the field and `ibz_ct_*` operations, not the
+  `ec`, `hd` and `quat/lll` code built on them. Absence of a signal is not proof of constant time; the reviewer may want
+  longer runs on the release targets.
+- **Branch check limited to 64-bit targets and gated code.** `scripts/ct_branches.py` checks the files and functions
+  listed in its `GATED` table on `aarch64` and `x86_64`; 32-bit Android ABIs (`armeabi-v7a`, `x86`) are not analysed,
+  and memory indices are not checked. `ec` and `hd` are not gated themselves: their secret-dependent choices go
+  through `Fp::select` and `Fp::cswap`, which are. `black_box` is the barrier because the crate forbids `unsafe`
+  (C uses `volatile` or inline assembly); it is best effort, so the check runs in CI on every change. The barriers
+  cost about 6–10 % in key generation, signing and verification (`timing` example, `P324_3`, Apple M1).
+- **Clearing is best effort.** The core clears what C clears (the PRNG seed and SHAKE256 domain streams, the
+  secret-key encoding temporaries) with a store followed by `black_box`, not volatile writes. Like C, it does not
+  clear the intermediate ideals, quaternions and points of key generation and signing.
 - **Panics on undefined C behaviour.** Where C divides by zero or overflows a buffer under `NDEBUG`, Rust panics; the
   C ABI reports an error. Such cases were seen only far from signing-path sizes (ADR 0004, Risks).
 - **Performance.** The port is 1.4–1.9× slower than the shipped C `arm64` build ([`README.md`](README.md#performance)),
   so the 10 % budget (P4) blocks a default switch independently of this review.
+
+## Findings of the preliminary reviews
+
+An independent agent and three language models (Gemini, Grok, GPT-6) reviewed this package before the expert review.
+They are not the S6 review. Their findings and the resolutions on this branch:
+
+| Finding | Resolution |
+|---|---|
+| The SHAKE256 PRNG domain streams were not cleared; the seed is recoverable from them | Sponge states clear themselves on drop, as C `prng_domain_clear` |
+| The C ABI copied the seed (`[u8; 48]` is `Copy`) before clearing its own buffer | Seeds are lent by reference down to `Prng::new` |
+| `sqisign_kmp_secure_clear(NULL, len)` looped `len` times | Returns at once, as the C glue; regression test |
+| A hostile secret key could make signing loop for hours (negative response norm) | Signing fails at once on a negative norm (ADR 0004 item 15); regression test |
+| KAT evidence wording: the coverage build checks only a prefix | Optimised builds check all 300 entries; wording corrected |
+| Canonical-matrix entries were read with the top bit cleared; C reads them unsigned | Read unsigned; boundary test |
+| One unresolved mutant in `partial_xgcd_lehmer` at the threshold | Killed by a threshold test against C (ADR 0004 item 4) |
+| The shipped build branched on constant-time masks (`gf` add and subtract, `quat/lll` selection, more on `x86_64`) | Optimisation barriers as C `ct_barrier_*`; disassembly check in CI |
+| Source-level branches in `ibz_extract_i64` and the 2x2 Gram step | Branch-free |
+| No measured timing analysis | dudect example; results under Gaps |
 
 ## Recording the result
 

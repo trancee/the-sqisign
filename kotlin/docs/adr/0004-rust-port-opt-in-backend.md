@@ -1,8 +1,8 @@
 # ADR 0004: Rust port of the SQIsign core as an opt-in backend
 
 - Status: accepted
-- Version: 1.0
-- Date: 2026-10-21
+- Version: 1.1
+- Date: 2026-10-23
 - Constitution: O3 (crypto), S6 (approved implementation), S7/T10 (conformance vectors), E3 (dependencies), C1 (same
   behavior on all platforms)
 - Refines: [ADR 0001](0001-native-backed-kotlin-multiplatform-bridge.md) (C stays the default backend)
@@ -123,8 +123,10 @@ an expert review has accepted the Rust code, it must not replace the reviewed C 
 9. The SHAKE256 PRNG (`common/generic/prng.c`) has no global state: a `Prng` owns the 48-byte root seed and the
    default stream, and each `Domain` stream (`SHAKE256(seed || separator)`) is an owned value passed to the sampling
    functions, so the C unseeded and malformed-separator errors cannot occur and separators are an enum. The seed
-   comes from the caller (C `randombytes`); the seed is cleared on drop, best effort without `unsafe` volatile
-   writes. `ibz_rand_interval*` keep the C draw width, masking and rejection, so a seeded run consumes the same
+   comes from the caller (C `randombytes`) by reference, so the caller's buffer is the only copy. The seed and the
+   SHAKE256 states of the domain streams are cleared on drop, as C `prng_domain_clear`, best effort (a store
+   followed by `black_box`) without `unsafe` volatile writes; the secret-key encoding clears its temporaries, as
+   `encode_secret.c`. `ibz_rand_interval*` keep the C draw width, masking and rejection, so a seeded run consumes the same
    bytes and returns the same values; the rejection retry (probability about `2^-64`) is unit-tested on fixed
    bytes. The `sqisign-reference` crate links the vendor NIST CTR-DRBG `randombytes` (`common/ref`) instead of
    system randomness, so the C PRNG can be seeded reproducibly in the differential tests.
@@ -187,6 +189,14 @@ an expert review has accepted the Rust code, it must not replace the reviewed C 
     definite, so this needs a malformed secret key; C then represents a huge auxiliary norm in about `aux_norm / p`
     attempts, which do not end in practice.
 
+16. Constant-time masks pass through an optimisation barrier where C applies `ct_barrier_*` (`mp_ct.h`), and in the
+    field add, subtract, select and swap masks, which C leaves to its compiler. The barrier is `core::hint::black_box`,
+    the only one available without `unsafe`, so it is best effort; it costs about 6–10 % in key generation, signing
+    and verification. `rust/scripts/ct_branches.py` builds the shipped configuration (fat LTO, one codegen unit),
+    disassembles it and fails on any conditional branch attributed to the constant-time code of `gf`, `mp` and
+    `quat/lll`; CI runs it on `aarch64` and `x86_64`. A dudect-style example (`examples/dudect.rs`) measures the
+    field and `ibz_ct_*` operations; its results and limits are in [`rust/REVIEW.md`](../../../rust/REVIEW.md#gaps-known-before-review).
+
 ## Alternatives
 
 - Depend on `anchorageoss/sqisign-rs`: not chosen. An external, unaudited implementation by a single author; the
@@ -198,8 +208,9 @@ an expert review has accepted the Rust code, it must not replace the reviewed C 
 
 - A port can reproduce test vectors and still differ from the C code on rare inputs. Differential tests on random and
   boundary inputs reduce this; they do not prove equivalence.
-- Constant-time behavior of the Rust field code depends on the compiler. The verification and field paths use
-  branch-free code; a measured timing analysis is part of the expert review.
+- Constant-time behavior of the Rust field code depends on the compiler. Barriers and the CI branch check (item 16)
+  cover `aarch64` and `x86_64`, not 32-bit targets or memory indices; the timing measurements cover one machine. The
+  expert review judges whether that suffices.
 - Signing is variable-time in the C code (lattice reduction); the port inherits that.
 - The port also inherits C behaviour on inputs outside the documented domain, for example `pairing_dlog_2_tate`
   with `e = 1` can return logarithms that do not satisfy the relation. The differential tests pin this behaviour; the
@@ -210,7 +221,8 @@ an expert review has accepted the Rust code, it must not replace the reviewed C 
   signing-path sizes, which is evidence, not proof.
 - The port takes 0.90–1.27× the time of the C `ref` build and 1.41–1.71× that of the shipped C `arm64` build in the JMH
   benchmarks, and 1.53–1.90× that of C `arm64` on an Android device
-  ([`rust/README.md`](../../../rust/README.md#performance)), so it would still fail the 10 % budget (P4) today.
+  ([`rust/README.md`](../../../rust/README.md#performance)), before the 6–10 % of the barriers (item 16), so it
+  would still fail the 10 % budget (P4) today.
 - Two backends double the platform test matrix while both exist.
 
 ## Migration
