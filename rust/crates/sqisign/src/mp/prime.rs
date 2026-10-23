@@ -6,7 +6,7 @@
 //! computing each residue with [`Monty`] instead of the C 61-bit radix.
 //! Variable time, like C.
 
-use super::div::Words;
+use super::div::{len, W};
 use super::monty::Monty;
 use super::{Ibz, MpParams};
 use crate::prng::Domain;
@@ -84,10 +84,10 @@ impl<P: MpParams> Ibz<P> {
     /// the bound of `self` (C `ibz_sqrt_m1_mod_verified`).
     pub fn sqrt_m1_mod_verified(&self) -> Option<Self> {
         let a = self.jacobi_minus_one_base()?;
-        let m = Monty::new(self);
+        let m = Monty::<P, W>::new(self);
         let x = m.pow(&m.small(a as i32), &self.div_2exp(2));
         let y = m.add(&m.sqr(&x), &m.one);
-        (y == [0; super::div::W]).then(|| m.redc(&x, self.bitlen))
+        (y == [0; W]).then(|| m.redc(&x, self.bitlen))
     }
 
     /// A square root of `self` modulo the prime `p`, `0 <= self < p`, with
@@ -97,7 +97,7 @@ impl<P: MpParams> Ibz<P> {
     pub fn sqrt_mod_p(&self, p: &Self, domain: &mut Domain) -> Option<Self> {
         match p.limbs[0] & 3 {
             3 => {
-                let m = Monty::new(p);
+                let m = Monty::<P, W>::new(p);
                 let a = m.to_mont(self);
                 let r = m.pow(&a, &(*p + Self::ONE).div_2exp(2));
                 (m.sqr(&r) == a).then(|| m.redc(&r, p.bitlen))
@@ -118,7 +118,7 @@ impl<P: MpParams> Ibz<P> {
                 break z;
             }
         };
-        let m = Monty::new(p);
+        let m = Monty::<P, W>::new(p);
         let a = m.to_mont(self);
         let mut c = m.pow(&m.to_mont(&z), &q);
         let mut t = m.pow(&a, &q);
@@ -170,13 +170,25 @@ impl<P: MpParams> Ibz<P> {
         if (n.bitlen + 62) / 61 >= modq_limbs {
             return false;
         }
-        let m = Monty::new(&n);
+        // Residues one word wider than `n`: small sizes avoid moving `W` words.
+        match len(&n.magnitude()) {
+            ..8 => n.bpsw::<8>(reps, domain),
+            8..12 => n.bpsw::<12>(reps, domain),
+            _ => n.bpsw::<W>(reps, domain),
+        }
+    }
+
+    /// [`Self::probab_prime`] for an odd `self > 509` passing the sieve, with
+    /// residues in `L` words.
+    fn bpsw<const L: usize>(&self, reps: u32, domain: &mut Domain) -> bool {
+        let n = *self;
+        let m = Monty::<P, L>::new(&n);
         let nm1 = n - Self::ONE;
         let s = nm1.two_adic();
         let d = nm1.div_2exp(s);
-        let mr = |x: &Words| {
+        let mr = |x: &[u64; L]| {
             let mut x = m.pow(x, &d);
-            let minus_one = m.sub(&[0; super::div::W], &m.one);
+            let minus_one = m.sub(&[0; L], &m.one);
             if x == m.one || x == minus_one {
                 return true;
             }
@@ -207,7 +219,7 @@ impl<P: MpParams> Ibz<P> {
 
     /// The strong Lucas probable-prime test with Selfridge's parameters
     /// `P = 1`, `Q = (1 - D) / 4` (C `probprime_strong_lucas_internal`).
-    fn strong_lucas(&self, m: &Monty<P>) -> bool {
+    fn strong_lucas<const L: usize>(&self, m: &Monty<P, L>) -> bool {
         let root = self.sqrt_floor();
         if root * root == *self {
             return false;
@@ -224,7 +236,7 @@ impl<P: MpParams> Ibz<P> {
 
     /// The strong Lucas test with `P = 1`, `Q = (1 - D) / 4`, where `D = |D|`
     /// if `|D| = 1 mod 4` and `D = -|D|` otherwise.
-    fn lucas_selfridge(&self, dabs: u64, m: &Monty<P>) -> bool {
+    fn lucas_selfridge<const L: usize>(&self, dabs: u64, m: &Monty<P, L>) -> bool {
         let h = (dabs >> 2) as i32;
         let q = if dabs & 2 == 2 { h + 1 } else { -h };
         let np1 = *self + Self::ONE;
@@ -232,7 +244,7 @@ impl<P: MpParams> Ibz<P> {
         let d = np1.div_2exp(s);
         let (qm, m2q) = (m.small(q), m.small(-2 * q));
         let (mut u, mut v, mut qk) = (m.one, m.one, qm);
-        let double = |v: &mut Words, qk: &mut Words| {
+        let double = |v: &mut [u64; L], qk: &mut [u64; L]| {
             *v = m.sub(&m.sqr(v), &m.add(qk, qk));
             *qk = m.sqr(qk);
         };
@@ -246,7 +258,7 @@ impl<P: MpParams> Ibz<P> {
                 qk = m.mul(&qk, &qm);
             }
         }
-        let zero = [0; super::div::W];
+        let zero = [0; L];
         if u == zero {
             return true;
         }
@@ -263,28 +275,5 @@ impl<P: MpParams> Ibz<P> {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::gf::P324;
-
-    /// The sieve rejects every value whose Selfridge search meets a shared
-    /// factor (11 meets `|D| = 11`), so only a direct call reaches that exit.
-    #[test]
-    fn strong_lucas_rejects_a_shared_factor() {
-        assert_eq!(jacobi_u64(0, 7), 0);
-        for v in [11, 21, 39] {
-            let n = Ibz::<P324>::from_i64(v, 7);
-            assert!(!n.strong_lucas(&Monty::new(&n)), "{v}");
-        }
-    }
-
-    /// Selfridge strong Lucas pseudoprimes, all stopped by the sieve or by
-    /// Miller-Rabin to base 2 in `probab_prime`.
-    #[test]
-    fn strong_lucas_passes_its_pseudoprimes() {
-        for v in [5459, 5777, 10877, 16109, 18971, 324_899] {
-            let n = Ibz::<P324>::from_i64(v, 20);
-            assert!(n.strong_lucas(&Monty::new(&n)), "{v}");
-        }
-    }
-}
+#[path = "prime_tests.rs"]
+mod tests;
