@@ -1,6 +1,7 @@
 //! Prime-field parameter sets `p = C * 2^T - 1` used by SQIsign.
 
 use super::consts;
+use super::limbs::LimbArray;
 
 /// Shape and Montgomery constants of one prime field.
 ///
@@ -8,7 +9,7 @@ use super::consts;
 /// `R = 2^(64 N)`, partially reduced to `[0, 2^BITS)`.
 pub trait FpParams: 'static {
     /// Limb storage, `[u64; N]`.
-    type Limbs: Copy + AsRef<[u64]> + AsMut<[u64]>;
+    type Limbs: LimbArray;
     /// Number of 64-bit limbs.
     const N: usize;
     /// Cofactor `C` of `p + 1 = C * 2^T`.

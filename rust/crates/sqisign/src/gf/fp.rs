@@ -6,6 +6,7 @@
 //! convention `0x0000_0000` (false) or `0xFFFF_FFFF` (true).
 
 use super::consts::MAX_LIMBS;
+use super::limbs::LimbArray;
 use super::params::FpParams;
 use core::ops::{Add, Mul, Neg, Sub};
 
@@ -81,45 +82,19 @@ impl<P: FpParams> Fp<P> {
 
     /// Montgomery product `a * b / R`; inputs and output in `[0, 2^BITS)`.
     ///
-    /// `p = C * 2^T - 1` gives `-1/p = 1 (mod 2^64)`, so each step uses the
-    /// low limb as the quotient digit and adds it times `p + 1` (one limb).
-    fn mont_mul(a: &[u64], b: &[u64]) -> Self {
-        let n = P::N;
-        let k = (P::T / 64) as usize;
-        let pp1 = P::C << (P::T % 64);
-        let mut z = [0u64; MAX_LIMBS + 2];
-        for &bi in b {
-            let mut carry = 0u128;
-            for (zj, &aj) in z.iter_mut().zip(a) {
-                let t = u128::from(*zj) + u128::from(aj) * u128::from(bi) + carry;
-                *zj = t as u64;
-                carry = t >> 64;
-            }
-            let t = u128::from(z[n]) + carry;
-            z[n] = t as u64;
-            z[n + 1] = (t >> 64) as u64;
-            // z + m*p = (z - m) + m*(p+1), and z[0] - m = 0: shift, then add.
-            let m = z[0];
-            z.copy_within(1..n + 2, 0);
-            z[n + 1] = 0;
-            let prod = u128::from(m) * u128::from(pp1);
-            let t = u128::from(z[k - 1]) + (prod & u128::from(u64::MAX));
-            z[k - 1] = t as u64;
-            let mut carry = (t >> 64) + (prod >> 64);
-            for zj in &mut z[k..=n] {
-                let t = u128::from(*zj) + carry;
-                *zj = t as u64;
-                carry = t >> 64;
-            }
+    /// Not inlined: one unrolled copy per prime keeps the hot code in the instruction cache.
+    #[inline(never)]
+    fn mont_mul(a: &P::Limbs, b: &P::Limbs) -> Self {
+        Self {
+            v: a.mont_mul(b, (P::T / 64) as usize, P::C << (P::T % 64)),
         }
-        Self::from_raw(&z[..n])
     }
 
     /// Small integer `x`.
     pub fn from_small(x: u32) -> Self {
-        let mut t = [0u64; MAX_LIMBS];
-        t[0] = u64::from(x);
-        Self::mont_mul(&t[..P::N], P::R2.as_ref())
+        let mut t = P::ZERO;
+        t.as_mut()[0] = u64::from(x);
+        Self::mont_mul(&t, &P::R2)
     }
 
     /// `self * x` for a small unsigned `x`.
@@ -210,10 +185,10 @@ impl<P: FpParams> Add for Fp<P> {
 
     fn add(self, rhs: Self) -> Self {
         let mut d = self;
-        add_masked(d.v.as_mut(), rhs.limbs(), u64::MAX);
+        d.v.add_masked(&rhs.v, u64::MAX);
         for _ in 0..2 {
             let mask = 0u64.wrapping_sub(d.limbs()[P::N - 1] >> Self::top_bits());
-            sub_masked(d.v.as_mut(), P::P.as_ref(), mask);
+            d.v.sub_masked(&P::P, mask);
         }
         d
     }
@@ -224,10 +199,10 @@ impl<P: FpParams> Sub for Fp<P> {
 
     fn sub(self, rhs: Self) -> Self {
         let mut d = self;
-        let borrow = sub_masked(d.v.as_mut(), rhs.limbs(), u64::MAX);
-        add_masked(d.v.as_mut(), P::P.as_ref(), 0u64.wrapping_sub(borrow));
+        let borrow = d.v.sub_masked(&rhs.v, u64::MAX);
+        d.v.add_masked(&P::P, 0u64.wrapping_sub(borrow));
         let mask = 0u64.wrapping_sub(d.limbs()[P::N - 1] >> 63);
-        add_masked(d.v.as_mut(), P::P.as_ref(), mask);
+        d.v.add_masked(&P::P, mask);
         d
     }
 }
@@ -236,7 +211,7 @@ impl<P: FpParams> Mul for Fp<P> {
     type Output = Self;
 
     fn mul(self, rhs: Self) -> Self {
-        Self::mont_mul(self.limbs(), rhs.limbs())
+        Self::mont_mul(&self.v, &rhs.v)
     }
 }
 

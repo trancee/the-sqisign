@@ -6,6 +6,7 @@ mod fp2;
 mod fp2_pow;
 mod fp_codec;
 mod fp_pow;
+mod limbs;
 mod params;
 
 pub use fp::Fp;

@@ -10,8 +10,8 @@ pub const MAX_LIMBS: usize = 11;
 /// Rejects shapes that break the arithmetic invariants of [`super::Fp`].
 ///
 /// Requires: `N <= MAX_LIMBS`, `C` odd and `> 1`, `T % 64 != 0`, `C << (T % 64)`
-/// fits one limb (so `p + 1` has a single nonzero limb) and at least four spare
-/// bits above `p` in `N` limbs.
+/// fits one limb (so `p + 1` has a single nonzero limb), at least four spare
+/// bits above `p` in `N` limbs, and that limb is the top one (`T / 64 == N - 1`).
 pub const fn check_shape<const N: usize>(c: u64, t: u32) {
     assert!(N <= MAX_LIMBS, "too many limbs");
     assert!(c > 1 && c % 2 == 1, "C must be odd and greater than one");
@@ -22,6 +22,7 @@ pub const fn check_shape<const N: usize>(c: u64, t: u32) {
     let s = t % 64;
     assert!((c << s) >> s == c, "C << (T % 64) must fit one limb");
     assert!(bits(c, t) + 4 <= 64 * N as u32, "need four spare bits");
+    assert!(t / 64 + 1 == N as u32, "p + 1 must sit in the top limb");
 }
 
 /// Bit length of `C * 2^T - 1`.
