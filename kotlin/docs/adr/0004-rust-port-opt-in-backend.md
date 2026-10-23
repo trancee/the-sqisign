@@ -100,7 +100,8 @@ an expert review has accepted the Rust code, it must not replace the reviewed C 
    third-party dependencies (E3). It is tested against FIPS 202 vectors and against the vendor
    `src/common/generic/fips202.c`.
 8. Integers (`mp`) keep the C `ibz_t` model instead of an arbitrary-precision crate: a two's-complement value over a
-   fixed number of 64-bit limbs per parameter set (`IBZ_NLIMBS`: 30, 40, 55) with a bit bound that operations widen,
+   fixed number of 64-bit limbs per parameter set (`IBZ_NLIMBS`: 30, 40, 55, also the storage size of each `Ibz`;
+   only scratch buffers are sized for the largest set) with a bit bound that operations widen,
    wrapping at the capacity exactly like C. This keeps results, bounds and constant-time behaviour identical to the
    C code that signing is checked against. Where C has a variable-time and a constant-time function with identical
    results (`ibz_set_bound`/`ibz_set_bound_ct`, `ibz_bitsize`/`ibz_bitsize_ct`), Rust has one constant-time function,

@@ -77,7 +77,7 @@ impl<P: MpParams> Ibz<P> {
         let mut t = *self;
         t.set_bound(work);
         shift_words(&mut t.limbs[..nlimbs(work)], shift, max_shift);
-        Self::narrow(&t.limbs, out_bitlen)
+        Self::narrow(t.limbs.as_ref(), out_bitlen)
     }
 
     /// `a * b * 2^shift`, rounded down for negative `shift`, wrapped to the

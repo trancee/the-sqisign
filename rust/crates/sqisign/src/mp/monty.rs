@@ -24,7 +24,7 @@ fn low<const L: usize>(w: &Words) -> [u64; L] {
 }
 
 /// Residues modulo `n` in Montgomery form, `x * 2^(64k) mod n`, in `L > k` words.
-pub(super) struct Monty<P, const L: usize> {
+pub(super) struct Monty<P: MpParams, const L: usize> {
     modulus: Ibz<P>,
     n: [u64; L],
     k: usize,

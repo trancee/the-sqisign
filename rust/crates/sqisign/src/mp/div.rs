@@ -103,7 +103,7 @@ impl<P: MpParams> Ibz<P> {
     pub(super) fn signed(w: &Words, bitlen: usize, neg: bool) -> Self {
         let mut r = Self::ZERO;
         r.bitlen = bitlen;
-        r.limbs.copy_from_slice(&w[..MAX_IBZ_LIMBS]);
+        r.limbs.as_mut().copy_from_slice(&w[..P::IBZ_LIMBS]);
         r.cneg(0u64.wrapping_sub(u64::from(neg)))
     }
 
