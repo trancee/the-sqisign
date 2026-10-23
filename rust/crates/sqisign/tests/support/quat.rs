@@ -149,7 +149,7 @@ macro_rules! ideal_helpers {
         /// The Rust and C PRNGs seeded from the same DRBG entropy.
         fn seeded(seed: u64) -> Prng {
             let entropy: [u8; SEED_BYTES] = Rng::new(seed).bytes(SEED_BYTES).try_into().unwrap();
-            Prng::new(c::mp::prng_seed(&entropy))
+            Prng::new(&c::mp::prng_seed(&entropy))
         }
 
         /// The C stream of `sep`.

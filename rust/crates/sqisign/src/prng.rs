@@ -6,8 +6,6 @@
 //! `prng_seed()`; here they are owned values passed explicitly, so the
 //! unseeded and malformed-separator errors of C cannot occur.
 
-use core::hint::black_box;
-
 use crate::shake::{Shake256, Shake256Reader};
 
 /// Bytes of the root seed (C `PRNG_SEED_BYTES`).
@@ -58,9 +56,12 @@ pub struct Prng {
 
 impl Prng {
     /// Seeds from `seed` (C `prng_seed` with `randombytes` output `seed`).
-    pub fn new(seed: [u8; SEED_BYTES]) -> Self {
-        let default = derive(&seed, Separator::Default);
-        Self { seed, default }
+    pub fn new(seed: &[u8; SEED_BYTES]) -> Self {
+        let default = derive(seed, Separator::Default);
+        Self {
+            seed: *seed,
+            default,
+        }
     }
 
     /// A fresh stream for `sep` (C `prng_domain_seed`).
@@ -75,11 +76,10 @@ impl Prng {
 }
 
 impl Prng {
-    /// Clears the seed (C `prng_clear`). Best effort: without `unsafe`
-    /// volatile writes the compiler may still elide the store.
+    /// Clears the seed (C `prng_clear`; best effort, see [`crate::wipe`]). The
+    /// streams clear their own state when dropped (C `prng_domain_clear`).
     fn clear(&mut self) {
-        self.seed.fill(0);
-        black_box(&self.seed);
+        crate::wipe::wipe(&mut self.seed);
     }
 }
 
@@ -102,7 +102,7 @@ mod tests {
 
     #[test]
     fn clear_zeroes_the_seed() {
-        let mut p = Prng::new([7; SEED_BYTES]);
+        let mut p = Prng::new(&[7; SEED_BYTES]);
         p.clear();
         assert_eq!(p.seed, [0; SEED_BYTES]);
     }

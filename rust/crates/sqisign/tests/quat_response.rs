@@ -314,7 +314,7 @@ fn zero_inert_norm_panics_like_the_c_division() {
         norm: v(15560469119401928035, 52484868),
     };
     let entropy: [u8; SEED_BYTES] = support::Rng::new(200).bytes(SEED_BYTES).try_into().unwrap();
-    let mut p = Prng::new(sqisign_reference::p324_3::mp::prng_seed(&entropy));
+    let mut p = Prng::new(&sqisign_reference::p324_3::mp::prng_seed(&entropy));
     let mut d = p.domain(Separator::Keygen);
     a.small_equivalent_coprime(&I::ZERO, &mut Draw::new(&mut d, p.default_domain()));
 }

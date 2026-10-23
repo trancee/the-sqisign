@@ -19,7 +19,7 @@ macro_rules! mp_modq_suite {
             fn seeded(seed: u64) -> Prng {
                 let entropy: [u8; SEED_BYTES] =
                     Rng::new(seed).bytes(SEED_BYTES).try_into().unwrap();
-                Prng::new(c::mp::prng_seed(&entropy))
+                Prng::new(&c::mp::prng_seed(&entropy))
             }
 
             /// Asserts both default streams are at the same position.

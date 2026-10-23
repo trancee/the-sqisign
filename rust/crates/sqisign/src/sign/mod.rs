@@ -77,7 +77,7 @@ pub struct SecretKey<P: SignParams> {
 
 /// The encoded key pair `(pk, sk)` from the seed `seed` (C
 /// `sqisign_keypair`).
-pub fn keypair<P: SignParams>(seed: [u8; SEED_BYTES]) -> (Vec<u8>, Vec<u8>) {
+pub fn keypair<P: SignParams>(seed: &[u8; SEED_BYTES]) -> (Vec<u8>, Vec<u8>) {
     let sk = SecretKey::<P>::generate(seed);
     (sk.pk.to_bytes(), sk.to_bytes())
 }
@@ -85,7 +85,7 @@ pub fn keypair<P: SignParams>(seed: [u8; SEED_BYTES]) -> (Vec<u8>, Vec<u8>) {
 /// The signature of `msg` under the encoded secret key `sk` from the seed
 /// `seed`, or `None` if `sk` has the wrong length or signing fails, which
 /// happens with negligible probability (C `sqisign_sign_signature`).
-pub fn sign<P: SignParams>(sk: &[u8], msg: &[u8], seed: [u8; SEED_BYTES]) -> Option<Vec<u8>> {
+pub fn sign<P: SignParams>(sk: &[u8], msg: &[u8], seed: &[u8; SEED_BYTES]) -> Option<Vec<u8>> {
     SecretKey::<P>::decode(sk)
         .and_then(|sk| sk.sign(msg, seed))
         .map(|sig| sig.to_bytes())
@@ -95,7 +95,7 @@ pub fn sign<P: SignParams>(sk: &[u8], msg: &[u8], seed: [u8; SEED_BYTES]) -> Opt
 pub fn sign_attached<P: SignParams>(
     sk: &[u8],
     msg: &[u8],
-    seed: [u8; SEED_BYTES],
+    seed: &[u8; SEED_BYTES],
 ) -> Option<Vec<u8>> {
     sign::<P>(sk, msg, seed).map(|mut sm| {
         sm.extend_from_slice(msg);

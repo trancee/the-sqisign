@@ -15,3 +15,4 @@ pub mod quat;
 pub mod shake;
 pub mod sign;
 pub mod verify;
+mod wipe;
