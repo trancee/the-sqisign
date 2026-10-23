@@ -291,6 +291,32 @@ mod tests {
         (q, det)
     }
 
+    /// `rho = THRESHOLD` with `A = B 2^29 + B - 2^40`, `B = pb 2^37`: one
+    /// word step leaves the window `pb - 8` below `pb` at the same size, so
+    /// the next step needs the swap that `rho >= THRESHOLD` forbids. Later
+    /// outer iterations finish the reduction either way, so this compares
+    /// single iterations as well.
+    #[test]
+    fn lehmer_at_the_threshold_forbids_the_swap() {
+        let det = 101;
+        let bound = val_bits(det);
+        let b = I::from_i64((1 << 33) | 0x1234, 35).mul_2exp(37);
+        let mut q = [
+            b.mul_2exp(29) + b - I::from_i64(8, 5).mul_2exp(37),
+            b,
+            I::ZERO,
+            I::ONE,
+        ];
+        q.iter_mut().for_each(|x| x.set_bound(bound));
+        assert_eq!(q[0].bitsize() - q[1].bitsize() + 1, THRESHOLD as usize);
+        for outer in [1, outer_its(det)] {
+            let mut r = q;
+            partial_xgcd_lehmer(&mut r, outer, det);
+            let x = c::partial_xgcd_lehmer(&q.each_ref().map(to_c), outer as i32, det as i32);
+            r.iter().zip(&x).for_each(|(r, x)| same(r, x));
+        }
+    }
+
     #[test]
     fn lehmer_steps_match_c_near_their_thresholds() {
         let mut rng = Rng::new(5);
