@@ -76,8 +76,9 @@ an expert review has accepted the Rust code, it must not replace the reviewed C 
      still selects the same transforms, and Lagrange-Gauss outer iteration counts,
      whose proven worst cases the reductions finish inside), or unreached (a response norm exactly equal to the
      radius, and the signing retry when the auxiliary ideal norm is not coprime to the secret or challenge norm).
-     One stays unresolved: `partial_xgcd_lehmer` at `rho == DIM2_THRESHOLD`, where only the word step's swap
-     permission differs, which 1,000 threshold-sized samples did not distinguish.
+     `partial_xgcd_lehmer` at `rho == DIM2_THRESHOLD`, where only the word step's swap permission differs, survived
+     1,000 threshold-sized samples because later outer iterations finish the reduction either way; a constructed
+     input compared after a single outer iteration now kills it.
 
    Coverage (T3) is gated at 100% lines, functions and regions with `cargo llvm-cov` on the pinned stable toolchain.
    Rust branch coverage needs a nightly compiler; regions count both arms of every condition and stand in for it.

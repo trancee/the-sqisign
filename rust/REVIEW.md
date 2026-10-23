@@ -53,7 +53,7 @@ is pinned in [`rust-toolchain.toml`](rust-toolchain.toml). Large precomputed tab
 |---|---|---|
 | 1 | Byte-exact key pairs and signatures for all 300 NIST KAT entries, seeded with the NIST CTR-DRBG (optimised builds, as in CI job `Test`; the unoptimised coverage build checks the first 100, 20 and 10) | `crates/sqisign/tests/sign.rs`, `../KAT/` |
 | 1 | Differential tests of every ported module against the vendor C `ref` build, on boundary and seeded random inputs, for all three parameter sets | `crates/sqisign/tests/*.rs`, `crates/sqisign-reference` |
-| 1 | Targeted mutation checks of every module's decision points; survivors recorded with reasons, one unresolved | ADR 0004 item 4 |
+| 1 | Targeted mutation checks of every module's decision points; survivors recorded with reasons | ADR 0004 item 4 |
 | 1, 2 | 100 % line, function and region coverage of `crates/sqisign` | CI job `Format, lint, coverage` |
 | 2 | Every single-bit flip of KAT signatures, wrong keys and curves, truncated and malformed inputs | `crates/sqisign/tests/verify_reject.rs`, `crates/sqisign-capi/tests/capi.rs` |
 | 2 | `#![forbid(unsafe_code)]` | `crates/sqisign/src/lib.rs` |
@@ -85,7 +85,6 @@ From `kotlin/`, `./gradlew jvmTest -Psqisign.backend=rust` runs the Kotlin suite
   (`prng_domain_clear` in `keygen.c`, `sign.c`). Other intermediate secrets were not compared.
 - **Panics on undefined C behaviour.** Where C divides by zero or overflows a buffer under `NDEBUG`, Rust panics; the
   C ABI reports an error. Such cases were seen only far from signing-path sizes (ADR 0004, Risks).
-- **One unresolved mutant** in `partial_xgcd_lehmer` (ADR 0004 item 4).
 - **Performance.** The port is 1.4–1.9× slower than the shipped C `arm64` build ([`README.md`](README.md#performance)),
   so the 10 % budget (P4) blocks a default switch independently of this review.
 
