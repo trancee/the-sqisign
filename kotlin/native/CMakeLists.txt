@@ -231,6 +231,13 @@ elseif(SQISIGN_KMP_OUTPUT STREQUAL "static")
         message(FATAL_ERROR "SQISIGN_KMP_OUTPUT=static is only supported for Apple targets")
     endif()
     set(SQISIGN_KMP_MERGED ${CMAKE_CURRENT_BINARY_DIR}/${SQISIGN_KMP_ARCHIVE_NAME})
+    # `cmake --install --strip` strips only the JNI libraries, not this archive. Outside Debug builds, drop its debug
+    # information (the Rust standard library ships with DWARF); strip -S keeps the symbols the final link needs.
+    if(CMAKE_BUILD_TYPE STREQUAL "Debug")
+        set(SQISIGN_KMP_STRIP_DEBUG "")
+    else()
+        set(SQISIGN_KMP_STRIP_DEBUG COMMAND xcrun strip -S ${SQISIGN_KMP_MERGED})
+    endif()
     if(SQISIGN_KMP_KAT)
         # A test binary links this archive next to libsqisign_kmp_all.a, and both define the same SQIsign symbols. Prelink
         # everything into one object that exports only sqisign_kmp_kat_*, so the DRBG chain cannot mix with the
@@ -255,6 +262,7 @@ elseif(SQISIGN_KMP_OUTPUT STREQUAL "static")
                     -o ${SQISIGN_KMP_PRELINKED} ${SQISIGN_KMP_MERGED}.in
             COMMAND ${CMAKE_COMMAND} -E rm -f ${SQISIGN_KMP_MERGED}
             COMMAND xcrun libtool -static -o ${SQISIGN_KMP_MERGED} ${SQISIGN_KMP_PRELINKED}
+            ${SQISIGN_KMP_STRIP_DEBUG}
             DEPENDS ${SQISIGN_KMP_ARCHIVES}
             COMMENT "Prelinking the KAT archive ${SQISIGN_KMP_ARCHIVE_NAME}"
             VERBATIM)
@@ -262,6 +270,7 @@ elseif(SQISIGN_KMP_OUTPUT STREQUAL "static")
         add_custom_command(
             OUTPUT ${SQISIGN_KMP_MERGED}
             COMMAND xcrun libtool -static -no_warning_for_no_symbols -o ${SQISIGN_KMP_MERGED} ${SQISIGN_KMP_ARCHIVE_FILES}
+            ${SQISIGN_KMP_STRIP_DEBUG}
             DEPENDS ${SQISIGN_KMP_ARCHIVES}
             COMMENT "Merging SQIsign archives into ${SQISIGN_KMP_ARCHIVE_NAME}"
             VERBATIM)
