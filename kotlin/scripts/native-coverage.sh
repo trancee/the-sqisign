@@ -14,7 +14,9 @@ else
 fi
 out=build/native-coverage
 
-./gradlew jvmTest --rerun -Psqisign.nativeCoverage=true "$@"
+# The coverage mapping is read from the CMake build directories, which a build-cache hit does not create, so the
+# native builds run too.
+./gradlew buildNativeJvm --rerun buildNativeJvmKat --rerun jvmTest --rerun -Psqisign.nativeCoverage=true "$@"
 
 profiles=("$out"/profiles/*.profraw)
 [ -e "${profiles[0]}" ] || { echo "no coverage profiles in $out/profiles"; exit 1; }
