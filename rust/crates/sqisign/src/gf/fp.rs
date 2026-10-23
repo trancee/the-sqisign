@@ -8,6 +8,7 @@
 use super::consts::MAX_LIMBS;
 use super::limbs::LimbArray;
 use super::params::FpParams;
+use crate::barrier::barrier;
 use core::ops::{Add, Mul, Neg, Sub};
 
 /// An element of GF(p) for the parameter set `P`.
@@ -25,7 +26,7 @@ impl<P: FpParams> Copy for Fp<P> {}
 
 /// Expands a C-style `u32` mask to 64 bits.
 pub(super) fn mask64(ctl: u32) -> u64 {
-    ctl as i32 as i64 as u64
+    barrier(ctl as i32 as i64 as u64)
 }
 
 /// `0xFFFF_FFFF` if `v == other`, else `0`, in constant time.
@@ -187,7 +188,7 @@ impl<P: FpParams> Add for Fp<P> {
         let mut d = self;
         d.v.add_masked(&rhs.v, u64::MAX);
         for _ in 0..2 {
-            let mask = 0u64.wrapping_sub(d.limbs()[P::N - 1] >> Self::top_bits());
+            let mask = barrier(0u64.wrapping_sub(d.limbs()[P::N - 1] >> Self::top_bits()));
             d.v.sub_masked(&P::P, mask);
         }
         d
@@ -200,8 +201,8 @@ impl<P: FpParams> Sub for Fp<P> {
     fn sub(self, rhs: Self) -> Self {
         let mut d = self;
         let borrow = d.v.sub_masked(&rhs.v, u64::MAX);
-        d.v.add_masked(&P::P, 0u64.wrapping_sub(borrow));
-        let mask = 0u64.wrapping_sub(d.limbs()[P::N - 1] >> 63);
+        d.v.add_masked(&P::P, barrier(0u64.wrapping_sub(borrow)));
+        let mask = barrier(0u64.wrapping_sub(d.limbs()[P::N - 1] >> 63));
         d.v.add_masked(&P::P, mask);
         d
     }

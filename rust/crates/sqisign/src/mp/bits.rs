@@ -2,6 +2,7 @@
 //! `ibz_extract_*`).
 
 use super::{nlimbs, Ibz, MpParams};
+use crate::barrier::barrier;
 
 impl<P: MpParams> Ibz<P> {
     /// Bits of `|self|`, 0 for 0 (C `ibz_bitsize`, `ibz_bitsize_ct`).
@@ -44,11 +45,8 @@ impl<P: MpParams> Ibz<P> {
     /// `extract_u64(offset)` without its top bit, signed as `self` (C
     /// `ibz_extract_i64`).
     pub fn extract_i64(&self, offset: i32) -> i64 {
-        let u = (self.extract_u64(offset) & (u64::MAX >> 1)) as i64;
-        if self.is_positive() {
-            u
-        } else {
-            -u
-        }
+        let u = self.extract_u64(offset) & (u64::MAX >> 1);
+        let neg = barrier(0u64.wrapping_sub(u64::from(!self.is_positive())));
+        ((u ^ neg).wrapping_sub(neg)) as i64
     }
 }

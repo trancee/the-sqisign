@@ -3,6 +3,7 @@
 //! round counts are public.
 
 use super::{nlimbs, Ibz, MpParams, MAX_IBZ_LIMBS};
+use crate::barrier::barrier;
 
 /// Room for the guarded product of two integers.
 const WIDE: usize = 2 * MAX_IBZ_LIMBS + 1;
@@ -49,7 +50,7 @@ fn div128(xhi: u64, xlo: u64, y: u64) -> u64 {
     for i in (0..64).rev() {
         let hi = r >> 63;
         r = (r << 1) | ((xlo >> i) & 1);
-        let ge = hi | u64::from(!r.overflowing_sub(y).1);
+        let ge = barrier(hi | u64::from(!r.overflowing_sub(y).1));
         r = r.wrapping_sub(y & 0u64.wrapping_sub(ge));
         q = (q << 1) | ge;
     }
