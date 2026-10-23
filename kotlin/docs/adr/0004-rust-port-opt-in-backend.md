@@ -92,7 +92,8 @@ an expert review has accepted the Rust code, it must not replace the reviewed C 
    which C has undefined behaviour) is caught at the ABI boundary and returned as `SQISIGN_KMP_ERROR`; secret seeds
    and key buffers are cleared with volatile writes there.
 6. The C backend stays the default and the only release backend until an expert review of the Rust port is recorded
-   in a new version of this ADR.
+   in a new version of this ADR. Scope, claims and evidence for that review:
+   [`rust/REVIEW.md`](../../../rust/REVIEW.md).
 7. SHAKE256 (Keccak-f[1600]) is ported in-crate rather than taken from a hashing crate, keeping the Rust core free of
    third-party dependencies (E3). It is tested against FIPS 202 vectors and against the vendor
    `src/common/generic/fips202.c`.
