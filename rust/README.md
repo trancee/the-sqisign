@@ -29,7 +29,7 @@ and the reasons C stays the default backend are in
 | `quat`: the norm equation solver (`qlapoty.c`) | ported; differential tests against C `ref` for all three primes, including PRNG draws |
 | `id2iso`: the action of `O0` on `E0[2^f]`, kernels to ideals, changes of basis, the dimension-2 ideal-to-isogeny translation (`id2iso.c`, `dim2id2iso.c`) | ported; differential tests against C `ref` for all three primes, including PRNG draws |
 | key generation, signing, secret-key encoding (`keygen.c`, `sign.c`, `encode_secret.c`, `sqisign.c`) | ported; byte-exact key pairs and signatures for all 300 NIST KAT entries |
-| C ABI (`sqisign-capi`) + Kotlin backend (`sqisign.backend=rust`) | ported; the `sqisign_kmp_*` functions of `kotlin/native/include/sqisign_kmp.h`, KAT entries byte-exact through the ABI, the Kotlin test suites pass on the Rust backend (JVM, macOS, iOS Simulator, an `x86_64` Android emulator in CI that also runs the `arm64-v8a` libraries through ARM translation, and an `arm64-v8a` Android phone including the seeded KATs) |
+| C ABI (`sqisign-capi`) + Kotlin backend (`sqisign.backend=rust`) | ported; the `sqisign_kmp_*` functions of `kotlin/native/include/sqisign_kmp.h`, KAT entries byte-exact through the ABI, the Kotlin test suites pass on the Rust backend (JVM on Linux, macOS and Windows, macOS, iOS Simulator, an `x86_64` Android emulator in CI that also runs the `arm64-v8a` libraries through ARM translation, and an `arm64-v8a` Android phone including the seeded KATs) |
 
 ## Performance
 
@@ -101,8 +101,10 @@ the `sqisign-capi` crate instead (`kotlin/native/rust.cmake`), for example from 
 
 CMake builds the crate for the Rust target of each native build, so add the targets once with `rustup target add`:
 `aarch64-linux-android x86_64-linux-android` (Android), `aarch64-apple-ios aarch64-apple-ios-sim aarch64-apple-darwin`
-(Apple). Desktop JNI builds use the host target; a MinGW build on a host whose default Rust target is MSVC also needs
-`x86_64-pc-windows-gnu` and `-Psqisign.hostCMakeArgs=-DSQISIGN_KMP_RUST_TARGET=x86_64-pc-windows-gnu`.
+(Apple), `x86_64-pc-windows-gnullvm` (Windows). Linux and macOS JNI builds use the host target. On Windows the JNI
+library is built with MinGW clang, as for the C backend (see [`kotlin/README.md`](../kotlin/README.md)), and CMake pairs
+it with `x86_64-pc-windows-gnullvm`, whose UCRT and LLVM runtime match MinGW clang; `rustup`'s default MSVC target
+does not. Set `-DSQISIGN_KMP_RUST_TARGET=<triple>` in `-Psqisign.hostCMakeArgs` to override the derived target.
 
 ## License
 

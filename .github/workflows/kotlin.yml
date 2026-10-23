@@ -52,6 +52,12 @@ jobs:
             os: macos-15
             tasks: jvmTest macosArm64Test iosSimulatorArm64Test
             rust-targets: aarch64-apple-darwin aarch64-apple-ios-sim
+          - platform: windows-x86_64
+            os: windows-2025
+            tasks: jvmTest
+            # MinGW clang as in jvm-native; rust.cmake pairs it with the matching gnullvm target.
+            rust-targets: x86_64-pc-windows-gnullvm
+            cmake-args: -G Ninja -DCMAKE_C_COMPILER=clang -DCMAKE_ASM_COMPILER=clang
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v5
@@ -65,6 +71,20 @@ jobs:
         run: |
           rustup toolchain install
           rustup target add ${{ matrix.rust-targets }}
+      - name: Set up MinGW clang
+        if: matrix.platform == 'windows-x86_64'
+        id: msys2
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: CLANG64
+          path-type: inherit
+          install: >-
+            mingw-w64-clang-x86_64-clang
+            mingw-w64-clang-x86_64-cmake
+            mingw-w64-clang-x86_64-ninja
+      - name: Put MinGW clang on PATH
+        if: matrix.platform == 'windows-x86_64'
+        run: cygpath -w '${{ steps.msys2.outputs.msys2-location }}/clang64/bin' >> "$GITHUB_PATH"
       - name: Install NDK and CMake
         if: matrix.platform == 'linux-x86_64'
         run: |
@@ -72,7 +92,7 @@ jobs:
           cmake=$(grep '^sqisign.cmakeVersion=' gradle.properties | cut -d= -f2)
           (yes || true) | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --install "ndk;$ndk" "cmake;$cmake" > /dev/null
       - name: Test
-        run: ./gradlew ${{ matrix.tasks }} -Psqisign.backend=rust
+        run: ./gradlew ${{ matrix.tasks }} -Psqisign.backend=rust "-Psqisign.hostCMakeArgs=${{ matrix.cmake-args }}"
 
   # Builds the JNI library on each JVM platform and runs the common tests against it.
   jvm-native:
