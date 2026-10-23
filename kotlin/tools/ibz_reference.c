@@ -16,6 +16,8 @@
 #include "../../src/quaternion/ref/lvlx/finit.c"
 #include "../../src/quaternion/ref/lvlx/algebra.c"
 #include "../../src/quaternion/ref/lvlx/dim4.c"
+#include "../../src/quaternion/ref/lvlx/dim2.c"
+#include "../../src/quaternion/ref/lvlx/lattice.c"
 
 enum
 {
@@ -793,6 +795,103 @@ algebra_matrix(const char *op, char **arguments)
 }
 
 static void
+decode_matrix_2x2(ibz_mat_2x2_t *m, char **arguments)
+{
+    for (int i = 0; i < 4; i++)
+        decode(&m->m[i / 2][i % 2], arguments[i]);
+}
+
+static void
+print_matrix_2x2(const ibz_mat_2x2_t *m)
+{
+    print_values(m->m[0], 2);
+    printf(" ");
+    print_values(m->m[1], 2);
+}
+
+static int
+dim2_matrix(const char *op, char **arguments)
+{
+    ibz_mat_2x2_t m, n, r;
+    ibz_vec_2_t v;
+    ibz_t s;
+    if (strcmp(op, "m2eval") == 0) {
+        decode_matrix_2x2(&m, arguments);
+        decode(&v.v[0], arguments[4]);
+        decode(&v.v[1], arguments[5]);
+        ibz_mat_2x2_eval(&v, &m, &v);
+        print_values(v.v, 2);
+        return 1;
+    } else if (strcmp(op, "m2mul") == 0) {
+        decode_matrix_2x2(&m, arguments);
+        decode_matrix_2x2(&n, arguments + 4);
+        ibz_mat_2x2_mul(&r, &m, &n);
+    } else if (strcmp(op, "m2inv") == 0) {
+        decode_matrix_2x2(&m, arguments);
+        int ok = ibz_mat_2x2_inv_with_det_as_denom(&r, &s, &m);
+        printf("%d ", ok);
+        print_ibz(&s);
+        if (ok) {
+            printf(" ");
+            print_matrix_2x2(&r);
+        }
+        return 1;
+    } else if (strcmp(op, "m2invmod") == 0) {
+        decode_matrix_2x2(&m, arguments);
+        decode(&s, arguments[4]);
+        printf("%d ", ibz_mat_2x2_inv_mod(&r, &m, &s));
+    } else if (strcmp(op, "m2norm") == 0) {
+        decode_matrix_2x2(&r, arguments + 1);
+        ibz_mat_2x2_normalize(&r, (int)number(arguments[0]));
+    } else {
+        return 0;
+    }
+    print_matrix_2x2(&r);
+    return 1;
+}
+
+static int
+dim2_gaussian(const char *op, char **arguments)
+{
+    ibz_vec_2_t a, b, r;
+    if (strcmp(op, "gmul") != 0 && strcmp(op, "ggcd") != 0)
+        return 0;
+    decode(&a.v[0], arguments[0]);
+    decode(&a.v[1], arguments[1]);
+    decode(&b.v[0], arguments[2]);
+    decode(&b.v[1], arguments[3]);
+    if (strcmp(op, "gmul") == 0)
+        ibz_vec_2_gaussian_mul(&r, &a, &b);
+    else
+        ibz_vec_2_gaussian_gcd(&r, &a, &b);
+    print_values(r.v, 2);
+    return 1;
+}
+
+static int
+lattice_membership(const char *op, char **arguments)
+{
+    quat_lattice_t lattice;
+    quat_alg_elem_t x;
+    ibz_vec_4_t coordinates;
+    ibz_t content;
+    if (strcmp(op, "lcontains") != 0 && strcmp(op, "primitive") != 0)
+        return 0;
+    decode(&lattice.denom, arguments[0]);
+    decode_matrix(&lattice.basis, arguments + 1);
+    decode_element(&x, arguments + 17);
+    if (strcmp(op, "lcontains") == 0) {
+        printf("%d ", quat_lattice_contains(&coordinates, &lattice, &x));
+    } else {
+        quat_alg_make_primitive(&coordinates, &content, &x, &lattice);
+        print_ibz(&content);
+        printf(" ");
+    }
+    print_values(coordinates.v, 4);
+    return 1;
+}
+
+static void
 special(const char *op, char **arguments)
 {
     ibz_t a, b, r;
@@ -823,7 +922,8 @@ special(const char *op, char **arguments)
     } else {
         if (!fixed_point(op, arguments) && !lattice(op, arguments) && !gram(op, arguments) && !dual(op, arguments) &&
             !gaussian(op, arguments) && !algebra_element(op, arguments) && !algebra_vector(op, arguments) &&
-            !algebra_matrix(op, arguments) && !number_theory(op, arguments))
+            !algebra_matrix(op, arguments) && !dim2_matrix(op, arguments) && !dim2_gaussian(op, arguments) &&
+            !lattice_membership(op, arguments) && !number_theory(op, arguments))
             unary(op, arguments);
         return;
     }

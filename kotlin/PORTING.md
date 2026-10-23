@@ -1402,3 +1402,32 @@ Remaining milestone 6 work: lattices (`lattice.c`, `dim2.c`), then ideals and
 the `lll_applications.c` reductions. Everything remains variable-time and
 without expert review. No public ABI, wire-format, dependency or toolchain
 changes.
+
+## Quaternion decision 2026-10-21: lattice membership, 2x2 matrices and Gaussian integers
+
+[`ADR 0028`](adr/0028-lattice-membership-and-dim2.md) ports the
+production-reachable subset of the pinned `lattice.c` and `dim2.c`:
+
+- `QuaternionLattice.coordinatesOf` (`quat_lattice_contains`) and
+  `QuaternionElement.primitiveIn` (`quat_alg_make_primitive`);
+- 2x2 `evaluate2x2`, `times2x2`, `adjugate2x2`, `inverse2x2Mod` and
+  `normalized2x2`;
+- `gaussianProduct` and `gaussianGcd`.
+
+Each keeps C's operation order, so values and `ibz_t` bit lengths match. C's
+assertions become preconditions. Test-only helpers and the lattice functions
+without a production caller yet are not ported;
+`quat_lattice_sample_from_ball` moves to the ideal slice with the Gram matrix
+and parallelogram bound it needs.
+
+`tools/generate_dim2_lattice_vectors.py` independently models 272 records.
+`checkIbzReference` now checks 3261 records against pinned C, adding the pinned
+`dim2.c` and `lattice.c`. Structure tests bring coverage to 100%. Nine retained
+`Dim2LatticeBenchmark` cases are checked against `BigInteger`, so the smoke
+inventory changes from 349 to 358.
+
+Remaining milestone 6 work: ideals and the `lll_applications.c`, `qlapoty.c`
+and `stdorder.c` code built on them. Everything remains variable-time and
+without expert review. No public ABI, wire-format, dependency or toolchain
+changes.
+

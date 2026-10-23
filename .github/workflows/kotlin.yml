@@ -285,6 +285,10 @@ jobs:
               workloads[f"QuaternionAlgebraBenchmark.{operation}"] = {
                   "parameterSet": ("NIST_I", "NIST_III", "NIST_V"),
               }
+          for operation in ("gaussianGcd", "makePrimitive", "inverse2x2Mod"):
+              workloads[f"Dim2LatticeBenchmark.{operation}"] = {
+                  "parameterSet": ("NIST_I", "NIST_III", "NIST_V"),
+              }
           for operation in ("coefficient", "doublePoint", "differentialAdd", "multiply",
                             "threePointMultiply", "biscalarMultiply", "deterministicDifference",
                             "referenceSquareRoot", "sharedDifference"):

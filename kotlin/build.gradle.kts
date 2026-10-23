@@ -127,6 +127,7 @@ spotless {
             "src/commonTest/kotlin/ch/trancee/sqisign/quaternion/DualVectors.kt",
             "src/commonTest/kotlin/ch/trancee/sqisign/quaternion/GaussianVectors.kt",
             "src/commonTest/kotlin/ch/trancee/sqisign/quaternion/AlgebraVectors.kt",
+            "src/commonTest/kotlin/ch/trancee/sqisign/quaternion/Dim2LatticeVectors.kt",
             "src/commonTest/kotlin/ch/trancee/sqisign/ec/PairingVectors.kt",
             "src/commonTest/kotlin/ch/trancee/sqisign/ec/BasisChangeVectors.kt",
             "src/commonTest/kotlin/ch/trancee/sqisign/ec/IsogenyVectors.kt",
@@ -182,6 +183,7 @@ tasks.withType<dev.detekt.gradle.Detekt>().configureEach {
     exclude("**/DualVectors.kt")
     exclude("**/GaussianVectors.kt")
     exclude("**/AlgebraVectors.kt")
+    exclude("**/Dim2LatticeVectors.kt")
     exclude("**/PairingVectors.kt")
     exclude("**/BasisChangeVectors.kt")
     exclude("**/IsogenyVectors.kt")

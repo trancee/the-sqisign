@@ -51,6 +51,8 @@ REFERENCE_FILES = {
     "src/quaternion/ref/lvlx/algebra.c": "33f0fa9d090e00978f181a3e55460119bf5a9fae19e99413a93f31af9e6e798a",
     "src/quaternion/ref/lvlx/finit.c": "d7944e6019a4859943e3b0e7e90916935fd6b21f0381b79be0e38d34bfda8d5b",
     "src/quaternion/ref/lvlx/dim4.c": "797447db036a95a100e3f8f28fbfc8e794a0a8a1dd39d1b7ecfbd14a0a2f781e",
+    "src/quaternion/ref/lvlx/dim2.c": "5c85f4d579f6f1f962ea657f08268f174ade22160799fb61303966727db9b73c",
+    "src/quaternion/ref/lvlx/lattice.c": "c0b856a89743ee1db266960d487b10863bbde3bdf8c1518487b25c2e1261fb1b",
     "src/quaternion/ref/lvlx/internal_quaternion_headers/lll.h": "f44c0b27d3ae6e53a25583dc8650c0bc06ac85b8305223d065029027c38f1917",
     "src/gf/ref/p324_3/fp_p324_3.c": "0810ab0dbb109197a511c84334b408d889ffbb2085cfde25fa448d35d7066b00",
     "src/gf/ref/p324_3/fp_p324_3_64.inc": "b6e96fc9537e81207656a0165f30b1150433b83db39a2a7477dfe88f1441a0cc",
