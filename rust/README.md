@@ -6,7 +6,8 @@ and the reasons C stays the default backend are in
 [ADR 0004](../kotlin/docs/adr/0004-rust-port-opt-in-backend.md).
 
 > [!WARNING]
-> Work in progress, not reviewed. Do not use it to protect real data.
+> Work in progress, not reviewed. Do not use it to protect real data. The scope, claims and evidence for the required
+> expert review are in [`REVIEW.md`](REVIEW.md).
 
 ## Status
 
