@@ -29,28 +29,53 @@ fn field(k: &str, entry: &str) -> Option<String> {
 
 /// The entries of `KAT/<name>`, checking `count` and `smlen`.
 pub fn load(name: &str) -> Vec<Kat> {
+    entries(name, usize::MAX)
+}
+
+/// The first `n` entries of `KAT/<name>`, reading no further than needed
+/// (the files are large for interpreted runs such as Miri).
+pub fn entries(name: &str, n: usize) -> Vec<Kat> {
+    use std::io::BufRead;
     let path = format!("{}/../../../KAT/{name}", env!("CARGO_MANIFEST_DIR"));
-    let text = std::fs::read_to_string(&path).expect("KAT file");
+    let file = std::fs::File::open(&path).expect("KAT file");
     let mut out = Vec::new();
-    for entry in text.split("\n\n").filter(|e| e.contains("count = ")) {
-        let count: usize = field("count = ", entry)
-            .expect("count")
-            .parse()
-            .expect("count");
-        assert_eq!(count, out.len(), "KAT entries in order");
-        let kat = Kat {
-            seed: unhex(&field("seed = ", entry).expect("seed")),
-            msg: unhex(&field("msg = ", entry).expect("msg")),
-            pk: unhex(&field("pk = ", entry).expect("pk")),
-            sk: unhex(&field("sk = ", entry).expect("sk")),
-            sm: unhex(&field("sm = ", entry).expect("sm")),
-        };
-        let smlen: usize = field("smlen = ", entry)
-            .expect("smlen")
-            .parse()
-            .expect("smlen");
-        assert_eq!(kat.sm.len(), smlen, "smlen");
-        out.push(kat);
+    let mut entry = String::new();
+    let mut lines = std::io::BufReader::new(file).lines();
+    while out.len() < n {
+        let line = lines.next().map(|l| l.expect("KAT line"));
+        if line.as_deref().is_some_and(|l| !l.trim().is_empty()) {
+            entry.push_str(&line.expect("a line"));
+            entry.push('\n');
+            continue;
+        }
+        if entry.contains("count = ") {
+            out.push(parse(&entry, out.len()));
+        }
+        entry.clear();
+        if line.is_none() {
+            break;
+        }
     }
     out
+}
+
+fn parse(entry: &str, index: usize) -> Kat {
+    let count: usize = field("count = ", entry)
+        .expect("count")
+        .parse()
+        .expect("count");
+    assert_eq!(count, index, "KAT entries in order");
+    let kat = Kat {
+        seed: unhex(&field("seed = ", entry).expect("seed")),
+        msg: unhex(&field("msg = ", entry).expect("msg")),
+        pk: unhex(&field("pk = ", entry).expect("pk")),
+        sk: unhex(&field("sk = ", entry).expect("sk")),
+        sm: unhex(&field("sm = ", entry).expect("sm")),
+    };
+    let smlen: usize = field("smlen = ", entry)
+        .expect("smlen")
+        .parse()
+        .expect("smlen");
+    assert_eq!(kat.sm.len(), smlen, "smlen");
+    kat
 }
