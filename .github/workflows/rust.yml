@@ -87,10 +87,20 @@ jobs:
             os: ubuntu-24.04
           - platform: macos-aarch64
             os: macos-15
+          # 32-bit Android ABIs; a static library needs no NDK linker.
+          - platform: android-armeabi-v7a
+            os: ubuntu-24.04
+            target: armv7-linux-androideabi
+          - platform: android-x86
+            os: ubuntu-24.04
+            target: i686-linux-android
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v5
       - name: Install pinned toolchain
         run: rustup toolchain install
+      - name: Add target
+        if: matrix.target
+        run: rustup target add ${{ matrix.target }}
       - name: Check
-        run: python3 scripts/ct_branches.py
+        run: python3 scripts/ct_branches.py ${{ matrix.target && format('--target {0}', matrix.target) || '' }}
