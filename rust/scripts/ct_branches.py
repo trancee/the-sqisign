@@ -7,7 +7,7 @@ with the pinned toolchain's `llvm-objdump`, and attributes every conditional
 branch to its source line. A branch on a line of `GATED` fails the check.
 
 Usage (from `rust/`): `python3 scripts/ct_branches.py [--target TRIPLE]`.
-Recognises AArch64 and x86-64 code only.
+Recognises AArch64, 32-bit ARM/Thumb and x86 code.
 """
 
 import argparse
@@ -37,7 +37,22 @@ GATED = [
     "quat/lll/zi_inner.rs",
 ]
 
-BRANCH = re.compile(r"^\s*[0-9a-f]+:\s+(b\.\w+|cbn?z|tbn?z|j(?!mp\b)[a-z]+)\s")
+# Loops the compiler keeps rolled on a target, by triple prefix: the back-edge
+# (a backward conditional branch on the public loop counter) is attributed to
+# the body. Accepted only here, after inspecting the disassembly.
+BACK_EDGES = {
+    # Limb loop: compares the byte offset with the constant length.
+    "armv7": ["mp/mod.rs::cswap"],
+}
+
+# AArch64 `b.cond`, `cbz`, `tbz`; ARM/Thumb `bcond` (with `.w`/`.n` width;
+# a bare `b.w` is unconditional); x86 `jcc`.
+BRANCH = re.compile(
+    r"^\s*[0-9a-f]+:\s+(cbn?z|tbn?z"
+    r"|b\.?(eq|ne|cs|hs|cc|lo|mi|pl|vs|vc|hi|ls|ge|lt|gt|le)(\.[wn])?"
+    r"|j(?!mp\b)[a-z]+)\s"
+)
+TARGET = re.compile(r"^\s*([0-9a-f]+):\s+\S+\s+(?:\S+,\s*)?0x([0-9a-f]+)\b")
 LOCATION = re.compile(r"^; (.*\.rs):(\d+)")
 LOOP = re.compile(r"^\s*(for|while|loop)\b")
 
@@ -58,15 +73,28 @@ def function_lines(path, name):
     sys.exit(f"ct_branches: no fn {name} in {path}")
 
 
+def spec_lines(spec):
+    """The path and lines (`None`: whole file) of a `GATED` entry."""
+    rel, _, name = spec.partition("::")
+    path = SRC / rel
+    if not path.is_file():
+        sys.exit(f"ct_branches: no file {path}")
+    return str(path), function_lines(path, name) if name else None
+
+
 def gated_lines():
-    gated = {}
-    for spec in GATED:
-        rel, _, name = spec.partition("::")
-        path = SRC / rel
-        if not path.is_file():
-            sys.exit(f"ct_branches: no file {path}")
-        gated[str(path)] = function_lines(path, name) if name else None
-    return gated
+    return dict(spec_lines(spec) for spec in GATED)
+
+
+def back_edge_lines(triple):
+    """The `(path, line)` pairs whose backward branches are accepted."""
+    lines = set()
+    for prefix, specs in BACK_EDGES.items():
+        if triple.startswith(prefix):
+            for spec in specs:
+                path, numbers = spec_lines(spec)
+                lines |= {(path, n) for n in numbers}
+    return lines
 
 
 def build(target):
@@ -108,6 +136,7 @@ def main():
     args = parser.parse_args()
 
     gated = gated_lines()
+    back_edges = back_edge_lines(args.target or rustc("--print", "host-tuple"))
     lib = build(args.target)
     disassembly = subprocess.run(
         [objdump(), "-d", "-l", "--no-show-raw-insn", lib],
@@ -117,6 +146,7 @@ def main():
     ).stdout
 
     hits = collections.Counter()
+    accepted = 0
     checked = collections.Counter()
     location = None
     for line in disassembly.splitlines():
@@ -130,7 +160,12 @@ def main():
             lines = gated[location[0]]
             if lines is None or location[1] in lines:
                 checked[location[0]] += 1
-                if BRANCH.match(line):
+                if not BRANCH.match(line):
+                    continue
+                jump = TARGET.match(line)
+                if location in back_edges and jump and int(jump[2], 16) < int(jump[1], 16):
+                    accepted += 1
+                else:
                     hits[location] += 1
 
     missing = [os.path.relpath(f, ROOT) for f in gated if not checked[f]]
@@ -138,6 +173,8 @@ def main():
         sys.exit("ct_branches: no code attributed to " + ", ".join(missing))
     for (path, number), count in sorted(hits.items()):
         print(f"{os.path.relpath(path, ROOT)}:{number}: {count} conditional branch(es)")
+    if accepted:
+        print(f"ct_branches: {accepted} accepted loop back-edge(s) (BACK_EDGES)")
     if hits:
         sys.exit(f"ct_branches: {len(hits)} gated line(s) branch in {lib}")
     print(f"ct_branches: no conditional branch on gated lines in {lib}")
