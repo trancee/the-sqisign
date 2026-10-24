@@ -2,13 +2,15 @@ name: Rust
 
 on:
   push:
-    branches: ["**"]
+    branches: [main]
     paths:
       - "rust/**"
       - "src/**"
       - "include/**"
       - "KAT/**"
       - ".github/workflows/rust.yml"
+      # Documentation does not affect the build.
+      - "!rust/**/*.md"
   pull_request:
     paths:
       - "rust/**"
@@ -16,6 +18,8 @@ on:
       - "include/**"
       - "KAT/**"
       - ".github/workflows/rust.yml"
+      # Documentation does not affect the build.
+      - "!rust/**/*.md"
   workflow_dispatch:
 
 permissions:
