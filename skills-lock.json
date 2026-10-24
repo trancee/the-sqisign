@@ -235,6 +235,12 @@
       "skillPath": "maven-central-publishing/SKILL.md",
       "computedHash": "829e1f50ab1470d62d40154508da8d5b9a85beaa7637b563c97521f79c842014"
     },
+    "miri": {
+      "source": "trancee/skills",
+      "sourceType": "github",
+      "skillPath": "miri/SKILL.md",
+      "computedHash": "11a2b16e34b32bb02509d94d42ef6e3b6dddc301b07725bdd15013691e1239c5"
+    },
     "nist-cavp": {
       "source": "trancee/skills",
       "sourceType": "github",
