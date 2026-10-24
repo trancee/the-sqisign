@@ -1,8 +1,9 @@
 name: Kotlin
 
+# Branches are tested through their pull request; pushes run only on main, so a PR commit runs once.
 on:
   push:
-    branches: ["**"]
+    branches: [main]
     paths:
       - "kotlin/**"
       - "src/**"
@@ -12,6 +13,11 @@ on:
       - "KAT/**"
       - "rust/**"
       - ".github/workflows/kotlin.yml"
+      # Documentation does not affect the build; Module.md does (Dokka).
+      - "!kotlin/**/*.md"
+      - "!kotlin/docs/**"
+      - "!rust/**/*.md"
+      - "kotlin/Module.md"
   pull_request:
     paths:
       - "kotlin/**"
@@ -22,6 +28,11 @@ on:
       - "KAT/**"
       - "rust/**"
       - ".github/workflows/kotlin.yml"
+      # Documentation does not affect the build; Module.md does (Dokka).
+      - "!kotlin/**/*.md"
+      - "!kotlin/docs/**"
+      - "!rust/**/*.md"
+      - "kotlin/Module.md"
   workflow_dispatch:
 
 permissions:
