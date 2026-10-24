@@ -60,7 +60,7 @@ is pinned in [`rust-toolchain.toml`](rust-toolchain.toml). Large precomputed tab
 | 2 | The C ABI's `unsafe` code interpreted by Miri on a pinned nightly: size queries, invalid sets, length-checked reads in verification, a failing `randombytes` (seed dropped on the error path) and clearing; run locally, also a full KAT verification through raw pointers and a panic unwinding through the seed's drop to an error (see Gaps) | `crates/sqisign-capi/tests/miri.rs`, CI job `Miri (C ABI)` |
 | 1, 2 | The Kotlin test suites pass on the Rust backend: JVM on Linux, macOS and Windows, macOS, iOS Simulator, Android emulator and an `arm64-v8a` phone | `.github/workflows/kotlin.yml` job `rust-backend`, [`README.md`](README.md#status) |
 | 3 | Optimisation barriers on the constant-time masks, as C's `ct_barrier_*`; the shipped build (fat LTO, one codegen unit) has no conditional branch in the gated constant-time code of `gf`, `mp` and `quat/lll`, checked by disassembly on `aarch64`, `x86_64`, `armv7` and `i686` | [`scripts/ct_branches.py`](scripts/ct_branches.py), CI job `Constant-time branches` |
-| 3 | dudect-style timing test (Welch's t, fixed against random inputs) of `gf` and the `ibz_ct_*` layer, with the vendor C field code as baseline, run on an Apple M1 and on a Cortex-A78 and Cortex-A55 Android phone (see Gaps) | `crates/sqisign/examples/dudect.rs` |
+| 3 | dudect-style timing test (Welch's t, fixed against random inputs) of `gf` and the `ibz_ct_*` layer, with the vendor C field code as baseline, run on an Apple M1 and on 14 Arm and Qualcomm Kryo cores of nine Android devices (see Gaps) | `crates/sqisign/examples/dudect.rs` |
 
 ## Reproducing
 
@@ -82,26 +82,49 @@ From `kotlin/`, `./gradlew jvmTest -Psqisign.backend=rust` runs the Kotlin suite
 ## Gaps known before review
 
 - **Timing: signals in the field operations, shared with C.** The dudect example (100,000 samples per operation and
-  parameter set, shipped profile) ran on an Apple M1 (macOS; also with `PSTATE.DIT` set, field tests only) and on a
-  Nothing Phone (1) (Android 15): `arm64-v8a` pinned to a Cortex-A78 and to a Cortex-A55, `armeabi-v7a` on the A78. On
-  64-bit targets it repeats the field tests on the vendor C `ref` build as a platform baseline. The `null` control
-  (random against random) stayed below 4.5 everywhere (largest 2.27), so the statistics are sound.
+  parameter set, shipped profile) ran on an Apple M1 (macOS; also with `PSTATE.DIT` set, field tests only) and on
+  Android devices, each run pinned to one core:
+
+  | Device (SoC) | Android | Cores measured (`arm64-v8a` unless noted) |
+  |---|---|---|
+  | Nothing Phone (1) (SM7325) | 15 | Cortex-A78, Cortex-A55; `armeabi-v7a` on the A78 |
+  | Nothing Phone (2) (SM8475) | 16 | Cortex-A710, Cortex-A510, each also with `PSTATE.DIT` set |
+  | Samsung Galaxy S10e (SM8150) | 12 | Kryo 485 Gold, Kryo 485 Silver |
+  | Xiaomi POCO F1 (SDM845) | 10 | Kryo 385 Gold, Kryo 385 Silver |
+  | Xiaomi Mi Note 3 (SDM660) | 9 | Kryo 260 Gold, Kryo 260 Silver |
+  | realme RMX3710 (Helio G88) | 15 | Cortex-A75 |
+  | OPPO CPH2385 (Helio G35) | 14 | Cortex-A53 (in order) |
+  | Samsung Galaxy XCover 4 (Exynos 7570), 32-bit only | 9 | Cortex-A53, `armeabi-v7a` |
+  | Xiaomi TV box (Amlogic S905X5M), 32-bit only | 14 | Cortex-A55, `armeabi-v7a` |
+
+  On 64-bit targets the example repeats the field tests on the vendor C `ref` build as a platform baseline. The `null`
+  control (random against random) stayed below 4.5 everywhere (largest 2.27), so the statistics are sound.
   - `ibz_ct_*` (`ct_lt_mask`, `ct_highmul`, `ct_shift` with secret value or amount, `cswap`) and `fp select`: no
-    uncropped signal on any core (largest 1.95); cropped-only flags of at most 57.0 (A55 `fp select`).
-  - `fp add`, `sub`, `mul` (class 0 zero, or one of two fixed dense values): on the A78, every uncropped |t| is below
-    4.5 for Rust and C, in 64-bit and 32-bit. On the M1 (with or without DIT) and the A55, Rust and C both show
-    uncropped signals of the same size (largest 46.3 for Rust and 49.8 for C, both on the M1; on the A55, dense add
-    and subtract up to 7.4 for Rust and 11.1 for C). On the A55, multiplying by zero is faster (Rust t = −26 to −49,
-    C −44 to −49), and `fp2 inv` and `sqrt`, whose fixed inputs contain zero, inherit it (up to −68). The A78 and A55
-    do not advertise DIT.
+    uncropped signal on any core (largest 4.35, Kryo 485 Silver; elsewhere below 4.0); cropped-only flags of at most
+    57.0 (A55 `fp select`).
+  - Multiplying by zero (class 0 zero) is faster, in Rust and C alike, on the A55 (Rust t = −26 to −49, C −44 to
+    −49), the A510, A53, A75 and every Kryo core except the Kryo 485 Gold (largest −138 for Rust and −166 for C, Kryo
+    260 Gold); `fp2 inv` and `sqrt`, whose fixed inputs contain zero, inherit it (up to −235, A75). The A78, A710 and
+    Kryo 485 Gold, and both 32-bit runs on the A53 and A55, show no such signal (|t| below 4.5).
+  - Dense inputs (class 0 one of two fixed dense values): on the M1 (with or without DIT), Rust and C both show
+    uncropped signals of the same size (largest 46.3 for Rust and 49.8 for C). On the Android cores they are small
+    and scattered over add, subtract and multiply for both implementations (Rust up to 8.1, C up to 11.1; the A710
+    flags only C `fp mul dense`). One Rust `p664 fp sub dense` run on the Kryo 485 Gold gave −32.0 and did not repeat:
+    three reruns on another core of the same cluster gave +4.7, +5.8 and +6.1, with C `p500 fp sub dense` up to 5.4.
+  - `PSTATE.DIT` is advertised only by the SM8475 (A710, A510); the DIT runs used a local copy of the example that sets
+    it first. With it set, the zero-multiply signal on the A510 disappears for Rust and C (largest uncropped |t| 3.3 for
+    Rust, 4.8 for C dense subtract); on the A710 the C dense-multiply signal stays (−11.1). On the M1, DIT did not
+    remove the field signals.
   - Cropped at the 95th percentile, most field tests flag on every core for both implementations, with either sign;
     the standard-deviation ratio of the classes printed next to it is mostly near 1.
 
   The field code has no secret-dependent branches (gated, below), and the vendor C, built branch-free from the same
-  formulas, shows the same signals; their cause (operand-dependent timing in the cores, beyond what DIT covers) is not
-  established. They are a property of the platforms that the port shares with C, not a regression against it. The
-  example measures the field and `ibz_ct_*` operations, not the `ec`, `hd` and `quat/lll` code built on them, and was
-  not run on `x86_64` or `i686`. Absence of a signal is not proof of constant time.
+  formulas, shows the same signals. On the A510, setting DIT removes them, which points to operand-dependent timing in
+  the core; elsewhere their cause is not established. They are a property of the platforms that the port shares with C,
+  not a regression against it. The library does not set DIT (it would need `unsafe` assembly, and the M1 and A710 show
+  signals that DIT does not remove); a caller on a DIT-capable core can set it per thread. The example measures the
+  field and `ibz_ct_*` operations, not the `ec`, `hd` and `quat/lll` code built on them, and was not run on `x86_64` or
+  `i686`. Absence of a signal is not proof of constant time.
 - **Branch check limited to gated code and branches.** `scripts/ct_branches.py` checks the files and functions listed in
   its `GATED` table on `aarch64`, `x86_64`, `armv7` and `i686` (the four Android ABIs; CI runs all four). On `armv7` the
   limb loop of `Ibz::cswap` stays rolled, and its back-edge, a backward branch on the byte offset against the constant
@@ -140,7 +163,7 @@ They are not the S6 review. Their findings and the resolutions on this branch:
 | One unresolved mutant in `partial_xgcd_lehmer` at the threshold | Killed by a threshold test against C (ADR 0004 item 4) |
 | The shipped build branched on constant-time masks (`gf` add and subtract, `quat/lll` selection, more on `x86_64`) | Optimisation barriers as C `ct_barrier_*`; disassembly check in CI |
 | Source-level branches in `ibz_extract_i64` and the 2x2 Gram step | Branch-free |
-| No measured timing analysis | dudect example with control and vendor C baseline, on an Apple M1 and an Android phone; results under Gaps |
+| No measured timing analysis | dudect example with control and vendor C baseline, on an Apple M1 and 14 cores of nine Android devices; results under Gaps |
 
 ## Recording the result
 
