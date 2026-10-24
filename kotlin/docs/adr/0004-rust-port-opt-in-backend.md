@@ -191,11 +191,12 @@ an expert review has accepted the Rust code, it must not replace the reviewed C 
 
 16. Constant-time masks pass through an optimisation barrier where C applies `ct_barrier_*` (`mp_ct.h`), and in the
     field add, subtract, select and swap masks, which C leaves to its compiler. The barrier is `core::hint::black_box`,
-    the only one available without `unsafe`, so it is best effort; it costs about 6–10 % in key generation, signing
-    and verification. `rust/scripts/ct_branches.py` builds the shipped configuration (fat LTO, one codegen unit),
+    the only one available without `unsafe`, so it is best effort; it costs about 6–10 % in key generation, signing and
+    verification. `rust/scripts/ct_branches.py` builds the shipped configuration (fat LTO, one codegen unit),
     disassembles it and fails on any conditional branch attributed to the constant-time code of `gf`, `mp` and
-    `quat/lll`; CI runs it on `aarch64` and `x86_64`. A dudect-style example (`examples/dudect.rs`) measures the
-    field and `ibz_ct_*` operations; its results and limits are in [`rust/REVIEW.md`](../../../rust/REVIEW.md#gaps-known-before-review).
+    `quat/lll`; CI runs it on `aarch64`, `x86_64`, `armv7` and `i686`. A dudect-style example (`examples/dudect.rs`)
+    measures the field and `ibz_ct_*` operations; its results and limits are in
+    [`rust/REVIEW.md`](../../../rust/REVIEW.md#gaps-known-before-review).
 
 ## Alternatives
 
@@ -209,8 +210,9 @@ an expert review has accepted the Rust code, it must not replace the reviewed C 
 - A port can reproduce test vectors and still differ from the C code on rare inputs. Differential tests on random and
   boundary inputs reduce this; they do not prove equivalence.
 - Constant-time behavior of the Rust field code depends on the compiler. Barriers and the CI branch check (item 16)
-  cover `aarch64` and `x86_64`, not 32-bit targets or memory indices; the timing measurements cover one machine. The
-  expert review judges whether that suffices.
+  cover the four Android ABIs and the 64-bit desktop targets, not memory indices; the timing measurements cover an
+  Apple M1 and one Android phone, where the field operations show input-dependent timing on some cores in Rust and in
+  the vendor C alike. The expert review judges whether that suffices.
 - Signing is variable-time in the C code (lattice reduction); the port inherits that.
 - The port also inherits C behaviour on inputs outside the documented domain, for example `pairing_dlog_2_tate`
   with `e = 1` can return logarithms that do not satisfy the relation. The differential tests pin this behaviour; the
