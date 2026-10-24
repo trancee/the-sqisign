@@ -58,8 +58,8 @@ is pinned in [`rust-toolchain.toml`](rust-toolchain.toml). Large precomputed tab
 | 2 | Every single-bit flip of KAT signatures, wrong keys and curves, truncated and malformed inputs | `crates/sqisign/tests/verify_reject.rs`, `crates/sqisign-capi/tests/capi.rs` |
 | 2 | `#![forbid(unsafe_code)]` | `crates/sqisign/src/lib.rs` |
 | 1, 2 | The Kotlin test suites pass on the Rust backend: JVM on Linux, macOS and Windows, macOS, iOS Simulator, Android emulator and an `arm64-v8a` phone | `.github/workflows/kotlin.yml` job `rust-backend`, [`README.md`](README.md#status) |
-| 3 | Optimisation barriers on the constant-time masks, as C's `ct_barrier_*`; the shipped build (fat LTO, one codegen unit) has no conditional branch in the gated constant-time code of `gf`, `mp` and `quat/lll`, checked by disassembly on `aarch64` and `x86_64` | [`scripts/ct_branches.py`](scripts/ct_branches.py), CI job `Constant-time branches` |
-| 3 | dudect-style timing test (Welch's t, fixed against random inputs) of `gf` and the `ibz_ct_*` layer, run on an Apple M1 (see Gaps) | `crates/sqisign/examples/dudect.rs` |
+| 3 | Optimisation barriers on the constant-time masks, as C's `ct_barrier_*`; the shipped build (fat LTO, one codegen unit) has no conditional branch in the gated constant-time code of `gf`, `mp` and `quat/lll`, checked by disassembly on `aarch64`, `x86_64`, `armv7` and `i686` | [`scripts/ct_branches.py`](scripts/ct_branches.py), CI job `Constant-time branches` |
+| 3 | dudect-style timing test (Welch's t, fixed against random inputs) of `gf` and the `ibz_ct_*` layer, with the vendor C field code as baseline, run on an Apple M1 and on a Cortex-A78 and Cortex-A55 Android phone (see Gaps) | `crates/sqisign/examples/dudect.rs` |
 
 ## Reproducing
 
@@ -70,7 +70,7 @@ cargo test --release                # KATs and differential tests
 cargo clippy --all-targets -- -D warnings
 cargo llvm-cov -p sqisign --fail-under-lines 100 --fail-under-functions 100 --fail-under-regions 100
 cargo run --release -p sqisign --example timing -- p324 all 20
-python3 scripts/ct_branches.py      # add --target x86_64-unknown-linux-gnu for the other architecture
+python3 scripts/ct_branches.py      # add --target x86_64-unknown-linux-gnu, armv7-linux-androideabi, i686-linux-android
 CARGO_PROFILE_RELEASE_LTO=fat CARGO_PROFILE_RELEASE_CODEGEN_UNITS=1 \
   cargo run --release -p sqisign --example dudect -- 100000
 ```
@@ -79,24 +79,36 @@ From `kotlin/`, `./gradlew jvmTest -Psqisign.backend=rust` runs the Kotlin suite
 
 ## Gaps known before review
 
-- **Timing measured on one machine only.** The dudect example was run on an Apple M1 (macOS, shipped profile, three runs
-  of 100,000 samples per operation and parameter set). Uncropped, every |t| stayed below 4.5 (largest 2.84, `fp sub`).
-  Cropped at the 95th percentile, three operations exceeded it: `fp mul` on `P324_3` (class 0 = zero) in 2 of 3 runs
-  (7.52, 7.00; the third 3.95), `fp add` on `P664_17` once (6.13), and `ibz ct_shift` with a secret shift amount in 3 of
-  9 runs (largest 6.92). None of these paths branches or indexes memory on secret data: `gf/fp.rs` is gated (below), and
-  the disassembly of `shift_words` (`mp/ct.rs`) branches only on the public length, word index and stage, the amount
-  reaching only masks and register shift counts. The cause of these cropped-only signals is not known. On the M1, a
-  single fixed input repeated through a batch ran measurably faster through branch-free code, so the harness alternates
-  two fixed values (for the shift amount this halved the signal against a fixed amount of 0). The example was not run on
-  `x86_64`, on an Android device or on 32-bit targets, and it measures the field and `ibz_ct_*` operations, not the
-  `ec`, `hd` and `quat/lll` code built on them. Absence of a signal is not proof of constant time; the reviewer may want
-  longer runs on the release targets.
-- **Branch check limited to 64-bit targets and gated code.** `scripts/ct_branches.py` checks the files and functions
-  listed in its `GATED` table on `aarch64` and `x86_64`; 32-bit Android ABIs (`armeabi-v7a`, `x86`) are not analysed,
-  and memory indices are not checked. `ec` and `hd` are not gated themselves: their secret-dependent choices go
-  through `Fp::select` and `Fp::cswap`, which are. `black_box` is the barrier because the crate forbids `unsafe`
-  (C uses `volatile` or inline assembly); it is best effort, so the check runs in CI on every change. The barriers
-  cost about 6–10 % in key generation, signing and verification (`timing` example, `P324_3`, Apple M1).
+- **Timing: signals in the field operations, shared with C.** The dudect example (100,000 samples per operation and
+  parameter set, shipped profile) ran on an Apple M1 (macOS; also with `PSTATE.DIT` set, field tests only) and on a
+  Nothing Phone (1) (Android 15): `arm64-v8a` pinned to a Cortex-A78 and to a Cortex-A55, `armeabi-v7a` on the A78. On
+  64-bit targets it repeats the field tests on the vendor C `ref` build as a platform baseline. The `null` control
+  (random against random) stayed below 4.5 everywhere (largest 2.27), so the statistics are sound.
+  - `ibz_ct_*` (`ct_lt_mask`, `ct_highmul`, `ct_shift` with secret value or amount, `cswap`) and `fp select`: no
+    uncropped signal on any core (largest 1.95); cropped-only flags of at most 57.0 (A55 `fp select`).
+  - `fp add`, `sub`, `mul` (class 0 zero, or one of two fixed dense values): on the A78, every uncropped |t| is below
+    4.5 for Rust and C, in 64-bit and 32-bit. On the M1 (with or without DIT) and the A55, Rust and C both show
+    uncropped signals of the same size (largest 46.3 for Rust and 49.8 for C, both on the M1; on the A55, dense add
+    and subtract up to 7.4 for Rust and 11.1 for C). On the A55, multiplying by zero is faster (Rust t = −26 to −49,
+    C −44 to −49), and `fp2 inv` and `sqrt`, whose fixed inputs contain zero, inherit it (up to −68). The A78 and A55
+    do not advertise DIT.
+  - Cropped at the 95th percentile, most field tests flag on every core for both implementations, with either sign;
+    the standard-deviation ratio of the classes printed next to it is mostly near 1.
+
+  The field code has no secret-dependent branches (gated, below), and the vendor C, built branch-free from the same
+  formulas, shows the same signals; their cause (operand-dependent timing in the cores, beyond what DIT covers) is not
+  established. They are a property of the platforms that the port shares with C, not a regression against it. The
+  example measures the field and `ibz_ct_*` operations, not the `ec`, `hd` and `quat/lll` code built on them, and was
+  not run on `x86_64` or `i686`. Absence of a signal is not proof of constant time.
+- **Branch check limited to gated code and branches.** `scripts/ct_branches.py` checks the files and functions listed in
+  its `GATED` table on `aarch64`, `x86_64`, `armv7` and `i686` (the four Android ABIs; CI runs all four). On `armv7` the
+  limb loop of `Ibz::cswap` stays rolled, and its back-edge, a backward branch on the byte offset against the constant
+  length, is attributed to the loop body; the script accepts backward branches there and only on that target
+  (`BACK_EDGES`), after inspection. Memory indices are not checked. `ec` and `hd` are not gated themselves: their
+  secret-dependent choices go through `Fp::select` and `Fp::cswap`, which are. `black_box` is the barrier because the
+  crate forbids `unsafe` (C uses `volatile` or inline assembly); it is best effort, so the check runs in CI on every
+  change. The barriers cost about 6–10 % in key generation, signing and verification (`timing` example, `P324_3`, Apple
+  M1).
 - **Clearing is best effort.** The core clears what C clears (the PRNG seed and SHAKE256 domain streams, the
   secret-key encoding temporaries) with a store followed by `black_box`, not volatile writes. Like C, it does not
   clear the intermediate ideals, quaternions and points of key generation and signing.
@@ -121,7 +133,7 @@ They are not the S6 review. Their findings and the resolutions on this branch:
 | One unresolved mutant in `partial_xgcd_lehmer` at the threshold | Killed by a threshold test against C (ADR 0004 item 4) |
 | The shipped build branched on constant-time masks (`gf` add and subtract, `quat/lll` selection, more on `x86_64`) | Optimisation barriers as C `ct_barrier_*`; disassembly check in CI |
 | Source-level branches in `ibz_extract_i64` and the 2x2 Gram step | Branch-free |
-| No measured timing analysis | dudect example; results under Gaps |
+| No measured timing analysis | dudect example with control and vendor C baseline, on an Apple M1 and an Android phone; results under Gaps |
 
 ## Recording the result
 
