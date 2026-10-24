@@ -84,6 +84,17 @@ The CMake used is, in order of preference: `sqisign.cmakeBinDir`, the Android SD
 from `PATH`. On the host, `sqisign.hostBuildType` overrides the optimized build (`arm64` on aarch64 hosts, `ref`
 otherwise). `sqisign.hostCMakeArgs` passes extra CMake arguments to the host build.
 
+### Agent skills
+
+[`skills-lock.json`](../skills-lock.json) pins the coding-agent skills used in this repository (source and hash). The
+installed copies under `.agents/skills/` are not committed. After cloning, from the repository root and with Node.js:
+
+```sh
+npx skills experimental_install          # restore every skill in skills-lock.json
+npx skills add trancee/skills --skill X  # add skill X; commit the updated skills-lock.json
+npx skills update                        # update installed skills to their latest versions
+```
+
 ### Rust backend (opt-in, unreviewed)
 
 `-Psqisign.backend=rust` builds every native library from the Rust port in `../rust` instead of the vendor C code
