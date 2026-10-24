@@ -3,6 +3,7 @@
 //! test-only KAT library.
 
 #[path = "../../sqisign/tests/support/kat.rs"]
+#[allow(dead_code)] // shared with the other test files, which use `load`
 mod kat;
 
 use core::ptr;
@@ -18,7 +19,7 @@ const SETS: [(i32, &str); 3] = [
 /// The KAT entry `i` of `file` and its public key, secret key and
 /// signature sizes.
 fn first(file: &str, i: usize) -> (kat::Kat, [usize; 3]) {
-    let k = kat::load(file).swap_remove(i);
+    let k = kat::entries(file, i + 1).swap_remove(i);
     let n = [k.pk.len(), k.sk.len(), k.sm.len() - k.msg.len()];
     (k, n)
 }

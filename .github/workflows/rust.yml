@@ -104,3 +104,21 @@ jobs:
         run: rustup target add ${{ matrix.target }}
       - name: Check
         run: python3 scripts/ct_branches.py ${{ matrix.target && format('--target {0}', matrix.target) || '' }}
+
+  # Undefined behaviour in the C ABI, the only `unsafe` shipped, interpreted by Miri on a pinned nightly. The tests
+  # that run the protocol take an hour or more each interpreted and are ignored under Miri (`tests/miri.rs`).
+  miri:
+    name: Miri (C ABI)
+    runs-on: ubuntu-24.04
+    env:
+      MIRI_TOOLCHAIN: nightly-2026-10-23
+      # The tests read a KAT entry from `../KAT`.
+      MIRIFLAGS: -Zmiri-disable-isolation
+    steps:
+      - uses: actions/checkout@v5
+      - name: Install Miri
+        run: rustup toolchain install "$MIRI_TOOLCHAIN" --profile minimal --component miri,rust-src
+      - name: Set up Miri
+        run: cargo "+$MIRI_TOOLCHAIN" miri setup
+      - name: Test
+        run: cargo "+$MIRI_TOOLCHAIN" miri test --locked -p sqisign-capi --test miri
