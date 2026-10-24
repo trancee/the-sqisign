@@ -9,7 +9,8 @@ Notation R/X/D/O as defined there.
   Design and evidence rules: [ADR 0004](../kotlin/docs/adr/0004-rust-port-opt-in-backend.md). C stays the release
   backend until an expert review (S6).
 - Toolchain: pinned in [`rust-toolchain.toml`](rust-toolchain.toml) (rustup installs it on first use); a C11 compiler
-  with `__int128` (Clang/GCC; X MSVC) for the reference crate; `cargo-llvm-cov` for coverage.
+  with `__int128` (Clang/GCC; X MSVC) for the reference crate; `cargo-llvm-cov` for coverage; Miri on
+  `nightly-2026-10-23` (`rustup toolchain install nightly-2026-10-23 --component miri,rust-src`), pinned in CI.
 - Layout:
   - `crates/sqisign`: the port. `src/gf`: GF(p)/GF(p^2) (sat64 representation, `const fn` constants). Ported modules
     follow the vendor names (`ec`, `hd`, `verification`, `mp`, `quaternion`, `id2iso`, `signature`).
@@ -41,6 +42,7 @@ Run from `rust/`.
 | Tests | `cargo test` | Rust |
 | Coverage | `cargo llvm-cov -p sqisign --fail-under-lines 100 --fail-under-functions 100 --fail-under-regions 100` | Rust |
 | Constant-time branches | `python3 scripts/ct_branches.py` (and `--target` `x86_64-unknown-linux-gnu`, `armv7-linux-androideabi`, `i686-linux-android`); new constant-time code => add to its `GATED` | Rust |
+| Miri | `MIRIFLAGS=-Zmiri-disable-isolation cargo +nightly-2026-10-23 miri test -p sqisign-capi --test miri`; C ABI changes => extend `tests/miri.rs`, protocol-length tests `cfg_attr(miri, ignore)` | Rust |
 | Secret scan | `gitleaks git --redact --exit-code 1 ..` | Secret scan |
 
 Coverage scope: `crates/sqisign` only; `sqisign-reference` is test infrastructure. Branch coverage needs nightly, so

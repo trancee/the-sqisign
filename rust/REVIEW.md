@@ -57,6 +57,7 @@ is pinned in [`rust-toolchain.toml`](rust-toolchain.toml). Large precomputed tab
 | 1, 2 | 100 % line, function and region coverage of `crates/sqisign` | CI job `Format, lint, coverage` |
 | 2 | Every single-bit flip of KAT signatures, wrong keys and curves, truncated and malformed inputs | `crates/sqisign/tests/verify_reject.rs`, `crates/sqisign-capi/tests/capi.rs` |
 | 2 | `#![forbid(unsafe_code)]` | `crates/sqisign/src/lib.rs` |
+| 2 | The C ABI's `unsafe` code interpreted by Miri on a pinned nightly: size queries, invalid sets, length-checked reads in verification, a failing `randombytes` (seed dropped on the error path) and clearing; run locally, also a full KAT verification through raw pointers and a panic unwinding through the seed's drop to an error (see Gaps) | `crates/sqisign-capi/tests/miri.rs`, CI job `Miri (C ABI)` |
 | 1, 2 | The Kotlin test suites pass on the Rust backend: JVM on Linux, macOS and Windows, macOS, iOS Simulator, Android emulator and an `arm64-v8a` phone | `.github/workflows/kotlin.yml` job `rust-backend`, [`README.md`](README.md#status) |
 | 3 | Optimisation barriers on the constant-time masks, as C's `ct_barrier_*`; the shipped build (fat LTO, one codegen unit) has no conditional branch in the gated constant-time code of `gf`, `mp` and `quat/lll`, checked by disassembly on `aarch64`, `x86_64`, `armv7` and `i686` | [`scripts/ct_branches.py`](scripts/ct_branches.py), CI job `Constant-time branches` |
 | 3 | dudect-style timing test (Welch's t, fixed against random inputs) of `gf` and the `ibz_ct_*` layer, with the vendor C field code as baseline, run on an Apple M1 and on a Cortex-A78 and Cortex-A55 Android phone (see Gaps) | `crates/sqisign/examples/dudect.rs` |
@@ -70,6 +71,7 @@ cargo test --release                # KATs and differential tests
 cargo clippy --all-targets -- -D warnings
 cargo llvm-cov -p sqisign --fail-under-lines 100 --fail-under-functions 100 --fail-under-regions 100
 cargo run --release -p sqisign --example timing -- p324 all 20
+MIRIFLAGS=-Zmiri-disable-isolation cargo +nightly-2026-10-23 miri test -p sqisign-capi --test miri  # --include-ignored: 1-1.5 h per ignored test
 python3 scripts/ct_branches.py      # add --target x86_64-unknown-linux-gnu, armv7-linux-androideabi, i686-linux-android
 CARGO_PROFILE_RELEASE_LTO=fat CARGO_PROFILE_RELEASE_CODEGEN_UNITS=1 \
   cargo run --release -p sqisign --example dudect -- 100000
@@ -112,6 +114,11 @@ From `kotlin/`, `./gradlew jvmTest -Psqisign.backend=rust` runs the Kotlin suite
 - **Clearing is best effort.** The core clears what C clears (the PRNG seed and SHAKE256 domain streams, the
   secret-key encoding temporaries) with a store followed by `black_box`, not volatile writes. Like C, it does not
   clear the intermediate ideals, quaternions and points of key generation and signing.
+- **Miri covers selected executions.** Successful key generation and signing, and so the copy-out of keys and
+  signatures, take too long to interpret and were not run under Miri. CI interprets only the fast tests; the full KAT
+  verification (51 minutes on an Apple M1) and the panic test (85 minutes) passed in a local run. The vendor
+  `randombytes` and the JNI and cinterop glue are C, outside Miri; isolation is disabled to read a KAT entry; only the
+  host target (`aarch64-apple-darwin` locally, `x86_64-unknown-linux-gnu` in CI) was interpreted.
 - **Panics on undefined C behaviour.** Where C divides by zero or overflows a buffer under `NDEBUG`, Rust panics; the
   C ABI reports an error. Such cases were seen only far from signing-path sizes (ADR 0004, Risks).
 - **Performance.** The port is 1.4–1.9× slower than the shipped C `arm64` build ([`README.md`](README.md#performance)),

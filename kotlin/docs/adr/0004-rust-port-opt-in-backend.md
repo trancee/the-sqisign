@@ -92,7 +92,8 @@ an expert review has accepted the Rust code, it must not replace the reviewed C 
    (`randombytes_system.c` for the shipped libraries, the NIST CTR-DRBG for the KAT libraries); this keeps the KAT
    seam of ADR 0002 and adds no randomness crate. A panic (for example a well-sized but malformed secret key, on
    which C has undefined behaviour) is caught at the ABI boundary and returned as `SQISIGN_KMP_ERROR`; secret seeds
-   and key buffers are cleared with volatile writes there.
+   and key buffers are cleared with volatile writes there. This boundary holds the only `unsafe` code shipped; CI interprets
+   its pointer reads, failure paths and clearing with Miri on a pinned nightly (`sqisign-capi/tests/miri.rs`).
 6. The C backend stays the default and the only release backend until an expert review of the Rust port is recorded
    in a new version of this ADR. Scope, claims and evidence for that review:
    [`rust/REVIEW.md`](../../../rust/REVIEW.md).
