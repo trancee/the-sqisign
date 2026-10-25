@@ -77,6 +77,25 @@ C `arm64` results from the same phone:
 Both tables predate the constant-time barriers ([ADR 0004](../kotlin/docs/adr/0004-rust-port-opt-in-backend.md) item
 16), which add about 6–10 % (`timing` example, `P324_3`, Apple M1).
 
+They also predate the carry-chain field kernels: limb additions, subtractions and the product rows of the Montgomery
+multiplication use `u64::carrying_add`, which compiles to one `adcs` per limb as in the vendor assembly. On a Nothing
+Phone (2) pinned to one Cortex-A710 core (`taskset 10`), the `timing` example and the vendor `benchmark_*` apps (C
+`arm64`, Android NDK, same core) give these medians in ms over 10 runs:
+
+| Parameter set | Operation | C `arm64` | Rust before | Rust after | after / C |
+|---|---|---|---|---|---|
+| `P324_3` | Key generation | 15.6 | 28.4 | 23.9 | 1.53 |
+| | Signing | 45.1 | 84.5 | 73.1 | 1.62 |
+| | Verification | 5.92 | 11.6 | 9.41 | 1.59 |
+| `P500_27` | Key generation | 59.6 | 90.3 | 77.7 | 1.30 |
+| | Signing | 155 | 309 | 274 | 1.77 |
+| | Verification | 15.3 | 32.4 | 25.7 | 1.69 |
+| `P664_17` | Key generation | 102 | 194 | 172 | 1.69 |
+| | Signing | 293 | 607 | 551 | 1.88 |
+| | Verification | 36.3 | 72.3 | 62.0 | 1.71 |
+
+Key generation and signing vary between runs because they draw random values; verification varies by less than 1 %.
+
 Without Gradle, `cargo run --release -p sqisign --example timing -- p324 all 20` times key generation, signing and
 verification with fixed seeds (median and minimum; parameter sets `p324`, `p500`, `p664`).
 
