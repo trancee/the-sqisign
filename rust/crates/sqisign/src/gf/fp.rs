@@ -185,10 +185,14 @@ impl<P: FpParams> Add for Fp<P> {
     type Output = Self;
 
     fn add(self, rhs: Self) -> Self {
+        // The masks are ORed with an opaque zero instead of passing through `barrier`:
+        // they are just as opaque to the optimiser, but the store and reload of
+        // `black_box` happen once, off the carry chain.
+        let zero = barrier(0u64);
         let mut d = self;
         d.v.add_masked(&rhs.v, u64::MAX);
         for _ in 0..2 {
-            let mask = barrier(0u64.wrapping_sub(d.limbs()[P::N - 1] >> Self::top_bits()));
+            let mask = 0u64.wrapping_sub(d.limbs()[P::N - 1] >> Self::top_bits()) | zero;
             d.v.sub_masked(&P::P, mask);
         }
         d
@@ -199,10 +203,13 @@ impl<P: FpParams> Sub for Fp<P> {
     type Output = Self;
 
     fn sub(self, rhs: Self) -> Self {
+        let zero = barrier(0u64);
         let mut d = self;
         let borrow = d.v.sub_masked(&rhs.v, u64::MAX);
+        // LLVM branches on the borrow flag behind an opaque zero on 32-bit targets
+        // (`ct_branches`), so this mask keeps the full barrier.
         d.v.add_masked(&P::P, barrier(0u64.wrapping_sub(borrow)));
-        let mask = barrier(0u64.wrapping_sub(d.limbs()[P::N - 1] >> 63));
+        let mask = 0u64.wrapping_sub(d.limbs()[P::N - 1] >> 63) | zero;
         d.v.add_masked(&P::P, mask);
         d
     }

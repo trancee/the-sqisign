@@ -84,19 +84,21 @@ Phone (2) pinned to one Cortex-A710 core (`taskset 10`), the `timing` example an
 
 The Montgomery multiplication then interleaves each product row with one word reduction, as the vendor `fp_mul` does,
 so the accumulator stays at `N + 1` words instead of a `2N`-word product that LLVM spilled to the stack ("interleaved"
-column):
+column). Finally, field addition and subtraction OR their reduction masks with one opaque zero instead of passing each
+mask through `black_box`, which took a store and reload on the carry chain, and start subtraction with a plain `subs`
+("add/sub" column):
 
-| Parameter set | Operation | C `arm64` | Rust before | Carry chains | Interleaved | interleaved / C |
-|---|---|---|---|---|---|---|
-| `P324_3` | Key generation | 15.6 | 28.4 | 23.9 | 22.9 | 1.47 |
-| | Signing | 45.1 | 84.5 | 73.1 | 70.4 | 1.56 |
-| | Verification | 5.92 | 11.6 | 9.41 | 9.00 | 1.52 |
-| `P500_27` | Key generation | 59.6 | 90.3 | 77.7 | 70.9 | 1.19 |
-| | Signing | 155 | 309 | 274 | 258 | 1.66 |
-| | Verification | 15.3 | 32.4 | 25.7 | 22.3 | 1.46 |
-| `P664_17` | Key generation | 102 | 194 | 172 | 156 | 1.53 |
-| | Signing | 293 | 607 | 551 | 508 | 1.73 |
-| | Verification | 36.3 | 72.3 | 62.0 | 54.2 | 1.49 |
+| Parameter set | Operation | C `arm64` | Rust before | Carry chains | Interleaved | Add/sub | add/sub / C |
+|---|---|---|---|---|---|---|---|
+| `P324_3` | Key generation | 15.6 | 28.4 | 23.9 | 22.9 | 21.0 | 1.34 |
+| | Signing | 45.1 | 84.5 | 73.1 | 70.4 | 65.1 | 1.44 |
+| | Verification | 5.92 | 11.6 | 9.41 | 9.00 | 7.95 | 1.34 |
+| `P500_27` | Key generation | 59.6 | 90.3 | 77.7 | 70.9 | 67.4 | 1.13 |
+| | Signing | 155 | 309 | 274 | 258 | 248 | 1.60 |
+| | Verification | 15.3 | 32.4 | 25.7 | 22.3 | 20.5 | 1.34 |
+| `P664_17` | Key generation | 102 | 194 | 172 | 156 | 153 | 1.50 |
+| | Signing | 293 | 607 | 551 | 508 | 498 | 1.70 |
+| | Verification | 36.3 | 72.3 | 62.0 | 54.2 | 53.2 | 1.47 |
 
 Key generation and signing vary between runs because they draw random values; verification varies by less than 1 %.
 
