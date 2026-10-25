@@ -31,21 +31,34 @@ pub trait LimbArray: Copy + AsRef<[u64]> + AsMut<[u64]> {
     fn sub_masked(&mut self, m: &Self, mask: u64) -> u64;
 }
 
+/// Adds `a * bi * 2^(64 i)` to `t`, whose words from `i + N` on are zero.
+///
+/// The low product halves go to word `i + j` and the high halves to `i + j + 1`, in
+/// two carry chains (`adcs`), as the vendor arm64 assembly does; a `u128` accumulator
+/// costs a flag materialisation per product. The sum fits below `2^(64 (i + N + 1))`,
+/// so the second chain ends without a carry.
+#[inline(always)]
+fn row<const N: usize>(t: &mut [u64; 2 * MAX_LIMBS], a: &[u64; N], bi: u64, i: usize) {
+    let mut hi = [0u64; N];
+    let mut carry = false;
+    for (j, &aj) in a.iter().enumerate() {
+        let x = u128::from(aj) * u128::from(bi);
+        hi[j] = (x >> 64) as u64;
+        (t[i + j], carry) = t[i + j].carrying_add(x as u64, carry);
+    }
+    t[i + N] = u64::from(carry);
+    carry = false;
+    for (j, &h) in hi.iter().enumerate() {
+        (t[i + j + 1], carry) = t[i + j + 1].carrying_add(h, carry);
+    }
+}
+
 impl<const N: usize> LimbArray for [u64; N] {
     #[inline(always)]
     fn mont_mul(&self, b: &Self, k: usize, pp1: u64) -> Self {
         let mut t = [0u64; 2 * MAX_LIMBS];
         // Rows are unrolled by hand: LLVM keeps the outer loop rolled for 11 limbs.
-        let row = |t: &mut [u64; 2 * MAX_LIMBS], i: usize| {
-            let mut carry = 0u128;
-            for (j, &aj) in self.iter().enumerate() {
-                let x = u128::from(t[i + j]) + u128::from(aj) * u128::from(b[i]) + carry;
-                t[i + j] = x as u64;
-                carry = x >> 64;
-            }
-            t[i + N] = carry as u64;
-        };
-        unrolled!(i in [0 1 2 3 4 5 6 7 8 9 10] < N => row(&mut t, i));
+        unrolled!(i in [0 1 2 3 4 5 6 7 8 9 10] < N => row(&mut t, self, b[i], i));
         // Montgomery digits m_i = t[i] (as updated): t + m_i p 2^(64 i) = t - m_i 2^(64 i)
         // + m_i (p + 1) 2^(64 i), and p + 1 = pp1 * 2^(64 k). Word i is cleared and not read
         // again, so only the m_i (p + 1) terms are added, in one carry pass from word k.
@@ -74,25 +87,23 @@ impl<const N: usize> LimbArray for [u64; N] {
         r
     }
 
+    // `carrying_add` compiles to one `adcs` (or `adc`) per limb; `u128` sums
+    // and `borrowing_sub` leave a flag materialisation per limb.
     #[inline(always)]
     fn add_masked(&mut self, m: &Self, mask: u64) {
-        let mut carry = 0u128;
+        let mut carry = false;
         for (x, y) in self.iter_mut().zip(m) {
-            let t = u128::from(*x) + u128::from(y & mask) + carry;
-            *x = t as u64;
-            carry = t >> 64;
+            (*x, carry) = x.carrying_add(y & mask, carry);
         }
     }
 
+    /// Subtracts as `self + !(m & mask) + 1`, which keeps the carry chain.
     #[inline(always)]
     fn sub_masked(&mut self, m: &Self, mask: u64) -> u64 {
-        let mut borrow = 0u64;
+        let mut carry = true;
         for (x, y) in self.iter_mut().zip(m) {
-            let (d, b1) = x.overflowing_sub(y & mask);
-            let (d, b2) = d.overflowing_sub(borrow);
-            *x = d;
-            borrow = u64::from(b1 | b2);
+            (*x, carry) = x.carrying_add(!(y & mask), carry);
         }
-        borrow
+        u64::from(!carry)
     }
 }

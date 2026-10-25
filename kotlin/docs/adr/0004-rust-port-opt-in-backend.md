@@ -225,7 +225,8 @@ an expert review has accepted the Rust code, it must not replace the reviewed C 
   signing-path sizes, which is evidence, not proof.
 - The port takes 0.90–1.27× the time of the C `ref` build and 1.41–1.71× that of the shipped C `arm64` build in the JMH
   benchmarks, and 1.53–1.90× that of C `arm64` on an Android device
-  ([`rust/README.md`](../../../rust/README.md#performance)), before the 6–10 % of the barriers (item 16), so it
+  ([`rust/README.md`](../../../rust/README.md#performance)), before the 6–10 % of the barriers (item 16). With the
+  barriers and the carry-chain field kernels it takes 1.30–1.88× the time of C `arm64` on a Cortex-A710 core, so it
   would still fail the 10 % budget (P4) today.
 - Two backends double the platform test matrix while both exist.
 
