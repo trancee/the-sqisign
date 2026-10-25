@@ -44,7 +44,7 @@ background load, so compare the ratios, not the absolute values with the [refere
 baseline](../kotlin/benchmarks/README.md):
 
 | Parameter set | Operation | C `arm64` | C `ref` | Rust | Rust / C `ref` |
-|---|---|---|---|---|---|
+|---|---|---|---|---|---|---|
 | `P324_3` | Key generation | 41.9 | 54.6 | 69.5 | 1.27 |
 | | Signing | 115 | 152 | 194 | 1.27 |
 | | Verification | 15.2 | 22.3 | 23.5 | 1.05 |
@@ -80,19 +80,23 @@ Both tables predate the constant-time barriers ([ADR 0004](../kotlin/docs/adr/00
 They also predate the carry-chain field kernels: limb additions, subtractions and the product rows of the Montgomery
 multiplication use `u64::carrying_add`, which compiles to one `adcs` per limb as in the vendor assembly. On a Nothing
 Phone (2) pinned to one Cortex-A710 core (`taskset 10`), the `timing` example and the vendor `benchmark_*` apps (C
-`arm64`, Android NDK, same core) give these medians in ms over 10 runs:
+`arm64`, Android NDK, same core) give these medians in ms over 10 runs.
 
-| Parameter set | Operation | C `arm64` | Rust before | Rust after | after / C |
-|---|---|---|---|---|---|
-| `P324_3` | Key generation | 15.6 | 28.4 | 23.9 | 1.53 |
-| | Signing | 45.1 | 84.5 | 73.1 | 1.62 |
-| | Verification | 5.92 | 11.6 | 9.41 | 1.59 |
-| `P500_27` | Key generation | 59.6 | 90.3 | 77.7 | 1.30 |
-| | Signing | 155 | 309 | 274 | 1.77 |
-| | Verification | 15.3 | 32.4 | 25.7 | 1.69 |
-| `P664_17` | Key generation | 102 | 194 | 172 | 1.69 |
-| | Signing | 293 | 607 | 551 | 1.88 |
-| | Verification | 36.3 | 72.3 | 62.0 | 1.71 |
+The Montgomery multiplication then interleaves each product row with one word reduction, as the vendor `fp_mul` does,
+so the accumulator stays at `N + 1` words instead of a `2N`-word product that LLVM spilled to the stack ("interleaved"
+column):
+
+| Parameter set | Operation | C `arm64` | Rust before | Carry chains | Interleaved | interleaved / C |
+|---|---|---|---|---|---|---|
+| `P324_3` | Key generation | 15.6 | 28.4 | 23.9 | 22.9 | 1.47 |
+| | Signing | 45.1 | 84.5 | 73.1 | 70.4 | 1.56 |
+| | Verification | 5.92 | 11.6 | 9.41 | 9.00 | 1.52 |
+| `P500_27` | Key generation | 59.6 | 90.3 | 77.7 | 70.9 | 1.19 |
+| | Signing | 155 | 309 | 274 | 258 | 1.66 |
+| | Verification | 15.3 | 32.4 | 25.7 | 22.3 | 1.46 |
+| `P664_17` | Key generation | 102 | 194 | 172 | 156 | 1.53 |
+| | Signing | 293 | 607 | 551 | 508 | 1.73 |
+| | Verification | 36.3 | 72.3 | 62.0 | 54.2 | 1.49 |
 
 Key generation and signing vary between runs because they draw random values; verification varies by less than 1 %.
 

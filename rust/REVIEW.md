@@ -144,7 +144,7 @@ From `kotlin/`, `./gradlew jvmTest -Psqisign.backend=rust` runs the Kotlin suite
   host target (`aarch64-apple-darwin` locally, `x86_64-unknown-linux-gnu` in CI) was interpreted.
 - **Panics on undefined C behaviour.** Where C divides by zero or overflows a buffer under `NDEBUG`, Rust panics; the
   C ABI reports an error. Such cases were seen only far from signing-path sizes (ADR 0004, Risks).
-- **Performance.** The port is 1.3–1.9× slower than the shipped C `arm64` build ([`README.md`](README.md#performance)),
+- **Performance.** The port is 1.2–1.8× slower than the shipped C `arm64` build ([`README.md`](README.md#performance)),
   so the 10 % budget (P4) blocks a default switch independently of this review.
 
 ## Findings of the preliminary reviews

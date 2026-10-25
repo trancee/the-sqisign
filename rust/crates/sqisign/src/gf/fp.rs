@@ -87,7 +87,7 @@ impl<P: FpParams> Fp<P> {
     #[inline(never)]
     fn mont_mul(a: &P::Limbs, b: &P::Limbs) -> Self {
         Self {
-            v: a.mont_mul(b, (P::T / 64) as usize, P::C << (P::T % 64)),
+            v: a.mont_mul(b, P::C << (P::T % 64)),
         }
     }
 
