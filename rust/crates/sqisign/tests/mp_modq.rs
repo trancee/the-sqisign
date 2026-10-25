@@ -141,7 +141,10 @@ macro_rules! mp_modq_suite {
                 let mut cases: Vec<_> = (0..1100).map(small).collect();
                 cases.extend(HARD.iter().map(|&v| small(v)));
                 cases.extend((1..40).map(|i| small((509 + 2 * i) as u128 * 1021)));
-                for bits in [40, 64, 65, 129, 400, 600, 1000] {
+                // Every residue width of `probab_prime`, from one to twelve words and wider.
+                for bits in [
+                    40, 64, 65, 129, 250, 300, 380, 400, 500, 550, 600, 700, 1000,
+                ] {
                     for _ in 0..30 {
                         cases.push(num(&random_odd(bits, &mut rng)));
                     }

@@ -170,10 +170,18 @@ impl<P: MpParams> Ibz<P> {
         if (n.bitlen + 62) / 61 >= modq_limbs {
             return false;
         }
-        // Residues one word wider than `n`: small sizes avoid moving `W` words.
+        // Residues exactly one word wider than `n` up to 11 words, so that
+        // `Monty::mul` unrolls; larger sizes take `W` words.
         match len(&n.magnitude()) {
-            ..8 => n.bpsw::<8>(reps, domain),
-            8..12 => n.bpsw::<12>(reps, domain),
+            ..4 => n.bpsw::<4>(reps, domain),
+            4 => n.bpsw::<5>(reps, domain),
+            5 => n.bpsw::<6>(reps, domain),
+            6 => n.bpsw::<7>(reps, domain),
+            7 => n.bpsw::<8>(reps, domain),
+            8 => n.bpsw::<9>(reps, domain),
+            9 => n.bpsw::<10>(reps, domain),
+            10 => n.bpsw::<11>(reps, domain),
+            11 => n.bpsw::<12>(reps, domain),
             _ => n.bpsw::<W>(reps, domain),
         }
     }

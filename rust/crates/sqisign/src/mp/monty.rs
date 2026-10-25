@@ -102,10 +102,20 @@ impl<P: MpParams, const L: usize> Monty<P, L> {
         }
     }
 
-    /// `a * b / 2^(64k) mod n` (CIOS), with words `k` and `k + 1` of the
-    /// running sum held in `top` and `over`.
+    /// `a * b / 2^(64k) mod n`. Residues sized to the modulus (`k = L - 1`)
+    /// take the loop bound as a constant, so the compiler unrolls it.
     pub fn mul(&self, a: &[u64; L], b: &[u64; L]) -> [u64; L] {
-        let k = self.k;
+        if self.k == L - 1 {
+            self.cios(a, b, L - 1)
+        } else {
+            self.cios(a, b, self.k)
+        }
+    }
+
+    /// [`Self::mul`] (CIOS) over `k` words, with words `k` and `k + 1` of the
+    /// running sum held in `top` and `over`.
+    #[inline(always)]
+    fn cios(&self, a: &[u64; L], b: &[u64; L], k: usize) -> [u64; L] {
         let mut t = [0u64; L];
         let mut top = 0u64;
         for &ai in &a[..k] {
@@ -142,13 +152,20 @@ impl<P: MpParams, const L: usize> Monty<P, L> {
         Ibz::signed(&w, bitlen, false)
     }
 
-    /// `x^e` for `e >= 0`.
+    /// `x^e` for `e >= 0`, over 4-bit windows of `e`.
     pub fn pow(&self, x: &[u64; L], e: &Ibz<P>) -> [u64; L] {
+        let mut table = [self.one; 16];
+        for i in 1..16 {
+            table[i] = self.mul(&table[i - 1], x);
+        }
+        let digit = |w: usize| (e.limbs[w / 16] >> (4 * (w % 16))) as usize & 15;
         let mut r = self.one;
-        for i in (0..e.bitsize()).rev() {
-            r = self.mul(&r, &r);
-            if (e.limbs[i / 64] >> (i % 64)) & 1 == 1 {
-                r = self.mul(&r, x);
+        for w in (0..e.bitsize().div_ceil(4)).rev() {
+            for _ in 0..4 {
+                r = self.sqr(&r);
+            }
+            if digit(w) != 0 {
+                r = self.mul(&r, &table[digit(w)]);
             }
         }
         r
@@ -205,5 +222,22 @@ mod tests {
                 }
             }
         }
+    }
+
+    /// Exponents with zero and non-zero 4-bit windows, and one spanning two words.
+    #[test]
+    fn pow_matches_repeated_products() {
+        let n = I::from_digits(&[u64::MAX, u64::MAX >> 1], 2);
+        let m = Monty::<P324, 3>::new(&n);
+        let x = I::from_digits(&[12345, 678], 2);
+        let xm = m.to_mont(&x);
+        let mut want = I::ONE;
+        for e in 0..300 {
+            let got = m.redc(&m.pow(&xm, &I::from_digits(&[e], 1)), n.bound());
+            assert_eq!(got, want, "{e}");
+            want = (want * x).modulo(&n);
+        }
+        // Fermat: `n = 2^127 - 1` is prime.
+        assert_eq!(m.pow(&xm, &(n - I::ONE)), m.one);
     }
 }

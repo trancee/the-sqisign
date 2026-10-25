@@ -30,7 +30,7 @@ is shared with the reviewed C backend.
 | `crates/sqisign/src/ec` | 1,802 | points, ladders, isogenies, bases, pairings |
 | `crates/sqisign/src/hd` | 998 | theta structures, (2,2)-isogeny chains |
 | `crates/sqisign/src/verify`, `shake.rs` | 584 | verification, encodings, SHAKE256 |
-| `crates/sqisign/src/mp` | 1,868 | bounded integers (C `ibz_t`), constant-time layer, primality |
+| `crates/sqisign/src/mp` | 1,910 | bounded integers (C `ibz_t`), constant-time layer, primality |
 | `crates/sqisign/src/quat` | 3,715 | quaternion algebra, `O0` ideals, lattice reduction, norm equation |
 | `crates/sqisign/src/id2iso` | 1,733 | ideal-to-isogeny translation |
 | `crates/sqisign/src/sign`, `prng.rs` | 554 | key generation, signing, secret-key encoding, SHAKE256 PRNG |
