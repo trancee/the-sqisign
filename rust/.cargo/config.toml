@@ -1,0 +1,8 @@
+# Every build from `rust/` (the shipped one by `kotlin/native/rust.cmake`, `scripts/ct_branches.py`, tests and
+# benchmarks) reads this; a `RUSTFLAGS` variable would replace it.
+
+# The AArch64 select optimisation turns conditional selects into branches when it predicts them well. For the generic
+# tuning of Android and Linux it does so with the carries of the field carry chains (`carrying_add`), a timing leak
+# that dudect measures (ADR 0004 item 16). Apple tunings leave the selects alone.
+[target.'cfg(target_arch = "aarch64")']
+rustflags = ["-C", "llvm-args=-aarch64-select-opt=false"]

@@ -41,7 +41,7 @@ Run from `rust/`.
 | Lint | `cargo clippy --all-targets -- -D warnings` | Rust |
 | Tests | `cargo test` | Rust |
 | Coverage | `cargo llvm-cov -p sqisign --fail-under-lines 100 --fail-under-functions 100 --fail-under-regions 100` | Rust |
-| Constant-time branches | `python3 scripts/ct_branches.py` (and `--target` `x86_64-unknown-linux-gnu`, `armv7-linux-androideabi`, `i686-linux-android`); new constant-time code => add to its `GATED` | Rust |
+| Constant-time branches | `python3 scripts/ct_branches.py` (and `--target` `aarch64-linux-android`, `x86_64-unknown-linux-gnu`, `armv7-linux-androideabi`, `i686-linux-android`); new constant-time code => add to its `GATED` | Rust |
 | Miri | `MIRIFLAGS=-Zmiri-disable-isolation cargo +nightly-2026-10-23 miri test -p sqisign-capi --test miri`; C ABI changes => extend `tests/miri.rs`, protocol-length tests `cfg_attr(miri, ignore)` | Rust |
 | Secret scan | `gitleaks git --redact --exit-code 1 ..` | Secret scan |
 

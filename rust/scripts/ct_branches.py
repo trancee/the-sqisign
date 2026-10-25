@@ -4,7 +4,8 @@
 Builds `sqisign-capi` as the Kotlin build ships it (`kotlin/native/rust.cmake`:
 fat LTO, one codegen unit) for the host or a given target, disassembles it
 with the pinned toolchain's `llvm-objdump`, and attributes every conditional
-branch to its source line. A branch on a line of `GATED` fails the check.
+branch to its source line. A branch on a line of `GATED` fails the check;
+standard library arithmetic inlined there counts for the gated line.
 
 Usage (from `rust/`): `python3 scripts/ct_branches.py [--target TRIPLE]`.
 Recognises AArch64, 32-bit ARM/Thumb and x86 code.
@@ -54,6 +55,10 @@ BRANCH = re.compile(
 )
 TARGET = re.compile(r"^\s*([0-9a-f]+):\s+\S+\s+(?:\S+,\s*)?0x([0-9a-f]+)\b")
 LOCATION = re.compile(r"^; (.*\.rs):(\d+)")
+# Standard library integer arithmetic (`carrying_add`, `overflowing_sub`...)
+# as the pinned toolchain's line tables name it. Its other inlined code
+# (iterators, slices) is loop control over public bounds.
+STD_ARITH = re.compile(r"^/rustc/[0-9a-f]+/library/core/src/num/")
 LOOP = re.compile(r"^\s*(for|while|loop)\b")
 
 
@@ -152,7 +157,11 @@ def main():
     for line in disassembly.splitlines():
         match = LOCATION.match(line)
         if match:
-            location = (os.path.realpath(match[1]), int(match[2]))
+            # Standard library arithmetic carries its own line, so a branch the
+            # backend makes of it (on the carry of a `carrying_add`) counts for
+            # the crate line it was inlined into, the last one seen.
+            if location is None or not STD_ARITH.match(match[1]):
+                location = (os.path.realpath(match[1]), int(match[2]))
             continue
         if re.match(r"^[0-9a-f]+ <", line):
             location = None

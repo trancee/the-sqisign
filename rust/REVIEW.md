@@ -59,7 +59,7 @@ is pinned in [`rust-toolchain.toml`](rust-toolchain.toml). Large precomputed tab
 | 2 | `#![forbid(unsafe_code)]` | `crates/sqisign/src/lib.rs` |
 | 2 | The C ABI's `unsafe` code interpreted by Miri on a pinned nightly: size queries, invalid sets, length-checked reads in verification, a failing `randombytes` (seed dropped on the error path) and clearing; run locally, also a full KAT verification through raw pointers and a panic unwinding through the seed's drop to an error (see Gaps) | `crates/sqisign-capi/tests/miri.rs`, CI job `Miri (C ABI)` |
 | 1, 2 | The Kotlin test suites pass on the Rust backend: JVM on Linux, macOS and Windows, macOS, iOS Simulator, Android emulator and an `arm64-v8a` phone | `.github/workflows/kotlin.yml` job `rust-backend`, [`README.md`](README.md#status) |
-| 3 | Optimisation barriers on the constant-time masks, as C's `ct_barrier_*`; the shipped build (fat LTO, one codegen unit) has no conditional branch in the gated constant-time code of `gf`, `mp` and `quat/lll`, checked by disassembly on `aarch64`, `x86_64`, `armv7` and `i686` | [`scripts/ct_branches.py`](scripts/ct_branches.py), CI job `Constant-time branches` |
+| 3 | Optimisation barriers on the constant-time masks, as C's `ct_barrier_*`; the shipped build (fat LTO, one codegen unit) has no conditional branch in the gated constant-time code of `gf`, `mp` and `quat/lll`, checked by disassembly on `aarch64` (macOS and Android), `x86_64`, `armv7` and `i686`; the AArch64 select optimisation is off | [`scripts/ct_branches.py`](scripts/ct_branches.py), CI job `Constant-time branches`, [`.cargo/config.toml`](.cargo/config.toml) |
 | 3 | dudect-style timing test (Welch's t, fixed against random inputs) of `gf` and the `ibz_ct_*` layer, with the vendor C field code as baseline, run on an Apple M1 and on 14 Arm and Qualcomm Kryo cores of nine Android devices (see Gaps) | `crates/sqisign/examples/dudect.rs` |
 
 ## Reproducing
@@ -72,7 +72,7 @@ cargo clippy --all-targets -- -D warnings
 cargo llvm-cov -p sqisign --fail-under-lines 100 --fail-under-functions 100 --fail-under-regions 100
 cargo run --release -p sqisign --example timing -- p324 all 20
 MIRIFLAGS=-Zmiri-disable-isolation cargo +nightly-2026-10-23 miri test -p sqisign-capi --test miri  # --include-ignored: 1-1.5 h per ignored test
-python3 scripts/ct_branches.py      # add --target x86_64-unknown-linux-gnu, armv7-linux-androideabi, i686-linux-android
+python3 scripts/ct_branches.py      # add --target aarch64-linux-android, x86_64-unknown-linux-gnu, armv7-linux-androideabi, i686-linux-android
 CARGO_PROFILE_RELEASE_LTO=fat CARGO_PROFILE_RELEASE_CODEGEN_UNITS=1 \
   cargo run --release -p sqisign --example dudect -- 100000
 ```
@@ -126,7 +126,9 @@ From `kotlin/`, `./gradlew jvmTest -Psqisign.backend=rust` runs the Kotlin suite
   field and `ibz_ct_*` operations, not the `ec`, `hd` and `quat/lll` code built on them, and was not run on `x86_64` or
   `i686`. Absence of a signal is not proof of constant time.
 - **Branch check limited to gated code and branches.** `scripts/ct_branches.py` checks the files and functions listed in
-  its `GATED` table on `aarch64`, `x86_64`, `armv7` and `i686` (the four Android ABIs; CI runs all four). On `armv7` the
+  its `GATED` table on `aarch64`, `x86_64`, `armv7` and `i686` (the four Android ABIs and macOS `aarch64`; CI runs
+  all five). A branch in inlined standard library arithmetic counts for the gated line it was inlined into; other
+  inlined standard library code (iterators, slices) is taken as loop control over public bounds. On `armv7` the
   limb loop of `Ibz::cswap` stays rolled, and its back-edge, a backward branch on the byte offset against the constant
   length, is attributed to the loop body; the script accepts backward branches there and only on that target
   (`BACK_EDGES`), after inspection. Memory indices are not checked. `ec` and `hd` are not gated themselves: their
@@ -163,6 +165,7 @@ They are not the S6 review. Their findings and the resolutions on this branch:
 | One unresolved mutant in `partial_xgcd_lehmer` at the threshold | Killed by a threshold test against C (ADR 0004 item 4) |
 | The shipped build branched on constant-time masks (`gf` add and subtract, `quat/lll` selection, more on `x86_64`) | Optimisation barriers as C `ct_barrier_*`; disassembly check in CI |
 | Source-level branches in `ibz_extract_i64` and the 2x2 Gram step | Branch-free |
+| dudect on the Cortex-A710 (after the carry-chain field kernels): field add and subtract faster on zero inputs, \|t\| up to 400. The AArch64 select optimisation branched on the carries for Android's generic tuning, attributed to `core` lines the branch check skipped | Select optimisation off for AArch64 ([`.cargo/config.toml`](.cargo/config.toml)); the check counts inlined `core` arithmetic for the gated line and runs on Android `arm64-v8a` |
 | No measured timing analysis | dudect example with control and vendor C baseline, on an Apple M1 and 14 cores of nine Android devices; results under Gaps |
 
 ## Recording the result
