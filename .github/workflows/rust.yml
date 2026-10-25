@@ -91,7 +91,11 @@ jobs:
             os: ubuntu-24.04
           - platform: macos-aarch64
             os: macos-15
-          # 32-bit Android ABIs; a static library needs no NDK linker.
+          # Android ABIs; a static library needs no NDK linker. `arm64-v8a` has the generic AArch64 tuning, unlike
+          # macOS (`rust/.cargo/config.toml`).
+          - platform: android-arm64-v8a
+            os: ubuntu-24.04
+            target: aarch64-linux-android
           - platform: android-armeabi-v7a
             os: ubuntu-24.04
             target: armv7-linux-androideabi

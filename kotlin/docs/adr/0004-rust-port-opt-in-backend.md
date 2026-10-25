@@ -196,9 +196,13 @@ an expert review has accepted the Rust code, it must not replace the reviewed C 
     the only one available without `unsafe`, so it is best effort; it costs about 6–10 % in key generation, signing and
     verification. The field add and subtract reduction masks are instead ORed with one `black_box(0)`, which is as
     opaque but keeps the stack round trip of `black_box` off the carry chain; the subtraction borrow mask keeps the
-    direct barrier, since LLVM branches on the borrow behind an opaque zero on 32-bit targets. `rust/scripts/ct_branches.py` builds the shipped configuration (fat LTO, one codegen unit),
+    direct barrier, since LLVM branches on the borrow behind an opaque zero on 32-bit targets. On AArch64 the
+    backend's select optimisation is off (`rust/.cargo/config.toml`): with the generic tuning of Android it turned
+    the carries of the field carry chains into branches, which dudect measured (|t| up to 400 on the Cortex-A710).
+    `rust/scripts/ct_branches.py` builds the shipped configuration (fat LTO, one codegen unit),
     disassembles it and fails on any conditional branch attributed to the constant-time code of `gf`, `mp` and
-    `quat/lll`; CI runs it on `aarch64`, `x86_64`, `armv7` and `i686`. A dudect-style example (`examples/dudect.rs`)
+    `quat/lll`, counting standard library arithmetic (`carrying_add`) inlined there as that code; CI runs it on
+    `aarch64` (macOS and Android), `x86_64`, `armv7` and `i686`. A dudect-style example (`examples/dudect.rs`)
     measures the field and `ibz_ct_*` operations; its results and limits are in
     [`rust/REVIEW.md`](../../../rust/REVIEW.md#gaps-known-before-review).
 
@@ -216,7 +220,9 @@ an expert review has accepted the Rust code, it must not replace the reviewed C 
 - Constant-time behavior of the Rust field code depends on the compiler. Barriers and the CI branch check (item 16)
   cover the four Android ABIs and the 64-bit desktop targets, not memory indices; the timing measurements cover an
   Apple M1 and 14 cores of nine Android devices, where the field operations show input-dependent timing on some cores
-  in Rust and in the vendor C alike. The expert review judges whether that suffices.
+  in Rust and in the vendor C alike. The expert review judges whether that suffices. The AArch64 code generation
+  setting (item 16) is read from `rust/.cargo/config.toml`; a `RUSTFLAGS` variable replaces it, so a build that sets
+  one must repeat it.
 - Signing is variable-time in the C code (lattice reduction); the port inherits that.
 - The port also inherits C behaviour on inputs outside the documented domain, for example `pairing_dlog_2_tate`
   with `e = 1` can return logarithms that do not satisfy the relation. The differential tests pin this behaviour; the
