@@ -60,7 +60,7 @@ is pinned in [`rust-toolchain.toml`](rust-toolchain.toml). Large precomputed tab
 | 2 | The C ABI's `unsafe` code interpreted by Miri on a pinned nightly: size queries, invalid sets, length-checked reads in verification, a failing `randombytes` (seed dropped on the error path) and clearing; run locally, also a full KAT verification through raw pointers and a panic unwinding through the seed's drop to an error (see Gaps) | `crates/sqisign-capi/tests/miri.rs`, CI job `Miri (C ABI)` |
 | 1, 2 | The Kotlin test suites pass on the Rust backend: JVM on Linux, macOS and Windows, macOS, iOS Simulator, Android emulator and an `arm64-v8a` phone | `.github/workflows/kotlin.yml` job `rust-backend`, [`README.md`](README.md#status) |
 | 3 | Optimisation barriers on the constant-time masks, as C's `ct_barrier_*`; the shipped build (fat LTO, one codegen unit) has no conditional branch in the gated constant-time code of `gf`, `mp` and `quat/lll`, checked by disassembly on `aarch64` (macOS and Android), `x86_64`, `armv7` and `i686`; the AArch64 select optimisation is off | [`scripts/ct_branches.py`](scripts/ct_branches.py), CI job `Constant-time branches`, [`.cargo/config.toml`](.cargo/config.toml) |
-| 3 | dudect-style timing test (Welch's t, fixed against random inputs) of `gf` and the `ibz_ct_*` layer, with the vendor C field code as baseline, run on an Apple M1 and on 31 Arm and Qualcomm Kryo cores of 17 Android devices (see Gaps) | `crates/sqisign/examples/dudect.rs` |
+| 3 | dudect-style timing test (Welch's t, fixed against random inputs) of `gf` and the `ibz_ct_*` layer, with the vendor C field code as baseline, run on an Apple M1 and on 37 Arm and Qualcomm Kryo cores of 20 Android devices (see Gaps) | `crates/sqisign/examples/dudect.rs` |
 
 ## Reproducing
 
@@ -104,9 +104,12 @@ From `kotlin/`, `./gradlew jvmTest -Psqisign.backend=rust` runs the Kotlin suite
   | OnePlus 6 (SDM845) | 11 | Kryo 385 Gold, Kryo 385 Silver |
   | Xiaomi Redmi Note 11 (SM6225) | 13 | Kryo 265 Gold (Cortex-A73), Kryo 265 Silver |
   | Huawei P30 lite (Kirin 710) | 10 | Cortex-A73, Cortex-A53 |
+  | OPPO A53s (SM4250) | 12 | Kryo 240 Gold, Kryo 240 Silver |
+  | Xiaomi Mi 8 (SDM845) | 10 | Kryo 385 Gold, Kryo 385 Silver |
+  | Xiaomi POCO M5 (Helio G99) | 14 | Cortex-A76, Cortex-A55 |
 
-  The last eight devices ran the build after the AArch64 select optimisation was turned off (see Findings); the Nothing
-  Phone (2) Cortex-A710 was rerun with it.
+  The eight devices from the Pixel 6 to the P30 lite ("the last eight") and the last three ran the build after the
+  AArch64 select optimisation was turned off (see Findings); the Nothing Phone (2) Cortex-A710 was rerun with it.
 
   On 64-bit targets the example repeats the field tests on the vendor C `ref` build as a platform baseline. The `null`
   control (random against random) stayed below 4.5 everywhere (largest 2.56), so the statistics are sound, except on
@@ -119,7 +122,10 @@ From `kotlin/`, `./gradlew jvmTest -Psqisign.backend=rust` runs the Kotlin suite
     Redmi 12 A75: a layout artefact. Nord 2 A55 `p500 ct_lt_mask` repeats in most runs on two builds (uncropped up
     to 16, the fixed class slower), weakens from two fixed values to 1,024 (4.0) and is absent from `p324`
     and `p664`, which run the same generic code on the same five limbs and differ only in the size of `Ibz` (248,
-    328, 448 bytes), and from the nine other A55 and A53 cores; its cause is not established.
+    328, 448 bytes), and from the nine other A55 and A53 cores; its cause is not established. On the last three,
+    everything stays below 3.7 except POCO M5 A76 `p664 ibz ct_highmul`, which repeats (−8.7, then −4.3, −6.8, −2.4;
+    the fixed class faster); a build of the same source with thin LTO and 16 codegen units gave at most 1.8 in three
+    runs, so it follows code layout, as on the Nord 2 A78 (below).
   - Multiplying by zero (class 0 zero) is faster, in Rust and C alike, on the A55 (Rust t = −26 to −49, C −44 to
     −49), the A510, A53, A75 and every Kryo core except the Kryo 485 Gold (largest −138 for Rust and −166 for C, Kryo
     260 Gold); `fp2 inv` and `sqrt`, whose fixed inputs contain zero, inherit it (up to −235, A75). The last eight
@@ -127,13 +133,16 @@ From `kotlin/`, `./gradlew jvmTest -Psqisign.backend=rust` runs the Kotlin suite
     A75, −262 and −240 on the Kryo 385 Gold, −230 and −224 on the P30 lite A73, −39 to −108 and −33 to −150 on the
     A55, A53 and Silver cores; `fp2 inv` and `sqrt` up to −1,728 (realme C21Y A75). The Nothing Phone (1) A78, A710,
     Kryo 485 Gold, X1, both A76 and both 32-bit runs on the A53 and A55 show no such signal (|t| below 4.5); the Nord
-    2 A78 gives −21 for Rust and −20 for C.
+    2 A78 gives −21 for Rust and −20 for C. The last three: −23 to −141 for Rust and −24 to −119 for C on the Kryo
+    240, Kryo 385 and A55 cores, `fp2 inv` and `sqrt` up to −163 (Kryo 240 Gold); none on the POCO M5 A76 (Rust −2.8,
+    C −3.5).
   - Dense inputs (class 0 one of two fixed dense values): on the M1 (with or without DIT), Rust and C both show
     uncropped signals of the same size (largest 46.3 for Rust and 49.8 for C). On the Android cores they are small
     and scattered over add, subtract and multiply for both implementations (Rust up to 8.1, C up to 11.1; the A710
     flags only C `fp mul dense`). One Rust `p664 fp sub dense` run on the Kryo 485 Gold gave −32.0 and did not repeat:
     three reruns on another core of the same cluster gave +4.7, +5.8 and +6.1, with C `p500 fp sub dense` up to 5.4.
     On the last eight devices: Rust up to 18.7 and C up to 21.4 (realme C21Y A55 and A75), except on the Nord 2 A78.
+    On the last three: Rust up to 11.8 (A55) and C up to 15.4 (A76), both on the POCO M5.
   - The Nord 2 Cortex-A78 is not a usable platform at this sample size. Its first run flagged Rust `p324 ibz
     ct_highmul` (45; reruns 66, 42, 5.8) and dense subtract (34, C 8). On a rebuild of the example with the same
     inputs, `ct_highmul` gave uncropped |t| at most 2.1 for two to 256 fixed values and four seeds, so the first
@@ -142,7 +151,7 @@ From `kotlin/`, `./gradlew jvmTest -Psqisign.backend=rust` runs the Kotlin suite
     fixed values.
   - Add and subtract with a zero operand: Rust `p324 fp sub` on the POCO M4 Pro A76 gives −1.2 to −13.5 over ten
     runs (nine beyond −4), C +0.2 to +9.4 with the opposite sign; one Rust `p664 fp add` of −7.8 on the Pixel 6 A76
-    did not repeat (three reruns below 1).
+    did not repeat (three reruns below 1). On the last three, Rust stays below 3.9 and C below 4.3.
   - `PSTATE.DIT` is advertised only by the SM8475 (A710, A510); the DIT runs used a local copy of the example that sets
     it first. With it set, the zero-multiply signal on the A510 disappears for Rust and C (largest uncropped |t| 3.3 for
     Rust, 4.8 for C dense subtract); on the A710 the C dense-multiply signal stays (−11.1). On the M1, DIT did not
@@ -198,7 +207,7 @@ They are not the S6 review. Their findings and the resolutions on this branch:
 | The shipped build branched on constant-time masks (`gf` add and subtract, `quat/lll` selection, more on `x86_64`) | Optimisation barriers as C `ct_barrier_*`; disassembly check in CI |
 | Source-level branches in `ibz_extract_i64` and the 2x2 Gram step | Branch-free |
 | dudect on the Cortex-A710 (after the carry-chain field kernels): field add and subtract faster on zero inputs, \|t\| up to 400. The AArch64 select optimisation branched on the carries for Android's generic tuning, attributed to `core` lines the branch check skipped | Select optimisation off for AArch64 ([`.cargo/config.toml`](.cargo/config.toml)); the check counts inlined `core` arithmetic for the gated line and runs on Android `arm64-v8a` |
-| No measured timing analysis | dudect example with control and vendor C baseline, on an Apple M1 and 31 cores of 17 Android devices; results under Gaps |
+| No measured timing analysis | dudect example with control and vendor C baseline, on an Apple M1 and 37 cores of 20 Android devices; results under Gaps |
 
 ## Recording the result
 
