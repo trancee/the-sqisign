@@ -147,6 +147,13 @@ fn shape_rejects_missing_spare_bits() {
 }
 
 #[test]
+#[should_panic(expected = "unreduced sums")]
+fn shape_rejects_too_few_spare_bits_for_unreduced_sums() {
+    // Six spare bits, but `(2^BITS)^2 * 4 / R` needs bitlen(31) + 2 = 7.
+    consts::check_shape::<6>(31, 373);
+}
+
+#[test]
 #[should_panic(expected = "top limb")]
 fn shape_rejects_spare_limbs() {
     consts::check_shape::<7>(3, 324);
