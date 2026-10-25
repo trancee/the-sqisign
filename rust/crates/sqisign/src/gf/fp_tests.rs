@@ -1,7 +1,7 @@
 //! Domain-boundary tests: partially reduced inputs in `[p, 2^BITS)` are not
 //! reachable through `decode`, so the invariants are checked on raw limbs.
 
-use super::{Fp, FpParams, P324, P500, P664};
+use super::{Fp, Fp2, FpParams, P324, P500, P664};
 
 /// `2^BITS - 1`, the largest value of the partially reduced domain.
 fn domain_max<P: FpParams>() -> Fp<P> {
@@ -57,6 +57,44 @@ fn partially_reduced_operands_stay_in_domain() {
     check_domain_edges::<P664>();
 }
 
+fn check_fp2_domain_edges<P: FpParams>() {
+    let max = domain_max::<P>();
+    let edges = [Fp::ZERO, Fp { v: P::P }, max, Fp::ONE, -Fp::<P>::ONE];
+    let in_domain2 = |x: &Fp2<P>| in_domain(&x.re) && in_domain(&x.im);
+    let same = |x: &Fp2<P>, re: &Fp<P>, im: &Fp<P>| {
+        assert_eq!(encoded(&x.re), encoded(re));
+        assert_eq!(encoded(&x.im), encoded(im));
+    };
+    for a in edges
+        .iter()
+        .flat_map(|re| edges.iter().map(|im| Fp2 { re: *re, im: *im }))
+    {
+        let sq = a.square();
+        assert!(in_domain2(&sq));
+        same(
+            &sq,
+            &(a.re * a.re - a.im * a.im),
+            &(a.re * a.im + a.im * a.re),
+        );
+        for b in [a, Fp2 { re: max, im: max }, Fp2 { re: a.im, im: max }] {
+            let prod = a * b;
+            assert!(in_domain2(&prod));
+            same(
+                &prod,
+                &(a.re * b.re - a.im * b.im),
+                &(a.re * b.im + a.im * b.re),
+            );
+        }
+    }
+}
+
+#[test]
+fn partially_reduced_fp2_operands_stay_in_domain() {
+    check_fp2_domain_edges::<P324>();
+    check_fp2_domain_edges::<P500>();
+    check_fp2_domain_edges::<P664>();
+}
+
 #[test]
 fn elements_are_cloneable() {
     fn duplicate<T: Clone>(x: &T) -> T {
@@ -95,5 +133,5 @@ fn decode_rejects_wrong_length() {
 #[test]
 #[should_panic(expected = "encoded length")]
 fn fp2_decode_rejects_wrong_length() {
-    let _ = super::Fp2::<P324>::decode(&[0u8; 81]);
+    let _ = Fp2::<P324>::decode(&[0u8; 81]);
 }

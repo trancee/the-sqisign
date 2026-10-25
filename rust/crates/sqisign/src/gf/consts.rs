@@ -12,6 +12,10 @@ pub const MAX_LIMBS: usize = 11;
 /// Requires: `N <= MAX_LIMBS`, `C` odd and `> 1`, `T % 64 != 0`, `C << (T % 64)`
 /// fits one limb (so `p + 1` has a single nonzero limb), at least four spare
 /// bits above `p` in `N` limbs, and that limb is the top one (`T / 64 == N - 1`).
+///
+/// [`super::Fp::mul_sums`] multiplies unreduced sums below `2^(BITS + 1)`; the
+/// product stays in `[0, 2^BITS)` if `2^(2 BITS + 2 - 64 N) <= 2^T`, as
+/// `2^BITS - p > 2^T`, so the spare bits must also cover `bitlen(C) + 2`.
 pub const fn check_shape<const N: usize>(c: u64, t: u32) {
     assert!(N <= MAX_LIMBS, "too many limbs");
     assert!(c > 1 && c % 2 == 1, "C must be odd and greater than one");
@@ -22,6 +26,10 @@ pub const fn check_shape<const N: usize>(c: u64, t: u32) {
     let s = t % 64;
     assert!((c << s) >> s == c, "C << (T % 64) must fit one limb");
     assert!(bits(c, t) + 4 <= 64 * N as u32, "need four spare bits");
+    assert!(
+        2 * bits(c, t) + 2 <= 64 * N as u32 + t,
+        "unreduced sums need bitlen(C) + 2 spare bits"
+    );
     assert!(t / 64 + 1 == N as u32, "p + 1 must sit in the top limb");
 }
 
