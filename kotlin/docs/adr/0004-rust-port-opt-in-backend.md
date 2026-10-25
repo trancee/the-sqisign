@@ -235,8 +235,8 @@ an expert review has accepted the Rust code, it must not replace the reviewed C 
   benchmarks, and 1.53–1.90× that of C `arm64` on an Android device
   ([`rust/README.md`](../../../rust/README.md#performance)), before the 6–10 % of the barriers (item 16). With the
   barriers, the carry-chain field kernels, the interleaved Montgomery multiplication, the opaque-zero add/subtract
-  masks and the unreduced Fp2 sums it takes 1.12–1.68× the time of C `arm64` on a Cortex-A710 core, so it would still
-  fail the 10 % budget (P4) today.
+  masks, the unreduced Fp2 sums and the faster primality test it takes 1.06–1.51× the time of C `arm64` on a
+  Cortex-A710 core, so it would still fail the 10 % budget (P4) today.
 - Two backends double the platform test matrix while both exist.
 
 ## Migration

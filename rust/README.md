@@ -88,19 +88,22 @@ column). Finally, field addition and subtraction OR their reduction masks with o
 mask through `black_box`, which took a store and reload on the carry chain, and start subtraction with a plain `subs`
 ("add/sub" column). The Fp2 multiplication and squaring then multiply the unreduced sums `a0 + a1` (and `b0 + b1`), as
 the vendor arm64 `fp2_mul` does; `check_shape` requires the spare bits that keep the product in range ("Fp2 sums"
-column, last ratio against C):
+column). Primality tests, 64 Miller-Rabin rounds for each prime found as in C, then took up to 31 % of signing (`P664_17`, Apple M1): their
+Montgomery residues are now one word wider than the modulus, so the multiplication's loop bound is a constant that the
+compiler unrolls, and exponentiation uses 4-bit windows ("Primality" column, last ratio against C). Verification tests no
+primes; its column differs from the previous one only by drift between sessions:
 
-| Parameter set | Operation | C `arm64` | Rust before | Carry chains | Interleaved | Add/sub | Fp2 sums | / C |
-|---|---|---|---|---|---|---|---|---|
-| `P324_3` | Key generation | 15.6 | 28.4 | 23.9 | 22.9 | 21.0 | 20.3 | 1.30 |
-| | Signing | 45.1 | 84.5 | 73.1 | 70.4 | 65.1 | 63.1 | 1.40 |
-| | Verification | 5.92 | 11.6 | 9.41 | 9.00 | 7.95 | 7.52 | 1.27 |
-| `P500_27` | Key generation | 59.6 | 90.3 | 77.7 | 70.9 | 67.4 | 67.0 | 1.12 |
-| | Signing | 155 | 309 | 274 | 258 | 248 | 246 | 1.59 |
-| | Verification | 15.3 | 32.4 | 25.7 | 22.3 | 20.5 | 20.1 | 1.31 |
-| `P664_17` | Key generation | 102 | 194 | 172 | 156 | 153 | 150 | 1.47 |
-| | Signing | 293 | 607 | 551 | 508 | 498 | 492 | 1.68 |
-| | Verification | 36.3 | 72.3 | 62.0 | 54.2 | 53.2 | 51.6 | 1.42 |
+| Parameter set | Operation | C `arm64` | Rust before | Carry chains | Interleaved | Add/sub | Fp2 sums | Primality | / C |
+|---|---|---|---|---|---|---|---|---|---|
+| `P324_3` | Key generation | 15.6 | 28.4 | 23.9 | 22.9 | 21.0 | 20.3 | 19.5 | 1.25 |
+| | Signing | 45.1 | 84.5 | 73.1 | 70.4 | 65.1 | 63.1 | 59.4 | 1.32 |
+| | Verification | 5.92 | 11.6 | 9.41 | 9.00 | 7.95 | 7.52 | 7.53 | 1.27 |
+| `P500_27` | Key generation | 59.6 | 90.3 | 77.7 | 70.9 | 67.4 | 67.0 | 62.9 | 1.06 |
+| | Signing | 155 | 309 | 274 | 258 | 248 | 246 | 223 | 1.44 |
+| | Verification | 15.3 | 32.4 | 25.7 | 22.3 | 20.5 | 20.1 | 19.6 | 1.28 |
+| `P664_17` | Key generation | 102 | 194 | 172 | 156 | 153 | 150 | 142 | 1.39 |
+| | Signing | 293 | 607 | 551 | 508 | 498 | 492 | 442 | 1.51 |
+| | Verification | 36.3 | 72.3 | 62.0 | 54.2 | 53.2 | 51.6 | 50.1 | 1.38 |
 
 Key generation and signing vary between runs because they draw random values; verification varies by less than 1 %.
 
