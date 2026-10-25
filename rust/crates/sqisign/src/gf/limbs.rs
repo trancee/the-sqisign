@@ -17,74 +17,80 @@ macro_rules! unrolled {
     };
 }
 
-// The index lists below spell out 0..MAX_LIMBS and 0..=MAX_LIMBS.
-const _: () = assert!(MAX_LIMBS == 11, "unrolled! index lists assume 11 limbs");
+// The index list below spells out 0..MAX_LIMBS.
+const _: () = assert!(MAX_LIMBS == 11, "unrolled! index list assumes 11 limbs");
 
 /// Limb storage of a field element, `[u64; N]`.
 pub trait LimbArray: Copy + AsRef<[u64]> + AsMut<[u64]> {
-    /// Montgomery product `a * b / 2^(64 N)` for `p = C * 2^T - 1`, given
-    /// `k = T / 64` and `pp1 = C << (T % 64)`, the single limb of `p + 1`.
-    fn mont_mul(&self, b: &Self, k: usize, pp1: u64) -> Self;
+    /// Montgomery product `a * b / 2^(64 N)` for `p = C * 2^T - 1` with `p + 1`
+    /// in the top limb (`T / 64 = N - 1`), given `pp1 = C << (T % 64)`, that limb.
+    fn mont_mul(&self, b: &Self, pp1: u64) -> Self;
     /// `self += m & mask` (wrapping).
     fn add_masked(&mut self, m: &Self, mask: u64);
     /// `self -= m & mask` (wrapping), returning the final borrow.
     fn sub_masked(&mut self, m: &Self, mask: u64) -> u64;
 }
 
-/// Adds `a * bi * 2^(64 i)` to `t`, whose words from `i + N` on are zero.
+/// Adds `a * bi` to `z`, returning the word above it.
 ///
-/// The low product halves go to word `i + j` and the high halves to `i + j + 1`, in
-/// two carry chains (`adcs`), as the vendor arm64 assembly does; a `u128` accumulator
-/// costs a flag materialisation per product. The sum fits below `2^(64 (i + N + 1))`,
-/// so the second chain ends without a carry.
+/// The low product halves go to word `j` and the high halves to `j + 1`, in two
+/// carry chains (`adcs`), as the vendor arm64 assembly does; a `u128` accumulator
+/// costs a flag materialisation per product. The sum fits in `N + 1` words, so the
+/// second chain ends without a carry.
 #[inline(always)]
-fn row<const N: usize>(t: &mut [u64; 2 * MAX_LIMBS], a: &[u64; N], bi: u64, i: usize) {
+fn row<const N: usize>(z: &mut [u64; N], a: &[u64; N], bi: u64) -> u64 {
     let mut hi = [0u64; N];
     let mut carry = false;
     for (j, &aj) in a.iter().enumerate() {
         let x = u128::from(aj) * u128::from(bi);
         hi[j] = (x >> 64) as u64;
-        (t[i + j], carry) = t[i + j].carrying_add(x as u64, carry);
+        (z[j], carry) = z[j].carrying_add(x as u64, carry);
     }
-    t[i + N] = u64::from(carry);
+    let mut top = u64::from(carry);
     carry = false;
-    for (j, &h) in hi.iter().enumerate() {
-        (t[i + j + 1], carry) = t[i + j + 1].carrying_add(h, carry);
+    for j in 1..N {
+        (z[j], carry) = z[j].carrying_add(hi[j - 1], carry);
     }
+    (top, _) = top.carrying_add(hi[N - 1], carry);
+    top
+}
+
+/// Montgomery word reduction of `(z, top)`: returns `(z + top 2^(64 N) + m p) / 2^64`
+/// for `m = z[0]`.
+///
+/// With `p + 1 = pp1 * 2^(64 (N - 1))`, `z + m p = z - m + m pp1 2^(64 (N - 1))`,
+/// and `z - m` clears word 0 without a borrow, so `m pp1` is added to words
+/// `N - 1` and `N` before the shift. With four spare bits the sum stays below
+/// `2^(64 (N + 1))`.
+#[inline(always)]
+fn reduce_word<const N: usize>(z: &[u64; N], top: u64, pp1: u64) -> [u64; N] {
+    let x = u128::from(z[0]) * u128::from(pp1);
+    let (below, carry) = z[N - 1].carrying_add(x as u64, false);
+    let (top, _) = top.carrying_add((x >> 64) as u64, carry);
+    core::array::from_fn(|j| {
+        if j + 2 < N {
+            z[j + 1]
+        } else if j + 2 == N {
+            below
+        } else {
+            top
+        }
+    })
 }
 
 impl<const N: usize> LimbArray for [u64; N] {
+    /// Interleaves the product rows with the word reductions, as the vendor arm64
+    /// assembly does: the accumulator stays at `N + 1` words, which fit in
+    /// registers, where a `2N`-word product spills.
     #[inline(always)]
-    fn mont_mul(&self, b: &Self, k: usize, pp1: u64) -> Self {
-        let mut t = [0u64; 2 * MAX_LIMBS];
+    fn mont_mul(&self, b: &Self, pp1: u64) -> Self {
+        let mut z = [0u64; N];
         // Rows are unrolled by hand: LLVM keeps the outer loop rolled for 11 limbs.
-        unrolled!(i in [0 1 2 3 4 5 6 7 8 9 10] < N => row(&mut t, self, b[i], i));
-        // Montgomery digits m_i = t[i] (as updated): t + m_i p 2^(64 i) = t - m_i 2^(64 i)
-        // + m_i (p + 1) 2^(64 i), and p + 1 = pp1 * 2^(64 k). Word i is cleared and not read
-        // again, so only the m_i (p + 1) terms are added, in one carry pass from word k.
-        // m_i (p + 1) for i < N; the pass reads one entry past N (k = N - 1), which stays zero.
-        let mut prod = [0u128; MAX_LIMBS + 1];
-        for i in 0..k {
-            prod[i] = u128::from(t[i]) * u128::from(pp1);
-        }
-        let mut carry = 0u128;
-        // Word k + o for o in 0..2N - k (N + 1 <= MAX_LIMBS + 1 words, as k = N - 1).
-        let mut step = |o: usize| {
-            let j = k + o;
-            let mut x = u128::from(t[j]) + carry + (prod[o] & u128::from(u64::MAX));
-            if o > 0 {
-                x += prod[o - 1] >> 64;
-            }
-            t[j] = x as u64;
-            carry = x >> 64;
-            if j < N {
-                prod[j] = u128::from(t[j]) * u128::from(pp1);
-            }
-        };
-        unrolled!(o in [0 1 2 3 4 5 6 7 8 9 10 11] < 2 * N - k => step(o));
-        let mut r = [0u64; N];
-        r.copy_from_slice(&t[N..2 * N]);
-        r
+        unrolled!(i in [0 1 2 3 4 5 6 7 8 9 10] < N => {
+            let top = row(&mut z, self, b[i]);
+            z = reduce_word(&z, top, pp1)
+        });
+        z
     }
 
     // `carrying_add` compiles to one `adcs` (or `adc`) per limb; `u128` sums
