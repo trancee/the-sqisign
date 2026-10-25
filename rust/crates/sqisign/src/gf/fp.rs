@@ -91,6 +91,22 @@ impl<P: FpParams> Fp<P> {
         }
     }
 
+    /// `(a0 + a1) (b0 + b1)`, as the vendor arm64 `fp2_mul`: the sums are not reduced,
+    /// which [`super::consts::check_shape`] allows for.
+    pub(super) fn mul_sums(a0: &Self, a1: &Self, b0: &Self, b1: &Self) -> Self {
+        let (mut a, mut b) = (a0.v, b0.v);
+        a.add_masked(&a1.v, u64::MAX);
+        b.add_masked(&b1.v, u64::MAX);
+        Self::mont_mul(&a, &b)
+    }
+
+    /// `(a0 + a1) b`, with the sum not reduced (see [`Self::mul_sums`]).
+    pub(super) fn mul_sum(a0: &Self, a1: &Self, b: &Self) -> Self {
+        let mut a = a0.v;
+        a.add_masked(&a1.v, u64::MAX);
+        Self::mont_mul(&a, &b.v)
+    }
+
     /// Small integer `x`.
     pub fn from_small(x: u32) -> Self {
         let mut t = P::ZERO;

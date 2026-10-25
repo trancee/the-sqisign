@@ -83,11 +83,9 @@ impl<P: FpParams> Fp2<P> {
 
     /// `self^2`, as `(a + b)(a - b) + 2ab * i`.
     pub fn square(&self) -> Self {
-        let sum = self.re + self.im;
-        let diff = self.re - self.im;
         let ab = self.re * self.im;
         Self {
-            re: sum * diff,
+            re: Fp::mul_sum(&self.re, &self.im, &(self.re - self.im)),
             im: ab + ab,
         }
     }
@@ -192,7 +190,7 @@ impl<P: FpParams> Mul for Fp2<P> {
 
     /// Karatsuba: three GF(p) multiplications.
     fn mul(self, rhs: Self) -> Self {
-        let t0 = (self.re + self.im) * (rhs.re + rhs.im);
+        let t0 = Fp::mul_sums(&self.re, &self.im, &rhs.re, &rhs.im);
         let t1 = self.im * rhs.im;
         let re = self.re * rhs.re;
         Self {

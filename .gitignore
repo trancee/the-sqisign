@@ -6,6 +6,8 @@ latex/
 .vscode
 .agents/
 
+*.pyc
+
 *.DS_Store
 
 # Rust workspace build output
