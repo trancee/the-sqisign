@@ -194,7 +194,9 @@ an expert review has accepted the Rust code, it must not replace the reviewed C 
 16. Constant-time masks pass through an optimisation barrier where C applies `ct_barrier_*` (`mp_ct.h`), and in the
     field add, subtract, select and swap masks, which C leaves to its compiler. The barrier is `core::hint::black_box`,
     the only one available without `unsafe`, so it is best effort; it costs about 6–10 % in key generation, signing and
-    verification. `rust/scripts/ct_branches.py` builds the shipped configuration (fat LTO, one codegen unit),
+    verification. The field add and subtract reduction masks are instead ORed with one `black_box(0)`, which is as
+    opaque but keeps the stack round trip of `black_box` off the carry chain; the subtraction borrow mask keeps the
+    direct barrier, since LLVM branches on the borrow behind an opaque zero on 32-bit targets. `rust/scripts/ct_branches.py` builds the shipped configuration (fat LTO, one codegen unit),
     disassembles it and fails on any conditional branch attributed to the constant-time code of `gf`, `mp` and
     `quat/lll`; CI runs it on `aarch64`, `x86_64`, `armv7` and `i686`. A dudect-style example (`examples/dudect.rs`)
     measures the field and `ibz_ct_*` operations; its results and limits are in
@@ -226,8 +228,9 @@ an expert review has accepted the Rust code, it must not replace the reviewed C 
 - The port takes 0.90–1.27× the time of the C `ref` build and 1.41–1.71× that of the shipped C `arm64` build in the JMH
   benchmarks, and 1.53–1.90× that of C `arm64` on an Android device
   ([`rust/README.md`](../../../rust/README.md#performance)), before the 6–10 % of the barriers (item 16). With the
-  barriers, the carry-chain field kernels and the interleaved Montgomery multiplication it takes 1.19–1.73× the time of
-  C `arm64` on a Cortex-A710 core, so it would still fail the 10 % budget (P4) today.
+  barriers, the carry-chain field kernels, the interleaved Montgomery multiplication and the opaque-zero add/subtract
+  masks it takes 1.13–1.70× the time of C `arm64` on a Cortex-A710 core, so it would still fail the 10 % budget (P4)
+  today.
 - Two backends double the platform test matrix while both exist.
 
 ## Migration

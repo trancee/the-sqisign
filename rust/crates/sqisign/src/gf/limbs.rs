@@ -103,12 +103,16 @@ impl<const N: usize> LimbArray for [u64; N] {
         }
     }
 
-    /// Subtracts as `self + !(m & mask) + 1`, which keeps the carry chain.
+    /// Subtracts as `self + !(m & mask) + 1`, which keeps the carry chain; the first
+    /// limb is a plain subtraction, since a carry-in of one costs a flag
+    /// materialisation.
     #[inline(always)]
     fn sub_masked(&mut self, m: &Self, mask: u64) -> u64 {
-        let mut carry = true;
-        for (x, y) in self.iter_mut().zip(m) {
-            (*x, carry) = x.carrying_add(!(y & mask), carry);
+        let borrow;
+        (self[0], borrow) = self[0].overflowing_sub(m[0] & mask);
+        let mut carry = !borrow;
+        for j in 1..N {
+            (self[j], carry) = self[j].carrying_add(!(m[j] & mask), carry);
         }
         u64::from(!carry)
     }
