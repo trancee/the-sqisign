@@ -219,7 +219,7 @@ an expert review has accepted the Rust code, it must not replace the reviewed C 
   boundary inputs reduce this; they do not prove equivalence.
 - Constant-time behavior of the Rust field code depends on the compiler. Barriers and the CI branch check (item 16)
   cover the four Android ABIs and the 64-bit desktop targets, not memory indices; the timing measurements cover an
-  Apple M1 and 14 cores of nine Android devices, where the field operations show input-dependent timing on some cores
+  Apple M1 and 31 cores of 17 Android devices, where the field operations show input-dependent timing on some cores
   in Rust and in the vendor C alike. The expert review judges whether that suffices. The AArch64 code generation
   setting (item 16) is read from `rust/.cargo/config.toml`; a `RUSTFLAGS` variable replaces it, so a build that sets
   one must repeat it.
