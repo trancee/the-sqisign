@@ -197,6 +197,21 @@ impl<P: FpParams> Fp<P> {
     }
 }
 
+/// The all-ones mask of a subtraction borrow, ORed with the opaque `zero`. LLVM
+/// branches on the borrow flag behind an opaque zero on x86 and 32-bit Arm
+/// (`ct_branches`), so there the mask takes the full barrier.
+#[cfg(target_arch = "aarch64")]
+#[inline(always)]
+fn borrow_mask(borrow: u64, zero: u64) -> u64 {
+    0u64.wrapping_sub(borrow) | zero
+}
+
+#[cfg(not(target_arch = "aarch64"))]
+#[inline(always)]
+fn borrow_mask(borrow: u64, _zero: u64) -> u64 {
+    barrier(0u64.wrapping_sub(borrow))
+}
+
 impl<P: FpParams> Add for Fp<P> {
     type Output = Self;
 
@@ -222,9 +237,7 @@ impl<P: FpParams> Sub for Fp<P> {
         let zero = barrier(0u64);
         let mut d = self;
         let borrow = d.v.sub_masked(&rhs.v, u64::MAX);
-        // LLVM branches on the borrow flag behind an opaque zero on 32-bit targets
-        // (`ct_branches`), so this mask keeps the full barrier.
-        d.v.add_masked(&P::P, barrier(0u64.wrapping_sub(borrow)));
+        d.v.add_masked(&P::P, borrow_mask(borrow, zero));
         let mask = 0u64.wrapping_sub(d.limbs()[P::N - 1] >> 63) | zero;
         d.v.add_masked(&P::P, mask);
         d
