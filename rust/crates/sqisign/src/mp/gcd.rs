@@ -109,7 +109,8 @@ impl<P: MpParams> Ibz<P> {
                     (cu[k], cv[k]) = (a * cu[k] + b * cv[k], c * cu[k] + d * cv[k]);
                 }
             } else {
-                let (q, r) = divrem(&u, &v);
+                let (mut q, mut r) = ([0; W], [0; W]);
+                divrem(&u, &v, &mut q, &mut r);
                 let q = Self::signed(&q, (bits(&q) + 1).min(P::IBZ_MAX_BITS), false);
                 for k in 0..K {
                     (cu[k], cv[k]) = (cv[k], cu[k] - q * cv[k]);

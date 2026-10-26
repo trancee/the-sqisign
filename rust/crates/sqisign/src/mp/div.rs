@@ -6,6 +6,7 @@
 //! produce fully determined results, which Rust computes with Knuth's
 //! algorithm D and an integer Newton iteration. Variable time, like C.
 
+use super::arith::cneg_limbs;
 use super::{nlimbs, Ibz, MpParams, MAX_IBZ_LIMBS};
 
 /// Unsigned scratch words, one more than the widest integer.
@@ -17,26 +18,24 @@ pub(super) fn len(x: &[u64]) -> usize {
     x.iter().rposition(|&w| w != 0).map_or(1, |i| i + 1)
 }
 
-/// `x << s` over `n` words, `s < 64`, into `n + 1` words.
-fn shl(x: &[u64], n: usize, s: u32) -> Words {
-    let mut r = [0; W];
+/// `x << s` over `n` words, `s < 64`, into the first `n + 1` words of `r`.
+fn shl(r: &mut Words, x: &[u64], n: usize, s: u32) {
     let mut carry = 0;
     for (o, &w) in r.iter_mut().zip(&x[..n]) {
         *o = (w << s) | carry;
         carry = if s == 0 { 0 } else { w >> (64 - s) };
     }
     r[n] = carry;
-    r
 }
 
 /// Unsigned `u / v` with `v != 0` (Knuth, TAOCP 4.3.1, algorithm D):
-/// quotient and remainder.
-pub(super) fn divrem(u: &[u64], v: &[u64]) -> (Words, Words) {
+/// quotient and remainder. Writes them into `q` and `r`, which must be zero,
+/// rather than returning them, to spare copies of the full-width words.
+pub(super) fn divrem(u: &[u64], v: &[u64], q: &mut Words, r: &mut Words) {
     let (m, n) = (len(u), len(v));
-    let (mut q, mut r) = ([0; W], [0; W]);
     if m < n {
         r[..m].copy_from_slice(&u[..m]);
-        return (q, r);
+        return;
     }
     if n == 1 {
         let d = u128::from(v[0]);
@@ -47,11 +46,12 @@ pub(super) fn divrem(u: &[u64], v: &[u64]) -> (Words, Words) {
             rem = num % d;
         }
         r[0] = rem as u64;
-        return (q, r);
+        return;
     }
     let s = v[n - 1].leading_zeros();
-    let vn = shl(v, n, s);
-    let mut un = shl(u, m, s);
+    let (mut vn, mut un) = ([0; W], [0; W]);
+    shl(&mut vn, v, n, s);
+    shl(&mut un, u, m, s);
     let (top, next) = (u128::from(vn[n - 1]), u128::from(vn[n - 2]));
     for j in (0..=m - n).rev() {
         let num = (u128::from(un[j + n]) << 64) | u128::from(un[j + n - 1]);
@@ -87,7 +87,6 @@ pub(super) fn divrem(u: &[u64], v: &[u64]) -> (Words, Words) {
             (un[i] >> s) | (un[i + 1] << (64 - s))
         };
     }
-    (q, r)
 }
 
 impl<P: MpParams> Ibz<P> {
@@ -95,16 +94,18 @@ impl<P: MpParams> Ibz<P> {
     pub(super) fn magnitude(&self) -> Words {
         let mut r = [0; W];
         let n = nlimbs(self.bitlen);
-        r[..n].copy_from_slice(&self.abs().limbs[..n]);
+        r[..n].copy_from_slice(&self.limbs[..n]);
+        cneg_limbs(&mut r[..n], self.sign_mask());
         r
     }
 
     /// `|q|` or `|r|` with the bound `bitlen`, negated if `neg`.
     pub(super) fn signed(w: &Words, bitlen: usize, neg: bool) -> Self {
-        let mut r = Self::ZERO;
-        r.bitlen = bitlen;
-        r.limbs.as_mut().copy_from_slice(&w[..P::IBZ_LIMBS]);
-        r.cneg(0u64.wrapping_sub(u64::from(neg)))
+        let mut r = Self::zero(bitlen);
+        let n = nlimbs(bitlen);
+        r.limbs[..n].copy_from_slice(&w[..n]);
+        r.cneg_assign(0u64.wrapping_sub(u64::from(neg)));
+        r
     }
 
     /// The quotient rounded towards zero and the remainder, of the signs of
@@ -115,7 +116,8 @@ impl<P: MpParams> Ibz<P> {
     ///
     /// If `b` is zero.
     pub fn div_rem(&self, b: &Self) -> (Self, Self) {
-        let (q, r) = divrem(&self.magnitude(), &b.magnitude());
+        let (mut q, mut r) = ([0; W], [0; W]);
+        divrem(&self.magnitude(), &b.magnitude(), &mut q, &mut r);
         let (a_neg, b_neg) = (!self.is_positive(), !b.is_positive());
         (
             Self::signed(&q, self.bitlen, a_neg != b_neg),
@@ -175,7 +177,8 @@ impl<P: MpParams> Ibz<P> {
         x[half / 64] = 1 << (half % 64);
         // Newton from above: x >= sqrt(a) decreases strictly to the floor.
         loop {
-            let (q, _) = divrem(&a, &x);
+            let (mut q, mut r) = ([0; W], [0; W]);
+            divrem(&a, &x, &mut q, &mut r);
             let (mut y, mut c) = ([0; W], false);
             for i in 0..W {
                 (y[i], c) = x[i].carrying_add(q[i], c);
@@ -212,7 +215,13 @@ mod tests {
     /// be added back (the 64-bit form of a Hacker's Delight vector).
     #[test]
     fn divrem_adds_back() {
-        let (q, r) = divrem(&words(&[3, 0, 1 << 63]), &words(&[1, 0, 1 << 61]));
+        let (mut q, mut r) = ([0; W], [0; W]);
+        divrem(
+            &words(&[3, 0, 1 << 63]),
+            &words(&[1, 0, 1 << 61]),
+            &mut q,
+            &mut r,
+        );
         assert_eq!(q, words(&[3]));
         assert_eq!(r, words(&[0, 0, 1 << 61]));
     }

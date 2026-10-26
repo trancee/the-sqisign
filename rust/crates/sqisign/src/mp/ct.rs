@@ -62,9 +62,8 @@ impl<P: MpParams> Ibz<P> {
     /// `out_bitlen`.
     fn narrow(buf: &[u64], out_bitlen: usize) -> Self {
         let n = nlimbs(out_bitlen);
-        let mut r = Self::ZERO;
+        let mut r = Self::zero(64 * n);
         r.limbs[..n].copy_from_slice(&buf[..n]);
-        r.bitlen = 64 * n;
         r.set_bound(out_bitlen);
         r
     }
@@ -158,11 +157,10 @@ impl<P: MpParams> Ibz<P> {
         let mut x = *self;
         x.set_bound(64 * (pl + nq));
         let mut carry = pl > 0 && x.limbs[pl - 1] >> 63 == 1;
-        let mut r = Self::ZERO;
+        let mut r = Self::zero(out_bitlen);
         for i in 0..nq {
             (r.limbs[i], carry) = x.limbs[pl + i].carrying_add(0, carry);
         }
-        r.bitlen = out_bitlen;
         r
     }
 }

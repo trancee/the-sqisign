@@ -5,44 +5,48 @@ use core::ops::{Add, Mul, Neg, Sub};
 
 use super::{nlimbs, Ibz, MpParams};
 
+/// `x` if `mask` is 0, `-x` modulo `2^(64 * x.len())` if it is all ones.
+/// Constant time.
+pub(super) fn cneg_limbs(x: &mut [u64], mask: u64) {
+    let mut carry = u128::from(mask & 1);
+    for o in x {
+        let t = u128::from(*o ^ mask) + carry;
+        *o = t as u64;
+        carry = t >> 64;
+    }
+}
+
 impl<P: MpParams> Ibz<P> {
-    /// `a + b` or `a - b` over `max(bounds) + 1` bits, limited to the
-    /// capacity (C `ibz_add`, `ibz_sub`).
-    fn add_sub(a: &Self, b: &Self, sub: bool) -> Self {
-        let (la, lb) = (nlimbs(a.bitlen), nlimbs(b.bitlen));
-        let (a_hi, b_hi) = (a.sign_mask(), b.sign_mask());
-        let mut r = Self::ZERO;
-        r.bitlen = (a.bitlen.max(b.bitlen) + 1).min(P::IBZ_MAX_BITS);
+    /// `self + b` or `self - b` in place, over `max(bounds) + 1` bits limited
+    /// to the capacity (C `ibz_add`, `ibz_sub`).
+    fn add_sub_assign(&mut self, b: &Self, sub: bool) {
+        let (la, lb) = (nlimbs(self.bitlen), nlimbs(b.bitlen));
+        let (a_hi, b_hi) = (self.sign_mask(), b.sign_mask());
+        self.bitlen = (self.bitlen.max(b.bitlen) + 1).min(P::IBZ_MAX_BITS);
         let mut carry = false;
-        for i in 0..nlimbs(r.bitlen) {
-            let x = if i < la { a.limbs[i] } else { a_hi };
+        for i in 0..nlimbs(self.bitlen) {
+            let x = if i < la { self.limbs[i] } else { a_hi };
             let y = if i < lb { b.limbs[i] } else { b_hi };
-            (r.limbs[i], carry) = if sub {
+            (self.limbs[i], carry) = if sub {
                 x.borrowing_sub(y, carry)
             } else {
                 x.carrying_add(y, carry)
             };
         }
-        r
     }
 
     /// `a` if `mask` is 0, `-a` if it is all ones, over the bound of `a` (C
     /// `ibz_cneg`). Constant time.
     pub fn cneg(&self, mask: u64) -> Self {
         let mut r = *self;
-        let mut carry = u128::from(mask & 1);
-        for (o, &w) in r
-            .limbs
-            .as_mut()
-            .iter_mut()
-            .zip(self.limbs.as_ref())
-            .take(nlimbs(self.bitlen))
-        {
-            let t = u128::from(w ^ mask) + carry;
-            *o = t as u64;
-            carry = t >> 64;
-        }
+        r.cneg_assign(mask);
         r
+    }
+
+    /// [`Self::cneg`] in place, sparing a copy of the full-capacity limbs.
+    pub(super) fn cneg_assign(&mut self, mask: u64) {
+        let n = nlimbs(self.bitlen);
+        cneg_limbs(&mut self.limbs[..n], mask);
     }
 
     /// `|self|` (C `ibz_abs`).
@@ -113,7 +117,8 @@ impl<P: MpParams> Ibz<P> {
         let b_abs = ((i64::from(b) as u64) ^ b_sign).wrapping_sub(b_sign);
         let la = nlimbs(self.bitlen);
         let a_sign = self.sign_mask();
-        let mut r = self.cneg(a_sign);
+        let mut r = *self;
+        r.cneg_assign(a_sign);
         let n = nlimbs(bound);
         let mut carry = 0u128;
         for i in 0..n {
@@ -123,7 +128,7 @@ impl<P: MpParams> Ibz<P> {
             carry = t >> 64;
         }
         r.bitlen = 64 * n;
-        let mut r = r.cneg(a_sign ^ b_sign);
+        r.cneg_assign(a_sign ^ b_sign);
         r.set_bound(bound);
         r
     }
@@ -145,8 +150,9 @@ impl<P: MpParams> Add for Ibz<P> {
     type Output = Self;
 
     /// C `ibz_add`.
-    fn add(self, b: Self) -> Self {
-        Self::add_sub(&self, &b, false)
+    fn add(mut self, b: Self) -> Self {
+        self.add_sub_assign(&b, false);
+        self
     }
 }
 
@@ -154,8 +160,9 @@ impl<P: MpParams> Sub for Ibz<P> {
     type Output = Self;
 
     /// C `ibz_sub`.
-    fn sub(self, b: Self) -> Self {
-        Self::add_sub(&self, &b, true)
+    fn sub(mut self, b: Self) -> Self {
+        self.add_sub_assign(&b, true);
+        self
     }
 }
 
@@ -163,8 +170,9 @@ impl<P: MpParams> Neg for Ibz<P> {
     type Output = Self;
 
     /// Two's-complement negation over the bound (C `ibz_neg`).
-    fn neg(self) -> Self {
-        self.cneg(u64::MAX)
+    fn neg(mut self) -> Self {
+        self.cneg_assign(u64::MAX);
+        self
     }
 }
 
@@ -173,11 +181,12 @@ impl<P: MpParams> Mul for Ibz<P> {
 
     /// The product over `a.bound() + b.bound() - 1` bits, limited to the
     /// capacity (C `ibz_mul`).
-    fn mul(self, b: Self) -> Self {
+    fn mul(mut self, mut b: Self) -> Self {
         let (a_neg, b_neg) = (self.sign_mask(), b.sign_mask());
-        let (m1, m2) = (self.cneg(a_neg), b.cneg(b_neg));
-        let mut r = Self::ZERO;
-        r.bitlen = (self.bitlen + b.bitlen - 1).min(P::IBZ_MAX_BITS);
+        self.cneg_assign(a_neg);
+        b.cneg_assign(b_neg);
+        let (m1, m2) = (&self, &b);
+        let mut r = Self::zero((self.bitlen + b.bitlen - 1).min(P::IBZ_MAX_BITS));
         let (n1, n2) = (nlimbs(m1.bitlen), nlimbs(m2.bitlen));
         for i in 0..n1 {
             let mut carry = 0u64;
@@ -192,6 +201,7 @@ impl<P: MpParams> Mul for Ibz<P> {
                 r.limbs[i + n2] = carry;
             }
         }
-        r.cneg(a_neg ^ b_neg)
+        r.cneg_assign(a_neg ^ b_neg);
+        r
     }
 }
