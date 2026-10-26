@@ -119,6 +119,45 @@ compiled to `memmove` calls that took 5.9 % of `P664_17` signing on an Apple M1.
 subtractions now work in place, division writes into output parameters, and zero values are built in place instead of
 copied from a constant, which brings `memmove` down to 3.4 % and signing 2–3 % faster on the M1.
 
+### Device fleet
+
+The comparison of the Cortex-A710 table, with the integer changes above, on 21 `arm64-v8a` phones: the `timing` example and the vendor `benchmark_*` apps (C `arm64`,
+Android NDK, API 29, API 26 for Android 8.0), 2 rounds of 15 runs each, back to back and pinned with `taskset` to the
+fastest cores the `adb` shell may use. Some phones keep their prime core or cap its frequency for the shell, so absolute
+times do not compare between phones; the table gives Rust / C of the minimum medians, phones ordered by C `P664_17`
+signing time, fastest first:
+
+| Phone | SoC | Android | `P324_3` key generation | Signing | Verification | `P500_27` key generation | Signing | Verification | `P664_17` key generation | Signing | Verification |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| OPPO CPH2359 | Dimensity 1200 | 14 | 1.13 | 1.18 | 1.18 | 1.08 | 1.18 | 1.18 | 1.13 | 1.04 | 1.09 |
+| OnePlus Nord 2 (DN2103) | Dimensity 1200 | 13 | 1.09 | 1.20 | 1.19 | 1.12 | 1.25 | 1.17 | 1.12 | 1.07 | 1.10 |
+| Google Pixel 6 | Tensor G1 | 17 | 1.23 | 1.34 | 1.31 | 1.21 | 1.14 | 1.25 | 1.14 | 1.06 | 1.11 |
+| Samsung Galaxy Z Flip4 (SM-F721B) | Snapdragon 8+ Gen 1 | 16 | 1.22 | 1.27 | 1.23 | 1.21 | 1.21 | 1.21 | 1.10 | 1.02 | 1.10 |
+| Nothing Phone (1) (A063) | Snapdragon 778G+ | 15 | 1.19 | 1.21 | 1.19 | 1.22 | 1.17 | 1.18 | 1.13 | 1.13 | 1.08 |
+| Nothing Phone (2) | Snapdragon 8+ Gen 1 | 16 | 1.21 | 1.21 | 1.23 | 1.17 | 1.22 | 1.21 | 1.14 | 1.08 | 1.10 |
+| Huawei nova 9 (NAM-LX9) | Snapdragon 778G | 12 | 1.07 | 1.20 | 1.18 | 1.05 | 1.13 | 1.18 | 1.11 | 1.13 | 1.09 |
+| Gigaset E940 | Dimensity 900 | 13 | 1.19 | 1.20 | 1.19 | 1.12 | 1.19 | 1.17 | 1.19 | 1.10 | 1.09 |
+| motorola edge 30 fusion | Snapdragon 888+ | 14 | 1.14 | 1.24 | 1.18 | 1.21 | 1.11 | 1.17 | 1.17 | 1.07 | 1.08 |
+| OnePlus 6 (A6003) | Snapdragon 845 | 11 | 1.09 | 1.14 | 1.10 | 1.15 | 1.21 | 1.16 | 1.09 | 1.13 | 1.03 |
+| POCOPHONE F1 (throttles) | Snapdragon 845 | 10 | 1.11 | 1.16 | 1.07 | 1.15 | 1.36 | 1.28 | 1.07 | 1.25 | 1.03 |
+| Samsung Galaxy S10e (SM-G970U1) | Snapdragon 855 | 12 | 1.04 | 1.07 | 1.04 | 1.05 | 1.05 | 1.11 | 1.05 | 1.07 | 1.01 |
+| Google Pixel 4a | Snapdragon 730G | 13 | 1.02 | 1.08 | 1.04 | 1.12 | 1.10 | 1.10 | 1.06 | 1.10 | 1.00 |
+| Xiaomi 22071219CG | Helio G99 | 14 | 1.03 | 1.08 | 1.04 | 1.15 | 1.13 | 1.11 | 1.06 | 1.08 | 1.01 |
+| Xiaomi Mi 8 (throttles) | Snapdragon 845 | 10 | 1.33 | 1.18 | 1.21 | 1.37 | 1.43 | 1.41 | 1.29 | 1.08 | 1.03 |
+| Huawei P30 lite (MAR-LX1A) | Kirin 710 | 10 | 1.15 | 1.21 | 1.13 | 1.23 | 1.21 | 1.18 | 1.09 | 1.17 | 1.05 |
+| Xiaomi Mi Note 3 | Snapdragon 660 | 9 | 1.11 | 1.19 | 1.12 | 1.17 | 1.16 | 1.17 | 1.11 | 1.14 | 1.05 |
+| Nokia X20 | Snapdragon 480 | 14 | 1.05 | 1.06 | 1.04 | 1.08 | 1.11 | 1.11 | 1.06 | 1.12 | 1.01 |
+| Xiaomi 2201117TY | Snapdragon 680 | 13 | 1.16 | 1.19 | 1.13 | 1.25 | 1.16 | 1.18 | 1.06 | 1.05 | 1.05 |
+| Huawei P10 lite (WAS-LX1A) | Kirin 658 | 8.0 | 1.02 | 1.07 | 1.00 | 1.03 | 1.16 | 1.07 | 1.06 | 1.06 | 0.98 |
+| OPPO CPH2135 | Snapdragon 460 | 12 | 1.05 | 1.11 | 1.02 | 1.11 | 1.03 | 1.07 | 1.06 | 1.04 | 0.99 |
+
+Without the two phones marked "throttles", whose C verification times drift by up to 22 % between rounds, Rust takes
+0.98–1.34× the time of C (median 1.12×); `P664_17` is closest (signing 1.02–1.17×, verification 0.98–1.11×). The
+nine fastest phones show the widest gap (1.02–1.34×, median 1.17×), the others 0.98–1.25× (median 1.08×).
+
+Without Gradle, `cargo run --release -p sqisign --example timing -- p324 all 20` times key generation, signing and
+verification with fixed seeds (median and minimum; parameter sets `p324`, `p500`, `p664`).
+
 ## Build and test
 
 Requirements: rustup (it installs the toolchain pinned in `rust-toolchain.toml`) and a C compiler with `__int128`
