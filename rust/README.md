@@ -119,6 +119,12 @@ compiled to `memmove` calls that took 5.9 % of `P664_17` signing on an Apple M1.
 subtractions now work in place, division writes into output parameters, and zero values are built in place instead of
 copied from a constant, which brings `memmove` down to 3.4 % and signing 2–3 % faster on the M1.
 
+Fp2 squaring then multiplies `(a0 + a1) (a0 - a1 + 2p)` and `(a0 + a0) a1` without reducing either operand, as the
+vendor arm64 `fp2_sqr` does, instead of reducing `a0 - a1` and the doubling of `a0 a1`; `check_shape`
+bounds the wider operand. On the M1 this saves 1–4 % (`P500_27` signing 2.7 %, `P324_3` 1 %); on a Pixel 6 Cortex-X1
+core (`taskset 80`) the times stay within its ±1.5 % thermal drift, although `Fp` addition and subtraction drop from
+21 % to 15 % of `P324_3` cycles (`simpleperf`). The device fleet below predates this change.
+
 ### Device fleet
 
 The comparison of the Cortex-A710 table, with the integer changes above, on 27 `arm64-v8a` phones: the `timing` example and the vendor `benchmark_*` apps (C `arm64`,

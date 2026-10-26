@@ -81,12 +81,12 @@ impl<P: FpParams> Fp2<P> {
         }
     }
 
-    /// `self^2`, as `(a + b)(a - b) + 2ab * i`.
+    /// `self^2`, as `(a + b)(a - b) + (a + a) b * i`, with no reduction outside the
+    /// two Montgomery products (as the vendor arm64 `fp2_sqr`).
     pub fn square(&self) -> Self {
-        let ab = self.re * self.im;
         Self {
-            re: Fp::mul_sum(&self.re, &self.im, &(self.re - self.im)),
-            im: ab + ab,
+            re: Fp::mul_sum_diff(&self.re, &self.im),
+            im: Fp::mul_sum(&self.re, &self.re, &self.im),
         }
     }
 

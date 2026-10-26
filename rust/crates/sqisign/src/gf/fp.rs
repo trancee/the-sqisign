@@ -81,7 +81,8 @@ impl<P: FpParams> Fp<P> {
         r
     }
 
-    /// Montgomery product `a * b / R`; inputs and output in `[0, 2^BITS)`.
+    /// Montgomery product `a * b / R`; output in `[0, 2^BITS)` for inputs in that
+    /// range or within the unreduced bounds of [`super::consts::check_shape`].
     ///
     /// Not inlined: one unrolled copy per prime keeps the hot code in the instruction cache.
     #[inline(never)]
@@ -105,6 +106,17 @@ impl<P: FpParams> Fp<P> {
         let mut a = a0.v;
         a.add_masked(&a1.v, u64::MAX);
         Self::mont_mul(&a, &b.v)
+    }
+
+    /// `(a0 + a1) (a0 - a1)`, as the vendor arm64 `fp2_sqr`: the multiplier is
+    /// `a0 - a1 + 2p`, positive as `2p > 2^BITS`, and neither operand is reduced
+    /// ([`super::consts::check_shape`] bounds both).
+    pub(super) fn mul_sum_diff(a0: &Self, a1: &Self) -> Self {
+        let (mut s, mut d) = (a0.v, a0.v);
+        s.add_masked(&a1.v, u64::MAX);
+        d.sub_masked(&a1.v, u64::MAX);
+        d.add_masked(&P::TWO_P, u64::MAX);
+        Self::mont_mul(&s, &d)
     }
 
     /// Small integer `x`.

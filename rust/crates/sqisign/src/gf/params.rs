@@ -26,6 +26,8 @@ pub trait FpParams: 'static {
     const ZERO: Self::Limbs;
     /// The modulus `p`.
     const P: Self::Limbs;
+    /// `2p`.
+    const TWO_P: Self::Limbs;
     /// `R mod p` (one, in Montgomery form).
     const ONE: Self::Limbs;
     /// `R^2 mod p`.
@@ -51,6 +53,7 @@ macro_rules! prime {
             const T: u32 = $t;
             const ZERO: [u64; $n] = [0; $n];
             const P: [u64; $n] = consts::modulus($c, $t);
+            const TWO_P: [u64; $n] = consts::double(&Self::P);
             const ONE: [u64; $n] = consts::pow2_mod(&Self::P, 64 * $n);
             const R2: [u64; $n] = consts::pow2_mod(&Self::P, 128 * $n);
             const TWO_INV: [u64; $n] = consts::half_mod(&Self::ONE, &Self::P);
