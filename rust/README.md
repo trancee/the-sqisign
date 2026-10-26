@@ -35,49 +35,51 @@ and the reasons C stays the default backend are in
 ## Performance
 
 The field kernels are unrolled per prime, the primality tests size their residues to the modulus and integers are
-stored at their parameter set's capacity (30, 40 or 55 limbs, which made `p324` signing 2–4 % faster than a shared
-55-limb array; measured after the tables below with the `timing` example), but the port stays
-in safe Rust without assembly: it is 0.90–1.27× the time of the C `ref` build it follows, and 1.41–1.71× that of the C
-`arm64` build that the Kotlin project ships for that architecture. Measured with the Kotlin JMH benchmarks (`./gradlew
-jvmBenchmarkBenchmark`, `main` profile; mean ms/op, the three backends run back to back) on an Apple M1 under heavy
-background load, so compare the ratios, not the absolute values with the [reference
+stored at their parameter set's capacity (30, 40 or 55 limbs), but the port stays in safe Rust without assembly, with
+the constant-time barriers ([ADR 0004](../kotlin/docs/adr/0004-rust-port-opt-in-backend.md) item 16): it is
+0.61–0.95× the time of the C `ref` build it follows, and 1.05–1.27× that of the C `arm64` build that the Kotlin
+project ships for that architecture. Measured with the Kotlin JMH benchmarks (`./gradlew jvmBenchmarkBenchmark`,
+`main` profile; mean ms/op, the three backends run back to back) on an Apple M1, 2026-10-26, at the commit that
+removed the subtraction borrow barrier; compare the ratios, not the absolute values with the [reference
 baseline](../kotlin/benchmarks/README.md):
 
-| Parameter set | Operation | C `arm64` | C `ref` | Rust | Rust / C `ref` |
+| Parameter set | Operation | C `arm64` | C `ref` | Rust | Rust / C `ref` | Rust / C `arm64` |
 |---|---|---|---|---|---|---|
-| `P324_3` | Key generation | 41.9 | 54.6 | 69.5 | 1.27 |
-| | Signing | 115 | 152 | 194 | 1.27 |
-| | Verification | 15.2 | 22.3 | 23.5 | 1.05 |
-| `P500_27` | Key generation | 145 | 219 | 226 | 1.03 |
-| | Signing | 402 | 572 | 568 | 0.99 |
-| | Verification | 38.1 | 72.8 | 65.3 | 0.90 |
-| `P664_17` | Key generation | 258 | 372 | 440 | 1.18 |
-| | Signing | 809 | 1104 | 1355 | 1.23 |
-| | Verification | 90.4 | 134 | 149 | 1.12 |
+| `P324_3` | Key generation | 8.79 | 11.8 | 11.2 | 0.95 | 1.27 |
+| | Signing | 25.9 | 33.9 | 31.6 | 0.93 | 1.22 |
+| | Verification | 3.33 | 4.83 | 3.60 | 0.74 | 1.08 |
+| `P500_27` | Key generation | 34.5 | 49.7 | 38.3 | 0.77 | 1.11 |
+| | Signing | 95.2 | 135 | 109 | 0.81 | 1.14 |
+| | Verification | 8.39 | 15.1 | 9.26 | 0.61 | 1.10 |
+| `P664_17` | Key generation | 58.4 | 76.0 | 71.2 | 0.94 | 1.22 |
+| | Signing | 183 | 230 | 218 | 0.95 | 1.19 |
+| | Verification | 19.5 | 28.3 | 20.6 | 0.73 | 1.05 |
 
 Backends selected with `-Psqisign.backend=c|rust` and, for C, `-Psqisign.hostBuildType=arm64|ref`.
 
 On the Nothing Phone (1) used for the [device benchmarks](../kotlin/benchmarks/README.md#device-benchmarks)
 (`arm64-v8a`, Android 15, `cpuLocked: true`), `ANDROID_SERIAL=<serial> ./gradlew
-:benchmark-android:connectedReleaseAndroidTest -Psqisign.backend=rust` gives these medians in ms, against the committed
-C `arm64` results from the same phone:
+:benchmark-android:connectedReleaseAndroidTest -Psqisign.backend=c|rust` gives these medians in ms, both backends run
+back to back on the same commit and day (the committed C results differ from this C run by at most 10 %, `P664_17`
+signing):
 
 | Parameter set | Operation | C `arm64` | Rust | Rust / C |
 |---|---|---|---|---|
-| `P324_3` | Key generation | 15.5 | 25.7 | 1.66 |
-| | Signing | 45.4 | 71.8 | 1.58 |
-| | Verification | 5.81 | 9.61 | 1.65 |
-| `P500_27` | Key generation | 47.1 | 77.8 | 1.65 |
-| | Signing | 151 | 242 | 1.60 |
-| | Verification | 15.2 | 27.0 | 1.78 |
-| `P664_17` | Key generation | 103 | 172 | 1.67 |
-| | Signing | 348 | 532 | 1.53 |
-| | Verification | 36.1 | 68.7 | 1.90 |
+| `P324_3` | Key generation | 15.5 | 18.6 | 1.20 |
+| | Signing | 45.0 | 52.4 | 1.16 |
+| | Verification | 5.80 | 6.52 | 1.12 |
+| `P500_27` | Key generation | 46.4 | 55.5 | 1.20 |
+| | Signing | 145 | 159 | 1.10 |
+| | Verification | 15.2 | 16.8 | 1.10 |
+| `P664_17` | Key generation | 97.3 | 119 | 1.22 |
+| | Signing | 314 | 346 | 1.10 |
+| | Verification | 36.1 | 41.1 | 1.14 |
 
-Both tables predate the constant-time barriers ([ADR 0004](../kotlin/docs/adr/0004-rust-port-opt-in-backend.md) item
-16), which add about 6–10 % (`timing` example, `P324_3`, Apple M1).
+Before the optimisations below the port took 0.90–1.27× the time of C `ref` and 1.41–1.71× that of C `arm64` in the
+JMH benchmarks, and 1.53–1.90× that of C `arm64` on the Nothing Phone (1), without the barriers, which add about
+6–10 % (`timing` example, `P324_3`, Apple M1).
 
-They also predate the carry-chain field kernels: limb additions, subtractions and the product rows of the Montgomery
+The carry-chain field kernels came first: limb additions, subtractions and the product rows of the Montgomery
 multiplication use `u64::carrying_add`, which compiles to one `adcs` per limb as in the vendor assembly. On a Nothing
 Phone (2) pinned to one Cortex-A710 core (`taskset 10`), the `timing` example and the vendor `benchmark_*` apps (C
 `arm64`, Android NDK, same core) give these medians in ms over 10 runs.
