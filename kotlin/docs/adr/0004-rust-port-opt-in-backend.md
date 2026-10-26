@@ -199,6 +199,8 @@ an expert review has accepted the Rust code, it must not replace the reviewed C 
     direct barrier, since LLVM branches on the borrow behind an opaque zero on 32-bit targets. On AArch64 the
     backend's select optimisation is off (`rust/.cargo/config.toml`): with the generic tuning of Android it turned
     the carries of the field carry chains into branches, which dudect measured (|t| up to 400 on the Cortex-A710).
+    The machine scheduler is off there too, for speed: it moved the products of the Montgomery multiplication ahead
+    of the carry chains and spilled them to the stack.
     `rust/scripts/ct_branches.py` builds the shipped configuration (fat LTO, one codegen unit),
     disassembles it and fails on any conditional branch attributed to the constant-time code of `gf`, `mp` and
     `quat/lll`, counting standard library arithmetic (`carrying_add`) inlined there as that code; CI runs it on
@@ -235,7 +237,8 @@ an expert review has accepted the Rust code, it must not replace the reviewed C 
   benchmarks, and 1.53–1.90× that of C `arm64` on an Android device
   ([`rust/README.md`](../../../rust/README.md#performance)), before the 6–10 % of the barriers (item 16). With the
   barriers, the carry-chain field kernels, the interleaved Montgomery multiplication, the opaque-zero add/subtract
-  masks, the unreduced Fp2 sums and the faster primality test it takes 1.06–1.51× the time of C `arm64` on a
+  masks, the unreduced Fp2 sums, the faster primality test and without the machine scheduler it takes 1.00–1.39× the
+  time of C `arm64` on a
   Cortex-A710 core, so it would still fail the 10 % budget (P4) today.
 - Two backends double the platform test matrix while both exist.
 

@@ -26,7 +26,7 @@ is shared with the reviewed C backend.
 
 | Path | Lines | Content |
 |---|---|---|
-| `crates/sqisign/src/gf` | 1,242 | GF(p), GF(p^2) in Montgomery form (C `sat64` backend) |
+| `crates/sqisign/src/gf` | 1,344 | GF(p), GF(p^2) in Montgomery form (C `sat64` backend) |
 | `crates/sqisign/src/ec` | 1,802 | points, ladders, isogenies, bases, pairings |
 | `crates/sqisign/src/hd` | 998 | theta structures, (2,2)-isogeny chains |
 | `crates/sqisign/src/verify`, `shake.rs` | 584 | verification, encodings, SHAKE256 |

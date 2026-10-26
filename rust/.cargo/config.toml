@@ -5,4 +5,8 @@
 # tuning of Android and Linux it does so with the carries of the field carry chains (`carrying_add`), a timing leak
 # that dudect measures (ADR 0004 item 16). Apple tunings leave the selects alone.
 [target.'cfg(target_arch = "aarch64")']
-rustflags = ["-C", "llvm-args=-aarch64-select-opt=false"]
+#
+# The machine scheduler hoists every independent `mul`/`umulh` of the field multiplication ahead of its carry chains,
+# which spills them to the stack (228 stores in the `p664` `mont_mul`). Without it the code keeps the order of the
+# vendor assembly (11 stores); `p664` signing is 12-13% faster on Cortex-A710 and A55, Apple M1 unchanged.
+rustflags = ["-C", "llvm-args=-aarch64-select-opt=false", "-C", "llvm-args=-enable-misched=false"]
