@@ -13,9 +13,11 @@ pub const MAX_LIMBS: usize = 11;
 /// fits one limb (so `p + 1` has a single nonzero limb), at least four spare
 /// bits above `p` in `N` limbs, and that limb is the top one (`T / 64 == N - 1`).
 ///
-/// [`super::Fp::mul_sums`] multiplies unreduced sums below `2^(BITS + 1)`; the
-/// product stays in `[0, 2^BITS)` if `2^(2 BITS + 2 - 64 N) <= 2^T`, as
-/// `2^BITS - p > 2^T`, so the spare bits must also cover `bitlen(C) + 2`.
+/// [`super::Fp::mul_sums`] and [`super::Fp::mul_sum_diff`] multiply unreduced
+/// operands: `a < 2^(BITS + 1) = 2h 2^T` and `b < 2^BITS + 2p < (h + 2C) 2^T`, for
+/// `h = 2^bitlen(C)`. The Montgomery product `(a b + m p) / R` with `m < R` stays in
+/// `[0, 2^BITS)` if `a b <= R (2^BITS - p)`, which holds if
+/// `2h (h + 2C) <= (h - C) 2^(64 N - T)`, as `2^BITS - p > (h - C) 2^T`.
 pub const fn check_shape<const N: usize>(c: u64, t: u32) {
     assert!(N <= MAX_LIMBS, "too many limbs");
     assert!(c > 1 && c % 2 == 1, "C must be odd and greater than one");
@@ -26,11 +28,13 @@ pub const fn check_shape<const N: usize>(c: u64, t: u32) {
     let s = t % 64;
     assert!((c << s) >> s == c, "C << (T % 64) must fit one limb");
     assert!(bits(c, t) + 4 <= 64 * N as u32, "need four spare bits");
-    assert!(
-        2 * bits(c, t) + 2 <= 64 * N as u32 + t,
-        "unreduced sums need bitlen(C) + 2 spare bits"
-    );
     assert!(t / 64 + 1 == N as u32, "p + 1 must sit in the top limb");
+    let h = 1u128 << (64 - c.leading_zeros());
+    let c = c as u128;
+    assert!(
+        (2 * h).saturating_mul(h + 2 * c) <= (h - c) << (64 - s),
+        "unreduced sums need more spare bits"
+    );
 }
 
 /// Bit length of `C * 2^T - 1`.
@@ -117,6 +121,11 @@ const fn double_mod<const N: usize>(x: &[u64; N], p: &[u64; N]) -> [u64; N] {
     } else {
         d
     }
+}
+
+/// `2 x`, for `x < 2^(64 N - 1)`.
+pub const fn double<const N: usize>(x: &[u64; N]) -> [u64; N] {
+    add(x, x)
 }
 
 const fn add<const N: usize>(a: &[u64; N], b: &[u64; N]) -> [u64; N] {

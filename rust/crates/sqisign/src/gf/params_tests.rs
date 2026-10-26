@@ -83,6 +83,9 @@ fn constants_match_vendor_headers() {
 fn derivations_also_evaluate_at_run_time() {
     let p = consts::modulus::<6>(3, 324);
     assert_eq!(p, P324::P);
+    let two_p = [u64::MAX - 1, u64::MAX, u64::MAX, u64::MAX, u64::MAX, 95];
+    assert_eq!(consts::double(&p), two_p);
+    assert_eq!(P324::TWO_P, two_p);
     let one = consts::pow2_mod(&p, 384);
     assert_eq!(one, P324::ONE);
     assert_eq!(consts::pow2_mod(&p, 768), P324::R2);
@@ -151,6 +154,13 @@ fn shape_rejects_missing_spare_bits() {
 fn shape_rejects_too_few_spare_bits_for_unreduced_sums() {
     // Six spare bits, but `(2^BITS)^2 * 4 / R` needs bitlen(31) + 2 = 7.
     consts::check_shape::<6>(31, 373);
+}
+
+#[test]
+#[should_panic(expected = "unreduced sums")]
+fn shape_rejects_too_few_spare_bits_for_fused_square() {
+    // `(a0 + a1)(a0 - a1 + 2p)` overflows here although `(a0 + a1)(b0 + b1)` fits.
+    consts::check_shape::<6>(31, 372);
 }
 
 #[test]
