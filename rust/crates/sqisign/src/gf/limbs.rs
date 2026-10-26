@@ -35,24 +35,30 @@ pub trait LimbArray: Copy + AsRef<[u64]> + AsMut<[u64]> {
 ///
 /// The low product halves go to word `j` and the high halves to `j + 1`, in two
 /// carry chains (`adcs`), as the vendor arm64 assembly does; a `u128` accumulator
-/// costs a flag materialisation per product. The sum fits in `N + 1` words, so the
-/// second chain ends without a carry.
+/// costs a flag materialisation per product. Each chain computes its own halves
+/// (`mul`, then `umulh`), so no array of high halves stays live across the first
+/// chain; with the machine scheduler off (`rust/.cargo/config.toml`) they stay in
+/// registers. The sum fits in `N + 1` words, so the second chain ends without a
+/// carry.
 #[inline(always)]
 fn row<const N: usize>(z: &mut [u64; N], a: &[u64; N], bi: u64) -> u64 {
-    let mut hi = [0u64; N];
     let mut carry = false;
-    for (j, &aj) in a.iter().enumerate() {
-        let x = u128::from(aj) * u128::from(bi);
-        hi[j] = (x >> 64) as u64;
-        (z[j], carry) = z[j].carrying_add(x as u64, carry);
+    for (zj, &aj) in z.iter_mut().zip(a) {
+        (*zj, carry) = zj.carrying_add(aj.wrapping_mul(bi), carry);
     }
     let mut top = u64::from(carry);
     carry = false;
     for j in 1..N {
-        (z[j], carry) = z[j].carrying_add(hi[j - 1], carry);
+        (z[j], carry) = z[j].carrying_add(mulhi(a[j - 1], bi), carry);
     }
-    (top, _) = top.carrying_add(hi[N - 1], carry);
+    (top, _) = top.carrying_add(mulhi(a[N - 1], bi), carry);
     top
+}
+
+/// The high word of `a * b`.
+#[inline(always)]
+fn mulhi(a: u64, b: u64) -> u64 {
+    ((u128::from(a) * u128::from(b)) >> 64) as u64
 }
 
 /// Montgomery word reduction of `(z, top)`: returns `(z + top 2^(64 N) + m p) / 2^64`

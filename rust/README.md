@@ -90,20 +90,25 @@ mask through `black_box`, which took a store and reload on the carry chain, and 
 the vendor arm64 `fp2_mul` does; `check_shape` requires the spare bits that keep the product in range ("Fp2 sums"
 column). Primality tests, 64 Miller-Rabin rounds for each prime found as in C, then took up to 31 % of signing (`P664_17`, Apple M1): their
 Montgomery residues are now one word wider than the modulus, so the multiplication's loop bound is a constant that the
-compiler unrolls, and exponentiation uses 4-bit windows ("Primality" column, last ratio against C). Verification tests no
-primes; its column differs from the previous one only by drift between sessions:
+compiler unrolls, and exponentiation uses 4-bit windows ("Primality" column; verification tests no primes, so its column
+differs from the previous one only by drift between sessions). Last, LLVM's machine scheduler moved every independent
+product of a Montgomery multiplication ahead of its carry chains, which spilled them to the stack (228 stores for
+`P664_17`). With the scheduler off for AArch64 (`.cargo/config.toml`) and each carry chain computing its own product
+halves, the code keeps the order of the vendor assembly (11 stores; "No scheduler" column, last ratio against C). On a
+Cortex-A55 core this saves 12–16 % for `P664_17` and up to 7 % for `P500_27`, and costs about 1 % for `P324_3`; on an
+Apple M1 the times do not change:
 
-| Parameter set | Operation | C `arm64` | Rust before | Carry chains | Interleaved | Add/sub | Fp2 sums | Primality | / C |
-|---|---|---|---|---|---|---|---|---|---|
-| `P324_3` | Key generation | 15.6 | 28.4 | 23.9 | 22.9 | 21.0 | 20.3 | 19.5 | 1.25 |
-| | Signing | 45.1 | 84.5 | 73.1 | 70.4 | 65.1 | 63.1 | 59.4 | 1.32 |
-| | Verification | 5.92 | 11.6 | 9.41 | 9.00 | 7.95 | 7.52 | 7.53 | 1.27 |
-| `P500_27` | Key generation | 59.6 | 90.3 | 77.7 | 70.9 | 67.4 | 67.0 | 62.9 | 1.06 |
-| | Signing | 155 | 309 | 274 | 258 | 248 | 246 | 223 | 1.44 |
-| | Verification | 15.3 | 32.4 | 25.7 | 22.3 | 20.5 | 20.1 | 19.6 | 1.28 |
-| `P664_17` | Key generation | 102 | 194 | 172 | 156 | 153 | 150 | 142 | 1.39 |
-| | Signing | 293 | 607 | 551 | 508 | 498 | 492 | 442 | 1.51 |
-| | Verification | 36.3 | 72.3 | 62.0 | 54.2 | 53.2 | 51.6 | 50.1 | 1.38 |
+| Parameter set | Operation | C `arm64` | Rust before | Carry chains | Interleaved | Add/sub | Fp2 sums | Primality | No scheduler | / C |
+|---|---|---|---|---|---|---|---|---|---|---|
+| `P324_3` | Key generation | 15.6 | 28.4 | 23.9 | 22.9 | 21.0 | 20.3 | 19.5 | 18.6 | 1.19 |
+| | Signing | 45.1 | 84.5 | 73.1 | 70.4 | 65.1 | 63.1 | 59.4 | 57.5 | 1.27 |
+| | Verification | 5.92 | 11.6 | 9.41 | 9.00 | 7.95 | 7.52 | 7.53 | 7.16 | 1.21 |
+| `P500_27` | Key generation | 59.6 | 90.3 | 77.7 | 70.9 | 67.4 | 67.0 | 62.9 | 59.8 | 1.00 |
+| | Signing | 155 | 309 | 274 | 258 | 248 | 246 | 223 | 215 | 1.39 |
+| | Verification | 15.3 | 32.4 | 25.7 | 22.3 | 20.5 | 20.1 | 19.6 | 18.1 | 1.18 |
+| `P664_17` | Key generation | 102 | 194 | 172 | 156 | 153 | 150 | 142 | 120 | 1.18 |
+| | Signing | 293 | 607 | 551 | 508 | 498 | 492 | 442 | 385 | 1.31 |
+| | Verification | 36.3 | 72.3 | 62.0 | 54.2 | 53.2 | 51.6 | 50.1 | 39.9 | 1.10 |
 
 Key generation and signing vary between runs because they draw random values; verification varies by less than 1 %.
 
