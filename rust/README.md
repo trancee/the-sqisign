@@ -114,8 +114,10 @@ Apple M1 the times do not change:
 
 Key generation and signing vary between runs because they draw random values; verification varies by less than 1 %.
 
-Without Gradle, `cargo run --release -p sqisign --example timing -- p324 all 20` times key generation, signing and
-verification with fixed seeds (median and minimum; parameter sets `p324`, `p500`, `p664`).
+Integers (`Ibz`) have the full capacity of their parameter set (448 bytes for `P664_17`), and moving them by value
+compiled to `memmove` calls that took 5.9 % of `P664_17` signing on an Apple M1. Sign changes, additions and
+subtractions now work in place, division writes into output parameters, and zero values are built in place instead of
+copied from a constant, which brings `memmove` down to 3.4 % and signing 2–3 % faster on the M1.
 
 ## Build and test
 

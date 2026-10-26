@@ -30,7 +30,7 @@ impl<P: MpParams> Ibz<P> {
     /// `None` when the sum needs more than `numbits` bits, in which case C
     /// (under `NDEBUG`) draws again.
     fn candidate(bytes: &[u8], numbits: usize, bma: &Self) -> Option<Self> {
-        let mut t = Self::ZERO;
+        let mut t = Self::zero(numbits + 1);
         for (limb, chunk) in t.limbs.as_mut().iter_mut().zip(bytes.chunks(8)) {
             let mut w = [0; 8];
             w[..chunk.len()].copy_from_slice(chunk);
@@ -38,7 +38,6 @@ impl<P: MpParams> Ibz<P> {
         }
         let top = nlimbs(numbits + 1) - 1;
         t.limbs[top] &= (1 << (numbits - 64 * top)) - 1;
-        t.bitlen = numbits + 1;
         let t = t + *bma;
         (t.bitsize() <= numbits).then_some(t)
     }
