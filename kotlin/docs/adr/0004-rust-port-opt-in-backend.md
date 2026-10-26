@@ -195,8 +195,9 @@ an expert review has accepted the Rust code, it must not replace the reviewed C 
     field add, subtract, select and swap masks, which C leaves to its compiler. The barrier is `core::hint::black_box`,
     the only one available without `unsafe`, so it is best effort; it costs about 6–10 % in key generation, signing and
     verification. The field add and subtract reduction masks are instead ORed with one `black_box(0)`, which is as
-    opaque but keeps the stack round trip of `black_box` off the carry chain; the subtraction borrow mask keeps the
-    direct barrier, since LLVM branches on the borrow behind an opaque zero on 32-bit targets. On AArch64 the
+    opaque but keeps the stack round trip of `black_box` off the carry chain; the subtraction borrow mask does so
+    only on AArch64 and keeps the direct barrier elsewhere, since LLVM branches on the borrow behind an opaque zero
+    on x86 and 32-bit Arm. On AArch64 the
     backend's select optimisation is off (`rust/.cargo/config.toml`): with the generic tuning of Android it turned
     the carries of the field carry chains into branches, which dudect measured (|t| up to 400 on the Cortex-A710).
     The machine scheduler is off there too, for speed: it moved the products of the Montgomery multiplication ahead
