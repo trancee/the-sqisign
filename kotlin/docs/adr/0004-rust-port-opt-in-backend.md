@@ -241,6 +241,13 @@ an expert review has accepted the Rust code, it must not replace the reviewed C 
   Montgomery multiplication, the opaque-zero add/subtract masks, the unreduced Fp2 sums, the faster primality test,
   turning off the machine scheduler and avoiding full-capacity integer copies (before them: 1.41–1.71× and
   1.53–1.90× without the barriers). It would still fail the 10 % budget (P4) today.
+  The remaining gap is treated as structural: the shipped C build uses hand-written assembly for the field
+  kernels, and the safe-Rust alternatives tried after these figures did not help on the Pixel 6 Cortex-X1.
+  Squaring in GF(p²) without reducing the operands was neutral there (1–4 % faster on the M1) and is kept. A
+  reciprocal-based 2-by-1 division was neutral on both machines. A C-style fused `Fp2` multiplication was 3–10 %
+  slower on the M1. Other `Fp` subtraction formulations compiled to more instructions per limb on AArch64.
+  Closing the gap would need inline assembly, which the crate forbids (no `unsafe`). P4 stays at 10 % and Rust
+  stays opt-in; relaxing P4 needs a new decision.
 - Two backends double the platform test matrix while both exist.
 
 ## Migration
