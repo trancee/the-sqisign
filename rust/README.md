@@ -123,50 +123,52 @@ Fp2 squaring then multiplies `(a0 + a1) (a0 - a1 + 2p)` and `(a0 + a0) a1` witho
 vendor arm64 `fp2_sqr` does, instead of reducing `a0 - a1` and the doubling of `a0 a1`; `check_shape`
 bounds the wider operand. On the M1 this saves 1–4 % (`P500_27` signing 2.7 %, `P324_3` 1 %); on a Pixel 6 Cortex-X1
 core (`taskset 80`) the times stay within its ±1.5 % thermal drift, although `Fp` addition and subtraction drop from
-21 % to 15 % of `P324_3` cycles (`simpleperf`). The device fleet below predates this change.
+21 % to 15 % of `P324_3` cycles (`simpleperf`).
 
 ### Device fleet
 
-The comparison of the Cortex-A710 table, with the integer changes above, on 27 `arm64-v8a` phones: the `timing` example and the vendor `benchmark_*` apps (C `arm64`,
-Android NDK, API 29, API 26 for Android 8.0), 2 rounds of 15 runs each, back to back and pinned with `taskset` to the
-fastest cores the `adb` shell may use (by CPU part where all cores report the same maximum frequency, as on the
-RMX3263). Some phones keep their prime core or cap its frequency for the shell, so absolute times do not compare between
-phones; the table gives Rust / C of the minimum medians, phones roughly ordered by C `P664_17` signing time, fastest
-first (the six phones added in a later session were placed against re-measured neighbours):
+The comparison of the Cortex-A710 table, with the changes above including the Fp2 squaring, on 27 `arm64-v8a` phones:
+the `timing` example and the vendor `benchmark_*` apps (C `arm64`, Android NDK, API 29, API 26 for Android 8.0), 2
+rounds of 15 runs each, back to back and pinned with `taskset` to the fastest core the `adb` shell may use (by CPU part
+where all cores report the same maximum frequency, as on the RMX3263; the P10 lite to its big cluster, because its
+shell lost the single core mid-run). Some phones keep their prime core or cap its frequency for the shell, so absolute
+times do not compare between phones; the table gives Rust / C of the minimum medians, phones roughly ordered by C
+`P664_17` signing time, fastest first:
 
 | Phone | SoC | Android | `P324_3` key generation | Signing | Verification | `P500_27` key generation | Signing | Verification | `P664_17` key generation | Signing | Verification |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| OPPO CPH2359 | Dimensity 1200 | 14 | 1.13 | 1.18 | 1.18 | 1.08 | 1.18 | 1.18 | 1.13 | 1.04 | 1.09 |
-| OnePlus Nord 2 (DN2103) | Dimensity 1200 | 13 | 1.09 | 1.20 | 1.19 | 1.12 | 1.25 | 1.17 | 1.12 | 1.07 | 1.10 |
-| Google Pixel 6 | Tensor G1 | 17 | 1.23 | 1.34 | 1.31 | 1.21 | 1.14 | 1.25 | 1.14 | 1.06 | 1.11 |
-| Samsung Galaxy Z Flip4 (SM-F721B) | Snapdragon 8+ Gen 1 | 16 | 1.22 | 1.27 | 1.23 | 1.21 | 1.21 | 1.21 | 1.10 | 1.02 | 1.10 |
-| Nothing Phone (1) (A063) | Snapdragon 778G+ | 15 | 1.19 | 1.21 | 1.19 | 1.22 | 1.17 | 1.18 | 1.13 | 1.13 | 1.08 |
-| Nothing Phone (2) | Snapdragon 8+ Gen 1 | 16 | 1.21 | 1.21 | 1.23 | 1.17 | 1.22 | 1.21 | 1.14 | 1.08 | 1.10 |
-| Huawei nova 9 (NAM-LX9) | Snapdragon 778G | 12 | 1.07 | 1.20 | 1.18 | 1.05 | 1.13 | 1.18 | 1.11 | 1.13 | 1.09 |
-| Gigaset E940 | Dimensity 900 | 13 | 1.19 | 1.20 | 1.19 | 1.12 | 1.19 | 1.17 | 1.19 | 1.10 | 1.09 |
-| OPPO CPH2251 | Dimensity 900 | 13 | 1.12 | 1.22 | 1.19 | 1.15 | 1.21 | 1.17 | 1.15 | 1.08 | 1.08 |
-| motorola edge 30 fusion | Snapdragon 888+ | 14 | 1.14 | 1.24 | 1.18 | 1.21 | 1.11 | 1.17 | 1.17 | 1.07 | 1.08 |
-| OnePlus 6 (A6003) | Snapdragon 845 | 11 | 1.09 | 1.14 | 1.10 | 1.15 | 1.21 | 1.16 | 1.09 | 1.13 | 1.03 |
-| POCOPHONE F1 (throttles) | Snapdragon 845 | 10 | 1.11 | 1.16 | 1.07 | 1.15 | 1.36 | 1.28 | 1.07 | 1.25 | 1.03 |
-| Samsung Galaxy S10e (SM-G970U1) | Snapdragon 855 | 12 | 1.04 | 1.07 | 1.04 | 1.05 | 1.05 | 1.11 | 1.05 | 1.07 | 1.01 |
-| Google Pixel 4a | Snapdragon 730G | 13 | 1.02 | 1.08 | 1.04 | 1.12 | 1.10 | 1.10 | 1.06 | 1.10 | 1.00 |
-| Xiaomi 22071219CG | Helio G99 | 14 | 1.03 | 1.08 | 1.04 | 1.15 | 1.13 | 1.11 | 1.06 | 1.08 | 1.01 |
-| Xiaomi Mi 8 (throttles) | Snapdragon 845 | 10 | 1.33 | 1.18 | 1.21 | 1.37 | 1.43 | 1.41 | 1.29 | 1.08 | 1.03 |
-| Huawei P30 lite (MAR-LX1A) | Kirin 710 | 10 | 1.15 | 1.21 | 1.13 | 1.23 | 1.21 | 1.18 | 1.09 | 1.17 | 1.05 |
-| Xiaomi Mi Note 3 | Snapdragon 660 | 9 | 1.11 | 1.19 | 1.12 | 1.17 | 1.16 | 1.17 | 1.11 | 1.14 | 1.05 |
-| Xiaomi 2201117PG | Helio G96 | 13 | 1.05 | 1.05 | 1.04 | 1.12 | 1.17 | 1.11 | 1.06 | 1.07 | 1.00 |
-| Xiaomi 23053RN02A | Helio G88 | 13 | 1.12 | 1.12 | 1.09 | 1.14 | 1.27 | 1.16 | 1.09 | 1.14 | 1.03 |
-| realme RMX3710 | Helio G88 | 15 | 1.09 | 1.14 | 1.10 | 1.22 | 1.15 | 1.16 | 1.10 | 1.14 | 1.03 |
-| Nokia X20 | Snapdragon 480 | 14 | 1.05 | 1.06 | 1.04 | 1.08 | 1.11 | 1.11 | 1.06 | 1.12 | 1.01 |
-| Xiaomi 2201117TY | Snapdragon 680 | 13 | 1.16 | 1.19 | 1.13 | 1.25 | 1.16 | 1.18 | 1.06 | 1.05 | 1.05 |
-| realme RMX3263 | Unisoc T618 | 11 | 1.09 | 1.14 | 1.09 | 1.21 | 1.15 | 1.15 | 1.10 | 1.14 | 1.03 |
-| OPPO CPH2385 | Helio G35 | 14 | 1.08 | 1.11 | 1.04 | 1.13 | 1.06 | 1.07 | 1.06 | 1.11 | 0.99 |
-| Huawei P10 lite (WAS-LX1A) | Kirin 658 | 8.0 | 1.02 | 1.07 | 1.00 | 1.03 | 1.16 | 1.07 | 1.06 | 1.06 | 0.98 |
-| OPPO CPH2135 | Snapdragon 460 | 12 | 1.05 | 1.11 | 1.02 | 1.11 | 1.03 | 1.07 | 1.06 | 1.04 | 0.99 |
+| OPPO CPH2359 | Dimensity 1200 | 14 | 1.16 | 1.19 | 1.17 | 1.07 | 1.07 | 1.16 | 1.14 | 1.04 | 1.08 |
+| OnePlus Nord 2 (DN2103) | Dimensity 1200 | 13 | 1.16 | 1.21 | 1.17 | 1.12 | 1.09 | 1.16 | 1.09 | 1.14 | 1.09 |
+| Google Pixel 6 | Tensor G1 | 17 | 1.16 | 1.23 | 1.24 | 1.07 | 1.17 | 1.19 | 1.06 | 1.11 | 1.07 |
+| Samsung Galaxy Z Flip4 (SM-F721B) | Snapdragon 8+ Gen 1 | 16 | 1.16 | 1.22 | 1.21 | 1.25 | 1.18 | 1.19 | 1.12 | 1.08 | 1.09 |
+| Nothing Phone (1) (A063) | Snapdragon 778G+ | 15 | 1.16 | 1.23 | 1.17 | 1.21 | 1.11 | 1.16 | 1.11 | 1.07 | 1.08 |
+| Nothing Phone (2) | Snapdragon 8+ Gen 1 | 16 | 1.17 | 1.27 | 1.21 | 1.34 | 1.20 | 1.19 | 1.02 | 1.12 | 1.09 |
+| Huawei nova 9 (NAM-LX9) | Snapdragon 778G | 12 | 1.10 | 1.20 | 1.18 | 1.08 | 1.26 | 1.16 | 1.18 | 1.05 | 1.08 |
+| Gigaset E940 | Dimensity 900 | 13 | 1.16 | 1.20 | 1.17 | 1.02 | 1.21 | 1.15 | 1.15 | 1.06 | 1.07 |
+| OPPO CPH2251 | Dimensity 900 | 13 | 1.18 | 1.19 | 1.16 | 1.24 | 1.07 | 1.15 | 1.14 | 1.11 | 1.07 |
+| motorola edge 30 fusion | Snapdragon 888+ | 14 | 1.17 | 1.22 | 1.17 | 1.24 | 1.14 | 1.15 | 1.15 | 1.07 | 1.07 |
+| OnePlus 6 (A6003) | Snapdragon 845 | 11 | 1.08 | 1.12 | 1.08 | 1.14 | 1.21 | 1.15 | 1.07 | 1.17 | 1.03 |
+| POCOPHONE F1 (throttles) | Snapdragon 845 | 10 | 1.10 | 1.12 | 1.08 | 1.15 | 1.28 | 1.12 | 1.14 | 1.14 | 1.16 |
+| Samsung Galaxy S10e (SM-G970U1) | Snapdragon 855 | 12 | 1.05 | 1.07 | 1.04 | 1.11 | 1.16 | 1.10 | 1.03 | 1.10 | 1.00 |
+| Google Pixel 4a | Snapdragon 730G | 13 | 1.03 | 1.09 | 1.04 | 1.07 | 1.22 | 1.10 | 1.06 | 1.06 | 1.00 |
+| Xiaomi 22071219CG | Helio G99 | 14 | 1.02 | 1.06 | 1.04 | 1.11 | 1.15 | 1.11 | 1.06 | 1.06 | 1.00 |
+| Xiaomi Mi 8 (throttles) | Snapdragon 845 | 10 | 1.12 | 1.13 | 1.05 | 1.21 | 1.16 | 1.36 | 1.16 | 1.14 | 1.03 |
+| Huawei P30 lite (MAR-LX1A) | Kirin 710 | 10 | 1.12 | 1.19 | 1.11 | 1.21 | 1.28 | 1.17 | 1.12 | 1.12 | 1.05 |
+| Xiaomi Mi Note 3 | Snapdragon 660 | 9 | 1.12 | 1.17 | 1.11 | 1.15 | 1.15 | 1.16 | 1.11 | 1.14 | 1.04 |
+| Xiaomi 2201117PG | Helio G96 | 13 | 1.04 | 1.07 | 1.04 | 1.13 | 1.06 | 1.10 | 1.00 | 1.05 | 1.00 |
+| Xiaomi 23053RN02A | Helio G88 | 13 | 1.09 | 1.10 | 1.08 | 1.13 | 1.22 | 1.15 | 1.08 | 1.10 | 1.03 |
+| realme RMX3710 | Helio G88 | 15 | 1.10 | 1.13 | 1.08 | 1.19 | 1.13 | 1.16 | 1.09 | 1.09 | 1.03 |
+| Nokia X20 | Snapdragon 480 | 14 | 1.03 | 1.08 | 1.04 | 1.10 | 1.13 | 1.10 | 1.03 | 1.04 | 1.00 |
+| Xiaomi 2201117TY | Snapdragon 680 | 13 | 1.12 | 1.19 | 1.11 | 1.18 | 1.13 | 1.17 | 1.13 | 1.14 | 1.04 |
+| realme RMX3263 | Unisoc T618 | 11 | 1.09 | 1.11 | 1.08 | 1.22 | 1.16 | 1.15 | 1.09 | 1.13 | 1.02 |
+| OPPO CPH2385 | Helio G35 | 14 | 1.05 | 1.09 | 1.03 | 1.02 | 1.14 | 1.07 | 1.05 | 1.09 | 0.98 |
+| Huawei P10 lite (WAS-LX1A) | Kirin 658 | 8.0 | 0.98 | 1.07 | 1.02 | 1.03 | 1.13 | 1.07 | 1.05 | 1.03 | 0.98 |
+| OPPO CPH2135 | Snapdragon 460 | 12 | 1.05 | 1.10 | 1.03 | 1.10 | 1.10 | 1.06 | 1.09 | 1.04 | 0.98 |
 
-Without the two phones marked "throttles", whose C verification times drift by up to 22 % between rounds, Rust takes
-0.98–1.34× the time of C (median 1.12×); `P664_17` is closest (signing 1.02–1.17×, verification 0.98–1.11×). The
-ten fastest phones show the widest gap (1.02–1.34×, median 1.17×), the others 0.98–1.27× (median 1.09×).
+Without the two phones marked "throttles", whose C verification times drift by up to 20 % between rounds, Rust takes
+0.98–1.34× the time of C (median 1.11×, 1.12× before the Fp2 squaring); `P664_17` is closest (signing 1.03–1.17×,
+verification 0.98–1.09×). The ten fastest phones show the widest gap (1.02–1.34×, median 1.16×), the others
+0.98–1.28× (median 1.09×).
 
 Without Gradle, `cargo run --release -p sqisign --example timing -- p324 all 20` times key generation, signing and
 verification with fixed seeds (median and minimum; parameter sets `p324`, `p500`, `p664`).
