@@ -236,7 +236,7 @@ an expert review has accepted the Rust code, it must not replace the reviewed C 
   signing-path sizes, which is evidence, not proof.
 - With the barriers (item 16) the port takes 0.61–0.95× the time of the C `ref` build and 1.05–1.27× that of the
   shipped C `arm64` build in the JMH benchmarks, 1.10–1.22× that of C `arm64` on an Android device, 1.00–1.39×
-  on a Cortex-A710 core and 0.98–1.34× (median 1.12×) across 25 phones
+  on a Cortex-A710 core and 0.98–1.34× (median 1.11×, with the Fp2 squaring below) across 25 phones
   ([`rust/README.md`](../../../rust/README.md#performance)), after the carry-chain field kernels, the interleaved
   Montgomery multiplication, the opaque-zero add/subtract masks, the unreduced Fp2 sums, the faster primality test,
   turning off the machine scheduler and avoiding full-capacity integer copies (before them: 1.41–1.71× and
