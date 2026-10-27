@@ -26,15 +26,16 @@ is shared with the reviewed C backend.
 
 | Path | Lines | Content |
 |---|---|---|
-| `crates/sqisign/src/gf` | 1,344 | GF(p), GF(p^2) in Montgomery form (C `sat64` backend) |
+| `crates/sqisign/src/gf` | 1,391 | GF(p), GF(p^2) in Montgomery form (C `sat64` backend) |
 | `crates/sqisign/src/ec` | 1,802 | points, ladders, isogenies, bases, pairings |
 | `crates/sqisign/src/hd` | 998 | theta structures, (2,2)-isogeny chains |
-| `crates/sqisign/src/verify`, `shake.rs` | 584 | verification, encodings, SHAKE256 |
+| `crates/sqisign/src/verify`, `shake.rs` | 607 | verification, encodings, SHAKE256 |
 | `crates/sqisign/src/mp` | 1,963 | bounded integers (C `ibz_t`), constant-time layer, primality |
-| `crates/sqisign/src/quat` | 3,715 | quaternion algebra, `O0` ideals, lattice reduction, norm equation |
+| `crates/sqisign/src/quat` | 3,742 | quaternion algebra, `O0` ideals, lattice reduction, norm equation |
 | `crates/sqisign/src/id2iso` | 1,733 | ideal-to-isogeny translation |
-| `crates/sqisign/src/sign`, `prng.rs` | 554 | key generation, signing, secret-key encoding, SHAKE256 PRNG |
-| `crates/sqisign-capi/src/lib.rs` | 222 | `sqisign_kmp_*` C ABI, panic boundary, buffer clearing (the only `unsafe` shipped) |
+| `crates/sqisign/src/sign`, `prng.rs` | 570 | key generation, signing, secret-key encoding, SHAKE256 PRNG |
+| `crates/sqisign/src/barrier.rs`, `wipe.rs` | 35 | optimisation barrier (`black_box`), best-effort clearing |
+| `crates/sqisign-capi/src/lib.rs` | 226 | `sqisign_kmp_*` C ABI, panic boundary, buffer clearing (the only `unsafe` shipped) |
 
 The production crates have no third-party dependencies (`sqisign` none, `sqisign-capi` only `sqisign`). The toolchain
 is pinned in [`rust-toolchain.toml`](rust-toolchain.toml). Large precomputed tables are generated from the vendor
@@ -44,7 +45,7 @@ is pinned in [`rust-toolchain.toml`](rust-toolchain.toml). Large precomputed tab
 
 1. `crates/sqisign-capi/src/lib.rs`: pointer and length checks, `catch_unwind`, `write_volatile` clearing.
 2. Decoders in `verify` and `sign` (public key, signature, secret key): the inputs an attacker controls.
-3. `gf` and the constant-time parts of `ec`, `hd`, `mp` (`ct.rs`) and `quat/lll`: claim 3.
+3. `barrier.rs`, `gf` and the constant-time parts of `ec`, `hd`, `mp` (`ct.rs`) and `quat/lll`: claim 3.
 4. `sign`, `id2iso`, `quat`, `mp`: claim 1, using the deviation list in ADR 0004 items 8–15.
 
 ## Evidence
@@ -176,9 +177,9 @@ From `kotlin/`, `./gradlew jvmTest -Psqisign.backend=rust` runs the Kotlin suite
   secret-dependent choices go through `Fp::select` and `Fp::cswap`, which are. `black_box` is the barrier because the
   crate forbids `unsafe` (C uses `volatile` or inline assembly); it is best effort, so the check runs in CI on every
   change. The barriers cost about 6–10 % in key generation, signing and verification (`timing` example, `P324_3`, Apple
-  M1).
+  M1) before field addition and subtraction moved to one opaque zero per operation (README, Performance).
 - **Clearing is best effort.** The core clears what C clears (the PRNG seed and SHAKE256 domain streams, the
-  secret-key encoding temporaries) with a store followed by `black_box`, not volatile writes. Like C, it does not
+  secret-key encoding temporaries) with a store followed by `black_box` (`wipe.rs`), not volatile writes. Like C, it does not
   clear the intermediate ideals, quaternions and points of key generation and signing.
 - **Miri covers selected executions.** Successful key generation and signing, and so the copy-out of keys and
   signatures, take too long to interpret and were not run under Miri. CI interprets only the fast tests; the full KAT
@@ -187,8 +188,11 @@ From `kotlin/`, `./gradlew jvmTest -Psqisign.backend=rust` runs the Kotlin suite
   host target (`aarch64-apple-darwin` locally, `x86_64-unknown-linux-gnu` in CI) was interpreted.
 - **Panics on undefined C behaviour.** Where C divides by zero or overflows a buffer under `NDEBUG`, Rust panics; the
   C ABI reports an error. Such cases were seen only far from signing-path sizes (ADR 0004, Risks).
-- **Performance.** The port is 1.1–1.7× slower than the shipped C `arm64` build ([`README.md`](README.md#performance)),
-  so the 10 % budget (P4) blocks a default switch independently of this review.
+- **Performance.** The port takes 1.05–1.27× the time of the shipped C `arm64` build in the JMH benchmarks (Apple M1),
+  1.10–1.22× on the Nothing Phone (1) and 0.98–1.34× (median 1.11×) across 25 phones
+  ([`README.md`](README.md#performance)). ADR 0004 records the remaining gap as structural: the C build uses
+  hand-written assembly, which the crate's `forbid(unsafe_code)` rules out. The 10 % budget (P4) therefore blocks a
+  default switch independently of this review; the Rust backend stays opt-in.
 
 ## Findings of the preliminary reviews
 
