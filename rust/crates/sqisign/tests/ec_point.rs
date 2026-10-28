@@ -30,7 +30,11 @@ macro_rules! ec_point_suite {
                     assert_eq!(r.is_zero(), ce::is_zero(c), "is_zero");
                     assert_eq!(r.has_zero_coordinate(), ce::has_zero_coordinate(c));
                     for (r2, c2) in ps.iter().step_by(7) {
-                        assert_eq!(r.ct_eq(r2), ce::is_equal(c, c2), "is_equal");
+                        // C `ec_is_equal` returns 1, not a mask, for equal finite points
+                        // (upstream #27); the port returns the documented mask.
+                        let eq = r.ct_eq(r2);
+                        assert!(eq == 0 || eq == u32::MAX, "is_equal mask");
+                        assert_eq!(eq != 0, ce::is_equal(c, c2) != 0, "is_equal");
                     }
                     // A scaled copy is the same projective point.
                     let k = F2::from_small(7);
@@ -39,8 +43,8 @@ macro_rules! ec_point_suite {
                         x: c.x.mul_small(7),
                         z: c.z.mul_small(7),
                     };
-                    assert_eq!(r.ct_eq(&s), ce::is_equal(c, &cs), "is_equal scaled");
-                    assert_ne!(r.ct_eq(&s), 0);
+                    assert_ne!(ce::is_equal(c, &cs), 0, "is_equal scaled");
+                    assert_eq!(r.ct_eq(&s), u32::MAX, "is_equal scaled");
                 }
             }
 

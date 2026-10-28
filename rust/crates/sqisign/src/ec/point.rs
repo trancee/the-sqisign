@@ -25,14 +25,15 @@ impl<P: FpParams> Point<P> {
         self.x.is_zero() | self.z.is_zero()
     }
 
-    /// Projective equality, with the exact return values of C `ec_is_equal`:
-    /// `0xFFFF_FFFF` if both are the identity, `1` if both are finite and equal,
-    /// `0` otherwise. Callers must only test it for non-zero.
+    /// `0xFFFF_FFFF` if the points are projectively equal, else 0 (C
+    /// `ec_is_equal`). The C code multiplies where it means `&` and returns 1
+    /// for equal finite points (upstream #27); the port returns the
+    /// documented mask.
     pub fn ct_eq(&self, q: &Self) -> u32 {
         let l_zero = self.is_zero();
         let r_zero = q.is_zero();
         let lr_equal = (self.x * q.z).ct_eq(&(self.z * q.x));
-        (l_zero & r_zero) | (!l_zero & (!r_zero).wrapping_mul(lr_equal))
+        (l_zero & r_zero) | (!l_zero & !r_zero & lr_equal)
     }
 
     /// `(X / Z : 1)` (C `ec_normalize_point`).
