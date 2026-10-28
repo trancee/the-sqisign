@@ -85,6 +85,47 @@ macro_rules! reject_suite {
                 check(&sig, &m, &pk, false, "longer msg");
             }
 
+            /// Every undersized signature and one or sixteen appended bytes
+            /// are rejected before decoding; `open` reads trailing bytes as
+            /// the message (upstream #23). Rust only: C reads past short input.
+            #[test]
+            fn wrong_lengths_are_rejected() {
+                let (sig, msg, pk) = entry();
+                for len in 0..SIG {
+                    assert!(
+                        !verify::verify::<P>(&sig[..len], &msg, &pk),
+                        "sig len {len}"
+                    );
+                }
+                for extra in [1, 16] {
+                    let mut s = sig.clone();
+                    s.extend(&msg[..extra]);
+                    assert!(!verify::verify::<P>(&s, &msg, &pk), "sig + {extra}");
+                }
+                for len in [0, pk.len() - 1, pk.len() + 1] {
+                    let mut k = pk.clone();
+                    k.resize(len, 0);
+                    assert!(!verify::verify::<P>(&sig, &msg, &k), "pk len {len}");
+                }
+                let sm = [&sig[..], &msg[..]].concat();
+                assert_eq!(verify::open::<P>(&sm, &pk), Some(&msg[..]));
+                assert_eq!(verify::open::<P>(&sm[..SIG - 1], &pk), None);
+            }
+
+            /// Flipping bit 0 of any `E_aux` byte of KAT entry 0 makes the
+            /// gluing fail, which C ignores and reads uninitialised memory
+            /// (upstream #26). Rust only: the C run is undefined behaviour.
+            #[test]
+            fn failed_gluing_is_rejected() {
+                let k = kat::load($kat).swap_remove(0);
+                let (sig, msg) = k.sm.split_at(SIG);
+                for i in 0..BYTES {
+                    let mut s = sig.to_vec();
+                    s[i] ^= 1;
+                    assert!(!verify::verify::<P>(&s, msg, &k.pk), "aux byte {i}");
+                }
+            }
+
             #[test]
             fn malleated_matrices_are_rejected() {
                 let (sig, msg, pk) = entry();

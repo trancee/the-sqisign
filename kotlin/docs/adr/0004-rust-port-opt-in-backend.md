@@ -34,11 +34,14 @@ an expert review has accepted the Rust code, it must not replace the reviewed C 
    through a status flag and an out-parameter become `Option`; the C out-parameter on failure is not reproduced, as
    every C caller aborts on it. Where a C function reports failure but its caller continues on uninitialised data
    (in `hd`, `theta_chain_compute_and_eval*` when `gluing_start_chain` fails, and for chain lengths `n < 2`), the
-   Rust function returns `None` instead of reproducing the undefined behaviour.
+   Rust function returns `None` instead of reproducing the undefined behaviour (upstream SQISign/the-sqisign#26).
+   `Point::ct_eq` returns the all-ones mask `ec_is_equal` documents for equal finite points, where C returns 1
+   (SQISign/the-sqisign#27); the only caller tests it for non-zero.
    Verification keeps the C acceptance rules: a non-canonical half of an encoded GF(p^2) element decodes to 0 (C
    `fp2_from_bytes` ignores its decode mask), and the top two bits of a response matrix entry are malleable for some
    signatures, as in C, because SQIsign is not strongly unforgeable (upstream SQISign/the-sqisign#18). Unlike C, the
-   Rust API also rejects a public key of the wrong length.
+   Rust API rejects a signature or public key of any length other than the encoded size before decoding
+   (SQISign/the-sqisign#23).
 4. Correctness evidence, in this order:
    - differential tests of every ported module against the vendor C `ref` build, compiled from `src/` into a test-only
      crate (`sqisign-reference`) and compared through the byte encodings (integers: bound and significant limbs);
