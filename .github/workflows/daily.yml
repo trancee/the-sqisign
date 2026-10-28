@@ -10,15 +10,22 @@ on:
 permissions:
   contents: read
 
+# Forks skip the nightly run: the cppcheck, clang-tidy and arm64 ct-test findings are upstream's to fix, and upstream
+# fails them identically. Run daily_trigger.yml by hand to exercise these jobs in a fork.
+
 jobs:
   benchmarks:
+    if: github.repository == 'SQISign/the-sqisign'
     uses: ./.github/workflows/benchmarks.yml
 
   ct-test:
+    if: github.repository == 'SQISign/the-sqisign'
     uses: ./.github/workflows/ct-test.yml
 
   cppcheck:
+    if: github.repository == 'SQISign/the-sqisign'
     uses: ./.github/workflows/cppcheck.yml
 
   clang-tidy:
+    if: github.repository == 'SQISign/the-sqisign'
     uses: ./.github/workflows/clang-tidy.yml
