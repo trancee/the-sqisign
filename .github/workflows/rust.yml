@@ -76,9 +76,7 @@ jobs:
       - name: Lint
         run: cargo clippy --locked --all-targets -- -D warnings
       - name: Coverage
-        run: >-
-          cargo llvm-cov --locked -p sqisign -p sqisign-capi
-          --fail-under-lines 100 --fail-under-functions 100 --fail-under-regions 100
+        run: scripts/coverage.sh
 
   # No conditional branch in constant-time code of the shipped build (ADR 0004 item 16).
   ct-branches:

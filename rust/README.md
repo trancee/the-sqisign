@@ -181,7 +181,7 @@ Requirements: rustup (it installs the toolchain pinned in `rust-toolchain.toml`)
 ```sh
 cd rust
 cargo test --release
-cargo llvm-cov -p sqisign -p sqisign-capi --fail-under-lines 100 --fail-under-functions 100 --fail-under-regions 100
+scripts/coverage.sh
 python3 scripts/ct_branches.py
 ```
 
