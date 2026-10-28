@@ -70,7 +70,7 @@ From `rust/`, with a C11 compiler that has `__int128` (Clang or GCC) for the ref
 ```sh
 cargo test --release                # KATs and differential tests
 cargo clippy --all-targets -- -D warnings
-cargo llvm-cov -p sqisign --fail-under-lines 100 --fail-under-functions 100 --fail-under-regions 100
+scripts/coverage.sh                 # 100% coverage gate, as in CI
 cargo run --release -p sqisign --example timing -- p324 all 20
 MIRIFLAGS=-Zmiri-disable-isolation cargo +nightly-2026-10-23 miri test -p sqisign-capi --test miri  # --include-ignored: 1-1.5 h per ignored test
 python3 scripts/ct_branches.py      # add --target aarch64-linux-android, x86_64-unknown-linux-gnu, armv7-linux-androideabi, i686-linux-android
