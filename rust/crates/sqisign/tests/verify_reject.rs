@@ -59,21 +59,29 @@ macro_rules! reject_suite {
             /// Every signature bit flip is rejected by both, except the top
             /// two bits (`2^(f-1)`, `2^(f-2)`) of a matrix entry: SQIsign is
             /// not strongly unforgeable (upstream #18), and both accept some
-            /// of those.
+            /// of those. Optimised builds flip every bit; unoptimised ones (the
+            /// coverage job), where verification is slow, bit `i % 8` of byte `i`.
             #[test]
             fn bit_flips_are_rejected() {
                 let (sig, msg, pk) = entry();
                 let resp = <P as SqisignParams>::RESPONSE_BYTES;
                 let start = SIG - 4 * resp - <P as SqisignParams>::CHALLENGE_BYTES - 2;
                 for i in 0..SIG {
-                    let mut s = sig.clone();
-                    s[i] ^= 1 << (i % 8);
-                    let what = format!("sig byte {i}");
-                    let pos = i.wrapping_sub(start) % resp * 8 + i % 8;
-                    let malleable = (start..start + 4 * resp).contains(&i) && pos + 2 >= F;
-                    let r = verify::verify::<P>(&s, &msg, &pk);
-                    check(&s, &msg, &pk, r, &what);
-                    assert!(!r || malleable, "{what}");
+                    let bits = if cfg!(debug_assertions) {
+                        i % 8..i % 8 + 1
+                    } else {
+                        0..8
+                    };
+                    for bit in bits {
+                        let mut s = sig.clone();
+                        s[i] ^= 1 << bit;
+                        let what = format!("sig byte {i} bit {bit}");
+                        let pos = i.wrapping_sub(start) % resp * 8 + bit;
+                        let malleable = (start..start + 4 * resp).contains(&i) && pos + 2 >= F;
+                        let r = verify::verify::<P>(&s, &msg, &pk);
+                        check(&s, &msg, &pk, r, &what);
+                        assert!(!r || malleable, "{what}");
+                    }
                 }
                 for i in 0..msg.len().min(16) {
                     let mut m = msg.clone();

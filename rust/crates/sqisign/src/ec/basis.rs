@@ -223,7 +223,7 @@ mod tests {
             };
             let (p, hint) = e.find_nqr_factor(127);
             let hit = p.z.im.ct_eq(&Fp::from_small(127)) != 0;
-            assert!(!hit || hint == 127, "hint for b = 127");
+            assert_eq!(hit.then_some(hint), hit.then_some(127), "hint for b = 127");
             hit
         })
     }
@@ -242,7 +242,7 @@ mod tests {
             };
             let (x, hint) = e.find_na_x(127);
             let hit = x.ct_eq(&a.mul_small(128)) != 0;
-            assert!(!hit || hint == 0, "hint for n = 128");
+            assert_eq!(hit.then_some(hint), hit.then_some(0), "hint for n = 128");
             hit
         })
     }

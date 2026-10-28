@@ -40,13 +40,14 @@ Run from `rust/`.
 | Format | `cargo fmt --all --check` | Rust |
 | Lint | `cargo clippy --all-targets -- -D warnings` | Rust |
 | Tests | `cargo test` | Rust |
-| Coverage | `scripts/coverage.sh` (cleans stale instrumented builds first; about an hour locally) | Rust |
+| Coverage | `scripts/coverage.sh` (cleans stale instrumented builds, gates lines, functions, regions and branches at 100 % on the pinned nightly, which needs `--component llvm-tools-preview`; about an hour locally) | Rust |
 | Constant-time branches | `python3 scripts/ct_branches.py` (and `--target` `aarch64-linux-android`, `x86_64-unknown-linux-gnu`, `armv7-linux-androideabi`, `i686-linux-android`); new constant-time code => add to its `GATED` | Rust |
 | Miri | `MIRIFLAGS=-Zmiri-disable-isolation cargo +nightly-2026-10-23 miri test -p sqisign-capi --test miri`; C ABI changes => extend `tests/miri.rs`, protocol-length tests `cfg_attr(miri, ignore)` | Rust |
 | Secret scan | `gitleaks git --redact --exit-code 1 ..` | Secret scan |
 
-Coverage scope: `sqisign` and `sqisign-capi`; `sqisign-reference` is test infrastructure. Branch coverage needs nightly, so
-regions stand in for it (ADR 0004). CI workflow: [`../.github/workflows/rust.yml`](../.github/workflows/rust.yml).
+Coverage scope: `crates/sqisign` and `crates/sqisign-capi`; `sqisign-reference` is test infrastructure. Branch coverage
+needs nightly, so coverage runs on the pinned Miri nightly (ADR 0004). CI workflow:
+[`../.github/workflows/rust.yml`](../.github/workflows/rust.yml).
 
 ## CONVENTIONS
 

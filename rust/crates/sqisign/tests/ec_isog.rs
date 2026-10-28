@@ -95,6 +95,17 @@ macro_rules! ec_isog_suite {
             }
 
             #[test]
+            #[should_panic(expected = "unsupported isogeny length")]
+            fn oversized_isogeny_length_panics() {
+                let phi = IsogEven {
+                    curve: e0(),
+                    kernel: Pt::IDENTITY,
+                    length: 0x1_0000,
+                };
+                let _ = phi.codomain();
+            }
+
+            #[test]
             fn isomorphisms_match_reference() {
                 let mut rng = Rng::new(42);
                 for _ in 0..super::support::SAMPLES {

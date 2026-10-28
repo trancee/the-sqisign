@@ -28,6 +28,10 @@ macro_rules! ideal_api {
                 extern "C" {
                     #[link_name = concat!("sqisign_", $lvl, "_ref_QUAT_prime_cofactor")]
                     pub static QUAT_prime_cofactor: Ibz;
+                    #[link_name = concat!("sqisign_", $lvl, "_ref_SEC_DEGREE")]
+                    pub static SEC_DEGREE: Ibz;
+                    #[link_name = concat!("sqisign_", $lvl, "_ref_COM_DEGREE")]
+                    pub static COM_DEGREE: Ibz;
                 }
                 ext!($lvl; quat_to_lattice(l: *mut Lattice, i: *const Ideal));
                 ext!($lvl; quat_ideal_odd_inert_gen(g: *mut AlgElem, i: *const Ideal));
@@ -88,6 +92,16 @@ macro_rules! ideal_api {
             pub fn prime_cofactor() -> Ibz {
                 // SAFETY: an immutable C global.
                 unsafe { ffi::QUAT_prime_cofactor }
+            }
+            /// C `SEC_DEGREE`, the prime norm of secret key ideals.
+            pub fn sec_degree() -> Ibz {
+                // SAFETY: an immutable C global.
+                unsafe { ffi::SEC_DEGREE }
+            }
+            /// C `COM_DEGREE`, the prime norm of commitment ideals.
+            pub fn com_degree() -> Ibz {
+                // SAFETY: an immutable C global.
+                unsafe { ffi::COM_DEGREE }
             }
             /// C `quat_to_lattice`.
             pub fn to_lattice(i: &Ideal) -> Lattice {

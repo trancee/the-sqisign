@@ -176,7 +176,8 @@ mod tests {
         }
         let m = lehmer(x, y).unwrap();
         let top = m.iter().map(|t| t.unsigned_abs()).max().unwrap();
-        assert!(top <= 1 << 62 && top > 1 << 61);
+        assert!(top <= 1 << 62);
+        assert!(top > 1 << 61);
     }
 
     #[test]

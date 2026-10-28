@@ -60,17 +60,22 @@ jobs:
       - name: Test
         run: cargo test --locked --release
 
-  # Format, lint and the 100 % coverage gate (lines, functions, regions; ADR 0004).
+  # Format, lint and the 100 % coverage gate (lines, functions, regions, branches; ADR 0004). Branch coverage needs
+  # nightly, so coverage runs on the pinned nightly of the Miri job.
   quality:
     name: Format, lint, coverage
     runs-on: ubuntu-24.04
+    env:
+      COVERAGE_TOOLCHAIN: nightly-2026-10-23
     steps:
       - uses: actions/checkout@v5
-      - name: Install pinned toolchain
-        run: rustup toolchain install
+      - name: Install pinned toolchains
+        run: |
+          rustup toolchain install
+          rustup toolchain install "$COVERAGE_TOOLCHAIN" --profile minimal --component llvm-tools-preview
       - uses: taiki-e/install-action@v2
         with:
-          tool: cargo-llvm-cov
+          tool: cargo-llvm-cov@0.9.1
       - name: Format
         run: cargo fmt --all --check
       - name: Lint

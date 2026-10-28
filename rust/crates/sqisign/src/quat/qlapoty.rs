@@ -339,7 +339,10 @@ pub fn loop_two<P: QuatParams>(
         if z < Ibz::ZERO {
             continue;
         }
-        let found = (z.get() & 3 == 1 && z.probab_prime(P::PRIMALITY_NUM_ITER, default))
+        // C also tests `z = 1 mod 4`, which it asserts: the lattice solution
+        // makes `k` odd and `s`, `t` have opposite parity.
+        let found = z
+            .probab_prime(P::PRIMALITY_NUM_ITER, default)
             .then(|| z.cornacchia_prime())
             .flatten();
         if let Some((sc, tc)) = found {

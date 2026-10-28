@@ -136,6 +136,14 @@ macro_rules! ec_basis_suite {
                 let _ = e.reduced_tate(0, &p, &p, &p);
             }
 
+            #[test]
+            #[should_panic(expected = "unsupported pairing order")]
+            fn oversized_pairing_order_panics() {
+                let mut e = e0();
+                let p = Pt::IDENTITY;
+                let _ = e.reduced_tate(T + 1, &p, &p, &p);
+            }
+
             fn low_bits(x: &[u64], e: usize) -> Vec<u64> {
                 let mut v = x.to_vec();
                 for (i, w) in v.iter_mut().enumerate() {
@@ -234,6 +242,14 @@ macro_rules! ec_basis_suite {
                 let mut e = e0();
                 let b = e.basis_2f_from_hint(T, 0);
                 let _ = e.dlog_2_tate(&b, &b, T + 1);
+            }
+
+            #[test]
+            #[should_panic(expected = "unsupported dlog order")]
+            fn zero_dlog_order_panics() {
+                let mut e = e0();
+                let b = e.basis_2f_from_hint(T, 0);
+                let _ = e.dlog_2_tate(&b, &b, 0);
             }
         }
     };

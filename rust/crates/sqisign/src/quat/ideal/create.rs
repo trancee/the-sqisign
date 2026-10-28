@@ -98,7 +98,8 @@ impl<P: QuatParams> Ideal<P> {
         let mut g = g.mod_o0(norm);
         let mut v = g.to_o0_basis();
         if v[2].is_even() == v[3].is_even() {
-            if !(v[2].is_odd() && v[3].is_odd() && v[1].is_even() != v[0].is_even()) {
+            // C also tests `v[3]` odd, which equal parities imply.
+            if !(v[2].is_odd() && v[1].is_even() != v[0].is_even()) {
                 return None;
             }
             g = alg.mul(&AlgElem::from_i32(2, [0, 1, 1, 0]), &g);
