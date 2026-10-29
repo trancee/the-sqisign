@@ -59,10 +59,18 @@ jobs:
             os: ubuntu-24.04
             tasks: jvmTest bundleAndroidMainAar
             rust-targets: aarch64-linux-android x86_64-linux-android
+          - platform: linux-aarch64
+            os: ubuntu-24.04-arm
+            tasks: jvmTest
+            rust-targets: aarch64-unknown-linux-gnu
           - platform: macos-aarch64
             os: macos-15
-            tasks: jvmTest macosArm64Test iosSimulatorArm64Test
-            rust-targets: aarch64-apple-darwin aarch64-apple-ios-sim
+            tasks: jvmTest macosArm64Test iosSimulatorArm64Test assembleSqiSignReleaseXCFramework
+            rust-targets: aarch64-apple-darwin aarch64-apple-ios aarch64-apple-ios-sim
+          - platform: macos-x86_64
+            os: macos-15-intel
+            tasks: jvmTest
+            rust-targets: x86_64-apple-darwin
           - platform: windows-x86_64
             os: windows-2025
             tasks: jvmTest
@@ -82,6 +90,10 @@ jobs:
         run: |
           rustup toolchain install
           rustup target add ${{ matrix.rust-targets }}
+      - name: Set up Android SDK
+        # The Android Gradle plugin needs an SDK to configure the project; the arm64 Linux image has none.
+        if: matrix.platform == 'linux-aarch64'
+        uses: android-actions/setup-android@v4
       - name: Set up MinGW clang
         if: matrix.platform == 'windows-x86_64'
         id: msys2
@@ -104,6 +116,17 @@ jobs:
           (yes || true) | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --install "ndk;$ndk" "cmake;$cmake" > /dev/null
       - name: Test
         run: ./gradlew ${{ matrix.tasks }} -Psqisign.backend=rust "-Psqisign.hostCMakeArgs=${{ matrix.cmake-args }}"
+      - name: Swift tests (macOS)
+        if: matrix.platform == 'macos-aarch64'
+        working-directory: kotlin/swift
+        run: swift test --skip SqiSignKitBenchmarks
+      - name: Swift tests (iOS Simulator)
+        if: matrix.platform == 'macos-aarch64'
+        working-directory: kotlin/swift
+        run: |
+          udid=$(xcrun simctl list devices available -j | python3 -c 'import json,sys; print(next(d["udid"] for r, ds in json.load(sys.stdin)["devices"].items() if "iOS" in r for d in ds if d["name"].startswith("iPhone")))')
+          xcodebuild test -scheme SqiSignKit -destination "id=$udid" -derivedDataPath ../build/swift-dd \
+            -skip-testing:SqiSignKitBenchmarks
 
   # Builds the JNI library on each JVM platform and runs the common tests against it.
   jvm-native:
