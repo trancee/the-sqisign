@@ -5,7 +5,7 @@
 // - Show manifest properties: true
 // - Show declarations: true
 
-// Library unique name: <org.sqisign:sqisign-kotlin>
+// Library unique name: <io.github.trancee:sqisign-kotlin>
 final enum class org.sqisign/ParameterSet : kotlin/Enum<org.sqisign/ParameterSet> { // org.sqisign/ParameterSet|null[0]
     enum entry P324_3 // org.sqisign/ParameterSet.P324_3|null[0]
     enum entry P500_27 // org.sqisign/ParameterSet.P500_27|null[0]

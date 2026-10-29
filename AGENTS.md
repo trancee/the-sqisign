@@ -5,7 +5,8 @@ R full [`CONSTITUTION.md`](CONSTITUTION.md) before mutation; summary != source. 
 ## SCOPE
 
 - Owned => full Constitution: `kotlin/` (incl. C glue `kotlin/native/`), `rust/` (Rust port, follows
-  [`rust/AGENTS.md`](rust/AGENTS.md)), `.github/workflows/kotlin.yml`, `.github/workflows/rust.yml`,
+  [`rust/AGENTS.md`](rust/AGENTS.md)), `.github/workflows/kotlin.yml`, `.github/workflows/release.yml`,
+  `.github/workflows/rust.yml`,
   `.github/workflows/secret-scan.yml`, `.gitleaksignore`, `AGENTS.md`, `CONSTITUTION.md`, `.gitignore`,
   `skills-lock.json`.
 - Vendor => upstream [SQIsign](https://github.com/SQISign/the-sqisign) C implementation and its tooling: every other path

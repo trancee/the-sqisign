@@ -1,0 +1,209 @@
+name: Release
+
+# Builds the release assets for both backends (ADR 0005). A tag vX.Y.Z creates a draft GitHub Release with them; a
+# manual run, or a pull request that changes this workflow, builds the same assets as workflow artifacts only.
+on:
+  push:
+    tags: ["v*"]
+  pull_request:
+    paths: [".github/workflows/release.yml"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+defaults:
+  run:
+    shell: bash
+    working-directory: kotlin
+
+jobs:
+  # The JNI library of each JVM platform, tested on that platform before it goes into the all-platform jar.
+  jvm-native:
+    name: JVM native (${{ matrix.backend }}, ${{ matrix.platform }})
+    strategy:
+      fail-fast: true
+      matrix:
+        backend: [c, rust]
+        platform: [linux-x86_64, linux-aarch64, macos-aarch64, macos-x86_64, windows-x86_64]
+        include:
+          - platform: linux-x86_64
+            os: ubuntu-24.04
+            rust-target: x86_64-unknown-linux-gnu
+          - platform: linux-aarch64
+            os: ubuntu-24.04-arm
+            rust-target: aarch64-unknown-linux-gnu
+          - platform: macos-aarch64
+            os: macos-15
+            rust-target: aarch64-apple-darwin
+          - platform: macos-x86_64
+            os: macos-15-intel
+            rust-target: x86_64-apple-darwin
+          - platform: windows-x86_64
+            os: windows-2025
+            # MSVC has no __int128, which the C code requires; build with MinGW clang instead.
+            rust-target: x86_64-pc-windows-gnullvm
+            cmake-args: -G Ninja -DCMAKE_C_COMPILER=clang -DCMAKE_ASM_COMPILER=clang
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: 21
+      - uses: gradle/actions/setup-gradle@v6
+        with:
+          cache-read-only: true
+      - name: Install pinned Rust toolchain and target
+        if: matrix.backend == 'rust'
+        working-directory: rust
+        run: |
+          rustup toolchain install
+          rustup target add ${{ matrix.rust-target }}
+      - name: Set up Android SDK
+        # The Android Gradle plugin needs an SDK to configure the project; the arm64 Linux image has none.
+        if: matrix.platform == 'linux-aarch64'
+        uses: android-actions/setup-android@v4
+      - name: Set up MinGW clang
+        if: matrix.platform == 'windows-x86_64'
+        id: msys2
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: CLANG64
+          path-type: inherit
+          install: >-
+            mingw-w64-clang-x86_64-clang
+            mingw-w64-clang-x86_64-cmake
+            mingw-w64-clang-x86_64-ninja
+      - name: Put MinGW clang on PATH
+        if: matrix.platform == 'windows-x86_64'
+        run: cygpath -w '${{ steps.msys2.outputs.msys2-location }}/clang64/bin' >> "$GITHUB_PATH"
+      - name: Build and test
+        run: >-
+          ./gradlew buildNativeJvm jvmTest -Psqisign.backend=${{ matrix.backend }}
+          "-Psqisign.hostCMakeArgs=${{ matrix.cmake-args }}"
+      - uses: actions/upload-artifact@v7
+        with:
+          name: jvm-native-${{ matrix.backend }}-${{ matrix.platform }}
+          path: kotlin/build/sqisign/out/buildNativeJvm/
+          if-no-files-found: error
+
+  # The Maven repository (all targets, the JVM jar carrying every platform's library) and the XCFramework of one
+  # backend, both zipped, with the SwiftPM checksum of the XCFramework.
+  package:
+    name: Package (${{ matrix.backend }})
+    needs: jvm-native
+    strategy:
+      fail-fast: true
+      matrix:
+        include:
+          - backend: c
+            suffix: ""
+          - backend: rust
+            suffix: -rust
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: 21
+      - uses: gradle/actions/setup-gradle@v6
+        with:
+          cache-read-only: true
+      - name: Check the tag against the project version
+        id: version
+        run: |
+          version=$(./gradlew -q properties --property version | sed -n 's/^version: //p')
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          if [[ "$GITHUB_REF_TYPE" == tag && "$GITHUB_REF_NAME" != "v$version" ]]; then
+            echo "Tag $GITHUB_REF_NAME does not match the project version $version"; exit 1
+          fi
+      - name: Install pinned Rust toolchain and targets
+        if: matrix.backend == 'rust'
+        working-directory: rust
+        run: |
+          rustup toolchain install
+          rustup target add aarch64-apple-darwin aarch64-apple-ios aarch64-apple-ios-sim \
+            aarch64-linux-android x86_64-linux-android
+      - name: Install NDK and CMake
+        run: |
+          ndk=$(grep '^sqisign.ndkVersion=' gradle.properties | cut -d= -f2)
+          cmake=$(grep '^sqisign.cmakeVersion=' gradle.properties | cut -d= -f2)
+          (yes || true) | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --install "ndk;$ndk" "cmake;$cmake" > /dev/null
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: jvm-native-${{ matrix.backend }}-*
+          path: kotlin/build/jvm-natives
+          merge-multiple: true
+      - name: Publish and assemble
+        run: >-
+          ./gradlew publishAllPublicationsToReleaseRepository assembleSqiSignReleaseXCFramework
+          -Psqisign.backend=${{ matrix.backend }} -Psqisign.jvmNativeLibs=build/jvm-natives
+      - name: Check the published artifacts
+        env:
+          ARTIFACT: sqisign${{ matrix.suffix }}
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          repo=build/release-repo/io/github/trancee
+          jar=$repo/$ARTIFACT-jvm/$VERSION/$ARTIFACT-jvm-$VERSION.jar
+          for p in linux-x86_64/libsqisign_jni.so linux-aarch64/libsqisign_jni.so \
+                   macos-x86_64/libsqisign_jni.dylib macos-aarch64/libsqisign_jni.dylib \
+                   windows-x86_64/sqisign_jni.dll; do
+            unzip -l "$jar" | grep -q "org/sqisign/native/$p" || { echo "missing $p in $jar"; exit 1; }
+          done
+          aar=$repo/$ARTIFACT-android/$VERSION/$ARTIFACT-android-$VERSION.aar
+          for abi in arm64-v8a x86_64; do
+            unzip -l "$aar" | grep -q "jni/$abi/libsqisign_jni.so" || { echo "missing $abi in $aar"; exit 1; }
+          done
+          for t in iosarm64 iossimulatorarm64 macosarm64; do
+            unzip -l "$repo/$ARTIFACT-$t/$VERSION/$ARTIFACT-$t-$VERSION-cinterop-sqisign.klib" \
+              | grep -q "included/libsqisign_kmp_all.a" || { echo "missing static library for $t"; exit 1; }
+          done
+          lib=build/XCFrameworks/release/SqiSign.xcframework/ios-arm64/SqiSign.framework/SqiSign
+          case "${{ matrix.backend }}" in
+            rust) strings "$lib" | grep -q /rustc/ || { echo "XCFramework is not the Rust build"; exit 1; } ;;
+            c) nm "$lib" | grep -q fp2_mul || { echo "XCFramework is not the C build"; exit 1; } ;;
+          esac
+      - name: Zip
+        env:
+          NAME: sqisign${{ matrix.suffix }}-${{ steps.version.outputs.version }}
+        run: |
+          mkdir -p build/dist
+          (cd build/release-repo && zip -qr "../dist/$NAME-maven.zip" .)
+          ditto -c -k --sequesterRsrc --keepParent build/XCFrameworks/release/SqiSign.xcframework \
+            "build/dist/$NAME.xcframework.zip"
+          swift package compute-checksum "build/dist/$NAME.xcframework.zip" > "build/dist/$NAME.xcframework.zip.checksum"
+          (cd build/dist && shasum -a 256 ./*.zip > "$NAME.sha256")
+          ls -l build/dist
+      - uses: actions/upload-artifact@v7
+        with:
+          name: release-${{ matrix.backend }}
+          path: kotlin/build/dist/
+          if-no-files-found: error
+
+  # Tags only: a draft release, published by hand after checking it.
+  release:
+    name: Draft release
+    if: github.ref_type == 'tag'
+    needs: package
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: release-*
+          path: dist
+          merge-multiple: true
+      - name: Create the draft release
+        working-directory: dist
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --draft --verify-tag \
+            --title "$GITHUB_REF_NAME" --generate-notes ./*

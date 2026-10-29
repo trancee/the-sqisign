@@ -16,10 +16,11 @@ plugins {
     alias(libs.plugins.kover)
     alias(libs.plugins.kotlinx.benchmark)
     alias(libs.plugins.kotlin.allopen)
+    `maven-publish`
 }
 
-group = "org.sqisign"
-version = "0.1.0-SNAPSHOT"
+group = "io.github.trancee"
+version = "0.1.0"
 
 /** Configures, builds, and installs the SQIsign C core (`native/CMakeLists.txt`) for one target. */
 @CacheableTask
@@ -451,6 +452,35 @@ dokka {
             localDirectory.set(projectDir.resolve("src"))
             remoteUrl("https://github.com/trancee/the-sqisign/tree/main/kotlin/src")
             remoteLineSuffix.set("#L")
+        }
+    }
+}
+
+// Release repository (ADR 0005): publishAllPublicationsToReleaseRepository -> build/release-repo, a Maven layout the
+// release workflow zips. The Rust backend publishes under sqisign-rust so the two builds never share coordinates.
+val artifactBase = if (nativeBackend == "rust") "sqisign-rust" else "sqisign"
+publishing {
+    repositories {
+        maven {
+            name = "release"
+            url = uri(layout.buildDirectory.dir("release-repo"))
+        }
+    }
+    publications.withType<MavenPublication>().configureEach {
+        artifactId = artifactId.replaceFirst(project.name, artifactBase)
+        pom {
+            name.set(artifactBase)
+            description.set("Kotlin Multiplatform bindings for the SQIsign post-quantum signature scheme.")
+            url.set("https://github.com/trancee/the-sqisign")
+            licenses {
+                license {
+                    name.set("Apache-2.0")
+                    url.set("https://www.apache.org/licenses/LICENSE-2.0")
+                }
+            }
+            scm {
+                url.set("https://github.com/trancee/the-sqisign")
+            }
         }
     }
 }
