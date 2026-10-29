@@ -30,7 +30,7 @@ and the reasons C stays the default backend are in
 | `quat`: the norm equation solver (`qlapoty.c`) | ported; differential tests against C `ref` for all three primes, including PRNG draws |
 | `id2iso`: the action of `O0` on `E0[2^f]`, kernels to ideals, changes of basis, the dimension-2 ideal-to-isogeny translation (`id2iso.c`, `dim2id2iso.c`) | ported; differential tests against C `ref` for all three primes, including PRNG draws |
 | key generation, signing, secret-key encoding (`keygen.c`, `sign.c`, `encode_secret.c`, `sqisign.c`) | ported; byte-exact key pairs and signatures for all 300 NIST KAT entries |
-| C ABI (`sqisign-capi`) + Kotlin backend (`sqisign.backend=rust`) | ported; the `sqisign_kmp_*` functions of `kotlin/native/include/sqisign_kmp.h`, KAT entries byte-exact through the ABI, the Kotlin test suites pass on the Rust backend (JVM on Linux, macOS and Windows, macOS, iOS Simulator, an `x86_64` Android emulator in CI that also runs the `arm64-v8a` libraries through ARM translation, and an `arm64-v8a` Android phone including the seeded KATs) |
+| C ABI (`sqisign-capi`) + Kotlin backend (`sqisign.backend=rust`) | ported; the `sqisign_kmp_*` functions of `kotlin/native/include/sqisign_kmp.h`, KAT entries byte-exact through the ABI, the Kotlin test suites pass on the Rust backend (JVM on Linux and macOS on `x86_64` and `aarch64` and on Windows, macOS, iOS Simulator, the Swift package on macOS and the iOS Simulator through the XCFramework, an `x86_64` Android emulator in CI that also runs the `arm64-v8a` libraries through ARM translation, and an `arm64-v8a` Android phone including the seeded KATs) |
 
 ## Performance
 
@@ -56,6 +56,11 @@ baseline](../kotlin/benchmarks/README.md):
 | | Verification | 19.5 | 28.3 | 20.6 | 0.73 | 1.05 |
 
 Backends selected with `-Psqisign.backend=c|rust` and, for C, `-Psqisign.hostBuildType=arm64|ref`.
+
+A rerun on the same M1 on 2026-10-28 at `c52ab76` (C `arm64` and Rust only, back to back) gave Rust / C `arm64` of
+1.17, 1.16, 1.04 (`P324_3` key generation, signing, verification), 1.02, 1.11, 1.06 (`P500_27`) and 1.16, 1.07, 1.05
+(`P664_17`). `python3 kotlin/benchmarks/compare.py` with the C run as baseline flags four of the nine over the 10 %
+budget (P4); `P500_27` signing (+10.5 % ±6.8 ms) is within noise.
 
 On the Nothing Phone (1) used for the [device benchmarks](../kotlin/benchmarks/README.md#device-benchmarks)
 (`arm64-v8a`, Android 15, `cpuLocked: true`), `ANDROID_SERIAL=<serial> ./gradlew

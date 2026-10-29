@@ -251,7 +251,8 @@ an expert review has accepted the Rust code, it must not replace the reviewed C 
   ([`rust/README.md`](../../../rust/README.md#performance)), after the carry-chain field kernels, the interleaved
   Montgomery multiplication, the opaque-zero add/subtract masks, the unreduced Fp2 sums, the faster primality test,
   turning off the machine scheduler and avoiding full-capacity integer copies (before them: 1.41–1.71× and
-  1.53–1.90× without the barriers). It would still fail the 10 % budget (P4) today.
+  1.53–1.90× without the barriers). It would still fail the 10 % budget (P4) today: a rerun on the M1 on
+  2026-10-28 gave 1.02–1.17× with four of the nine benchmarks over budget.
   The remaining gap is treated as structural: the shipped C build uses hand-written assembly for the field
   kernels, and the safe-Rust alternatives tried after these figures did not help on the Pixel 6 Cortex-X1.
   Squaring in GF(p²) without reducing the operands was neutral there (1–4 % faster on the M1) and is kept. A

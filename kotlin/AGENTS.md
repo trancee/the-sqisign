@@ -58,7 +58,7 @@ external prerequisite, X stub it.
 | Android | `./gradlew bundleAndroidMainAar connectedAndroidDeviceTest` (device/emulator; includes seeded KATs); other ABI: `scripts/android-device-test-abi.sh <abi>` | Android (x86_64 emulator + arm64 translated) |
 | iPhone (manual, T9) | `xcodegen generate` + `xcodebuild test` in `swift/DeviceHost` ([README](README.md#tests)) | none |
 | All-platform jar | `./gradlew jvmTest jvmJar -Psqisign.jvmNativeLibs=<dir> -Psqisign.katTests=false` | JVM jar |
-| Rust backend (ADR 0004) | `./gradlew jvmTest macosArm64Test iosSimulatorArm64Test -Psqisign.backend=rust` (rustup + targets, [`../rust/README.md`](../rust/README.md#use-it-from-the-kotlin-project)) | Rust backend (Linux + AAR build, macOS, Windows) |
+| Rust backend (ADR 0004) | `./gradlew jvmTest macosArm64Test iosSimulatorArm64Test assembleSqiSignReleaseXCFramework -Psqisign.backend=rust`, then `swift test --skip SqiSignKitBenchmarks` in `swift/` (rustup + targets, [`../rust/README.md`](../rust/README.md#use-it-from-the-kotlin-project)) | Rust backend (Linux `x86_64` + AAR build, Linux `aarch64`, macOS `aarch64` + Swift, macOS `x86_64`, Windows) |
 | Benchmark smoke | `./gradlew jvmBenchmarkSmokeBenchmark` | JVM native (linux-x86_64) |
 | Benchmark budget | [`benchmarks/README.md`](benchmarks/README.md) | manual, reference host |
 | Device benchmarks (informational) | `:benchmark-android:connectedReleaseAndroidTest`; scheme `SqiSignDeviceBenchmarks` ([benchmarks](benchmarks/README.md#device-benchmarks)) | dry run / macOS smoke |
