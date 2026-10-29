@@ -141,6 +141,8 @@ jobs:
     runs-on: ubuntu-24.04
     env:
       FUZZ_TOOLCHAIN: nightly-2026-10-23
+      # The prebuilt cargo-fuzz is a musl binary and would default to the musl target.
+      FUZZ_TARGET: x86_64-unknown-linux-gnu
     defaults:
       run:
         working-directory: rust/fuzz
@@ -158,9 +160,9 @@ jobs:
       - name: Seed
         run: python3 seed.py
       - name: Fuzz open
-        run: cargo "+$FUZZ_TOOLCHAIN" fuzz run -s none open -- -max_total_time=300
+        run: cargo "+$FUZZ_TOOLCHAIN" fuzz run -s none --target "$FUZZ_TARGET" open -- -max_total_time=300
       - name: Fuzz sign
-        run: cargo "+$FUZZ_TOOLCHAIN" fuzz run -s none sign -- -max_total_time=300
+        run: cargo "+$FUZZ_TOOLCHAIN" fuzz run -s none --target "$FUZZ_TARGET" sign -- -max_total_time=300
       - name: Upload findings
         if: failure()
         uses: actions/upload-artifact@v5
