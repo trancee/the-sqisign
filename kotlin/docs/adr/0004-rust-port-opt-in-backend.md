@@ -53,7 +53,10 @@ an expert review has accepted the Rust code, it must not replace the reviewed C 
      checks all 300 entries in optimised builds and the first 100, 20 and 10 in the unoptimised coverage build;
    - malformed, truncated and boundary inputs for every decoder, every single-bit flip of a KAT signature, and seeded
      runs of 1 to 8 random bytes overwritten in KAT signatures (300 per parameter set, 24 unoptimised; upstream
-     SQISign/the-sqisign#15), all compared with C (T10);
+     SQISign/the-sqisign#15), all compared with C (T10), plus libFuzzer targets in `rust/fuzz` run five minutes each
+     in CI: verification of mutated KAT signed messages (no panic, idempotent re-encoding; not compared with C, which
+     reads uninitialised memory when a mutated `E_aux` makes the gluing fail, upstream SQISign/the-sqisign#26) and
+     signing with arbitrary seeds and messages (every signature verifies);
    - a targeted mutation check of the decision points of every ported module. Survivors are either killed by a new
      test or recorded with the reason they are not: equivalent mutants (for example a different split of the doubling
      work in `hd` chain set-up, comparing challenge words that are always zero in verification, or the `mp`
