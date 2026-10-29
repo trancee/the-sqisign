@@ -149,25 +149,26 @@ jobs:
           ARTIFACT: sqisign${{ matrix.suffix }}
           VERSION: ${{ steps.version.outputs.version }}
         run: |
+          # grep reads all input (no -q): an early exit would fail the pipeline with SIGPIPE under pipefail.
           repo=build/release-repo/io/github/trancee
           jar=$repo/$ARTIFACT-jvm/$VERSION/$ARTIFACT-jvm-$VERSION.jar
           for p in linux-x86_64/libsqisign_jni.so linux-aarch64/libsqisign_jni.so \
                    macos-x86_64/libsqisign_jni.dylib macos-aarch64/libsqisign_jni.dylib \
                    windows-x86_64/sqisign_jni.dll; do
-            unzip -l "$jar" | grep -q "org/sqisign/native/$p" || { echo "missing $p in $jar"; exit 1; }
+            unzip -l "$jar" | grep "org/sqisign/native/$p" > /dev/null || { echo "missing $p in $jar"; exit 1; }
           done
           aar=$repo/$ARTIFACT-android/$VERSION/$ARTIFACT-android-$VERSION.aar
           for abi in arm64-v8a x86_64; do
-            unzip -l "$aar" | grep -q "jni/$abi/libsqisign_jni.so" || { echo "missing $abi in $aar"; exit 1; }
+            unzip -l "$aar" | grep "jni/$abi/libsqisign_jni.so" > /dev/null || { echo "missing $abi in $aar"; exit 1; }
           done
           for t in iosarm64 iossimulatorarm64 macosarm64; do
             unzip -l "$repo/$ARTIFACT-$t/$VERSION/$ARTIFACT-$t-$VERSION-cinterop-sqisign.klib" \
-              | grep -q "included/libsqisign_kmp_all.a" || { echo "missing static library for $t"; exit 1; }
+              | grep "included/libsqisign_kmp_all.a" > /dev/null || { echo "missing static library for $t"; exit 1; }
           done
           lib=build/XCFrameworks/release/SqiSign.xcframework/ios-arm64/SqiSign.framework/SqiSign
           case "${{ matrix.backend }}" in
-            rust) strings "$lib" | grep -q /rustc/ || { echo "XCFramework is not the Rust build"; exit 1; } ;;
-            c) nm "$lib" | grep -q fp2_mul || { echo "XCFramework is not the C build"; exit 1; } ;;
+            rust) strings "$lib" | grep /rustc/ > /dev/null || { echo "XCFramework is not the Rust build"; exit 1; } ;;
+            c) nm "$lib" | grep fp2_mul > /dev/null || { echo "XCFramework is not the C build"; exit 1; } ;;
           esac
       - name: Zip
         env:
