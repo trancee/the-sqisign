@@ -7,7 +7,7 @@
 //! algorithm D and an integer Newton iteration. Variable time, like C.
 
 use super::arith::cneg_limbs;
-use super::{nlimbs, Ibz, MpParams, MAX_IBZ_LIMBS};
+use super::{nlimbs, Ibz, Limbs, MpParams, MAX_IBZ_LIMBS};
 
 /// Unsigned scratch words, one more than the widest integer.
 pub(super) const W: usize = MAX_IBZ_LIMBS + 1;
@@ -31,7 +31,7 @@ fn shl(r: &mut Words, x: &[u64], n: usize, s: u32) {
 /// Unsigned `u / v` with `v != 0` (Knuth, TAOCP 4.3.1, algorithm D):
 /// quotient and remainder. Writes them into `q` and `r`, which must be zero,
 /// rather than returning them, to spare copies of the full-width words.
-pub(super) fn divrem(u: &[u64], v: &[u64], q: &mut Words, r: &mut Words) {
+pub(super) fn divrem(u: &[u64], v: &[u64], q: &mut [u64], r: &mut [u64]) {
     let (m, n) = (len(u), len(v));
     if m < n {
         r[..m].copy_from_slice(&u[..m]);
@@ -42,8 +42,9 @@ pub(super) fn divrem(u: &[u64], v: &[u64], q: &mut Words, r: &mut Words) {
         let mut rem = 0u128;
         for i in (0..m).rev() {
             let num = (rem << 64) | u128::from(u[i]);
-            q[i] = (num / d) as u64;
-            rem = num % d;
+            let qi = num / d;
+            q[i] = qi as u64;
+            rem = num - qi * d;
         }
         r[0] = rem as u64;
         return;
@@ -55,7 +56,8 @@ pub(super) fn divrem(u: &[u64], v: &[u64], q: &mut Words, r: &mut Words) {
     let (top, next) = (u128::from(vn[n - 1]), u128::from(vn[n - 2]));
     for j in (0..=m - n).rev() {
         let num = (u128::from(un[j + n]) << 64) | u128::from(un[j + n - 1]);
-        let (mut qhat, mut rhat) = (num / top, num % top);
+        let mut qhat = num / top;
+        let mut rhat = num - qhat * top;
         while rhat >> 64 == 0
             && (qhat >> 64 != 0 || qhat * next > (rhat << 64) | u128::from(un[j + n - 2]))
         {
@@ -99,8 +101,16 @@ impl<P: MpParams> Ibz<P> {
         r
     }
 
+    /// `|self|` in its significant limbs, and their number.
+    fn abs_words(&self) -> (P::IbzLimbs, usize) {
+        let mut r = self.limbs;
+        let n = nlimbs(self.bitlen);
+        cneg_limbs(&mut r[..n], self.sign_mask());
+        (r, n)
+    }
+
     /// `|q|` or `|r|` with the bound `bitlen`, negated if `neg`.
-    pub(super) fn signed(w: &Words, bitlen: usize, neg: bool) -> Self {
+    pub(super) fn signed(w: &[u64], bitlen: usize, neg: bool) -> Self {
         let mut r = Self::zero(bitlen);
         let n = nlimbs(bitlen);
         r.limbs[..n].copy_from_slice(&w[..n]);
@@ -116,12 +126,14 @@ impl<P: MpParams> Ibz<P> {
     ///
     /// If `b` is zero.
     pub fn div_rem(&self, b: &Self) -> (Self, Self) {
-        let (mut q, mut r) = ([0; W], [0; W]);
-        divrem(&self.magnitude(), &b.magnitude(), &mut q, &mut r);
+        // Both fit the capacity: `|q| <= |self|` and `|r| < |b|`.
+        let (mut q, mut r) = (P::IbzLimbs::zeroed(), P::IbzLimbs::zeroed());
+        let ((a, m), (v, n)) = (self.abs_words(), b.abs_words());
+        divrem(&a[..m], &v[..n], q.as_mut(), r.as_mut());
         let (a_neg, b_neg) = (!self.is_positive(), !b.is_positive());
         (
-            Self::signed(&q, self.bitlen, a_neg != b_neg),
-            Self::signed(&r, b.bitlen, a_neg),
+            Self::signed(q.as_ref(), self.bitlen, a_neg != b_neg),
+            Self::signed(r.as_ref(), b.bitlen, a_neg),
         )
     }
 
@@ -224,6 +236,21 @@ mod tests {
         );
         assert_eq!(q, words(&[3]));
         assert_eq!(r, words(&[0, 0, 1 << 61]));
+    }
+
+    /// The first estimate from the top two words is two too large, which only
+    /// the `rhat` test removes: the add-back corrects a single unit.
+    #[test]
+    fn divrem_corrects_an_estimate_two_too_large() {
+        let (mut q, mut r) = ([0; W], [0; W]);
+        divrem(
+            &words(&[0xd5f4_b3b2_e4b0_6ce6, u64::MAX, 0x9027_c4d1_c386_bbc2]),
+            &words(&[0xffff_ffff_ffff_fffe, 0x9027_c4d1_c386_bbc4]),
+            &mut q,
+            &mut r,
+        );
+        assert_eq!(q, words(&[0xffff_ffff_ffff_fffc]));
+        assert_eq!(r, words(&[0xd5f4_b3b2_e4b0_6cde, 0x409f_1347_0e1a_ef15]));
     }
 
     #[test]
