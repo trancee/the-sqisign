@@ -190,7 +190,7 @@ From `kotlin/`, `./gradlew jvmTest -Psqisign.backend=rust` runs the Kotlin suite
 - **Panics on undefined C behaviour.** Where C divides by zero or overflows a buffer under `NDEBUG`, Rust panics; the
   C ABI reports an error. Such cases were seen only far from signing-path sizes (ADR 0004, Risks).
 - **Performance.** The port takes 1.05–1.27× the time of the shipped C `arm64` build in the JMH benchmarks (Apple M1),
-  1.10–1.22× on the Nothing Phone (1) and 0.98–1.34× (median 1.11×) across 25 of 27 phones (two that throttle excluded)
+  1.10–1.22× on the Nothing Phone (1) and 0.95–1.24× (median 1.09×) across 25 of 27 phones (two that throttle excluded)
   ([`README.md`](README.md#performance)). ADR 0004 records the remaining gap as structural: the C build uses
   hand-written assembly, which the crate's `forbid(unsafe_code)` rules out. The 10 % budget (P4) therefore blocks a
   default switch independently of this review; the Rust backend stays opt-in.
