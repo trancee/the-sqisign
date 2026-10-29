@@ -57,10 +57,10 @@ baseline](../kotlin/benchmarks/README.md):
 
 Backends selected with `-Psqisign.backend=c|rust` and, for C, `-Psqisign.hostBuildType=arm64|ref`.
 
-A rerun on the same M1 on 2026-10-28 at `c52ab76` (C `arm64` and Rust only, back to back) gave Rust / C `arm64` of
-1.17, 1.16, 1.04 (`P324_3` key generation, signing, verification), 1.02, 1.11, 1.06 (`P500_27`) and 1.16, 1.07, 1.05
-(`P664_17`). `python3 kotlin/benchmarks/compare.py` with the C run as baseline flags four of the nine over the 10 %
-budget (P4); `P500_27` signing (+10.5 % ±6.8 ms) is within noise.
+A rerun on the same M1 on 2026-10-29 at `b846b09` (C `arm64` and Rust only, back to back) gave Rust / C `arm64` of
+1.14, 1.18, 1.10 (`P324_3` key generation, signing, verification), 0.98, 1.00, 1.00 (`P500_27`) and 1.11, 1.07, 1.06
+(`P664_17`). `python3 kotlin/benchmarks/compare.py` with the C run as baseline flags three of the nine over the 10 %
+budget (P4): `P324_3` key generation and signing, and `P664_17` key generation.
 
 On the Nothing Phone (1) used for the [device benchmarks](../kotlin/benchmarks/README.md#device-benchmarks)
 (`arm64-v8a`, Android 15, `cpuLocked: true`), `ANDROID_SERIAL=<serial> ./gradlew
