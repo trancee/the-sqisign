@@ -12,3 +12,4 @@ latex/
 
 # Rust workspace build output
 rust/target/
+rust/coverage.json
