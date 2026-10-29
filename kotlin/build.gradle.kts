@@ -263,7 +263,8 @@ val buildAndroidNative = registerAndroidNative("", emptyList())
 // Test-only libsqisign_kat_jni per ABI, packaged into the device-test APK only (never the AAR).
 val buildAndroidNativeKat = registerAndroidNative("Kat", listOf("-DSQISIGN_KMP_KAT=ON"))
 
-// Apple: one merged static archive per Kotlin/Native target, embedded into the cinterop klib.
+// Apple: one merged static archive per Kotlin/Native target, embedded into the cinterop klib. The cinterop tasks
+// take the archives as inputs, so switching `sqisign.backend` re-embeds them.
 val appleSlices = mapOf(
     "iosArm64" to
         listOf("-DCMAKE_SYSTEM_NAME=iOS", "-DCMAKE_OSX_SYSROOT=iphoneos", "-DCMAKE_OSX_DEPLOYMENT_TARGET=14.0"),
@@ -353,7 +354,9 @@ kotlin {
             packageName = "org.sqisign.cinterop"
             includeDirs(nativeDir.dir("include"))
             extraOpts("-libraryPath", libDir)
-            project.tasks.named(interopProcessingTaskName).configure { dependsOn(cmakeTask) }
+            project.tasks.named(interopProcessingTaskName).configure {
+                inputs.files(cmakeTask).withPathSensitivity(PathSensitivity.RELATIVE)
+            }
         }
         val katTask = buildAppleNativeKat.getValue(name)
         val katLibDir = cmakeInstallDir(appleCMakeTaskNames.getValue(name) + "Kat").get().dir("lib").asFile.path
@@ -362,7 +365,9 @@ kotlin {
             packageName = "org.sqisign.katinterop"
             includeDirs(nativeDir.dir("include"))
             extraOpts("-libraryPath", katLibDir)
-            project.tasks.named(interopProcessingTaskName).configure { dependsOn(katTask) }
+            project.tasks.named(interopProcessingTaskName).configure {
+                inputs.files(katTask).withPathSensitivity(PathSensitivity.RELATIVE)
+            }
         }
     }
 
