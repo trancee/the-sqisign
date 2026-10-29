@@ -212,6 +212,37 @@ macro_rules! ec_ladder_suite {
                     assert_point(&r, &cr, "one-bit biscalar");
                 }
             }
+
+            /// A one-bit basis with any point outside the 2-torsion is
+            /// rejected by both.
+            #[test]
+            fn biscalar_one_bit_rejects_other_points() {
+                let mut rng = Rng::new(25);
+                let (x1, _) = fe(&rand_fe(&mut rng));
+                let ra = -(x1 + x1.inv());
+                let (one, zero) = (enc(&F2::ONE), vec![0u8; BYTES]);
+                let (e, c) = curve_from(&enc(&ra), &one);
+                let two = [
+                    point_from(&enc(&x1), &one),
+                    point_from(&enc(&x1.inv()), &one),
+                    point_from(&zero, &one),
+                ];
+                for i in 0..3 {
+                    let mut pts = two.clone();
+                    pts[i] = point_from(&rand_fe(&mut rng), &one);
+                    let [(p, cp), (q, cq), (pmq, cpmq)] = pts;
+                    let b = Bs { p, q, pmq };
+                    let cb = ce::Basis {
+                        p: cp,
+                        q: cq,
+                        pmq: cpmq,
+                    };
+                    let (k, l) = (small_scalar(1), small_scalar(1));
+                    let (_, ok) = ce::biscalar_mul(&k, &l, 1, &cb, &c);
+                    assert_eq!(ok, 0, "C point {i}");
+                    assert!(e.biscalar_mul(&k, &l, 1, &b).is_none(), "point {i}");
+                }
+            }
         }
     };
 }

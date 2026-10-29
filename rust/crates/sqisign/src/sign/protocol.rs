@@ -28,6 +28,19 @@ fn coprime<P: SignParams>(a: &Ibz<P>, b: &Ibz<P>) -> bool {
     a.gcd(b).is_one()
 }
 
+/// Whether the response ideals have coprime norms, as signing needs: the
+/// challenge part `sk_chall` to the commitment, and the auxiliary ideal to
+/// both the challenge part and the secret ideal. The prime `sk_chall` makes
+/// a common factor improbable but possible.
+fn response_norms_coprime<P: SignParams>(
+    sk_chall: &Ibz<P>,
+    commit: &Ibz<P>,
+    aux: &Ibz<P>,
+    secret: &Ibz<P>,
+) -> bool {
+    coprime(sk_chall, commit) && coprime(aux, sk_chall) && coprime(aux, secret)
+}
+
 /// A random ideal of prime norm `degree`, replaced by a small equivalent
 /// ideal of odd norm prime (`coprime_to = 0`) or arbitrary (`2`), and its
 /// isogeny from `E0` with the image of `BASIS_EVEN`, if that succeeds.
@@ -221,9 +234,12 @@ impl<P: SignParams> SecretKey<P> {
         // unwritten, whose norm then fails the coprimality check.
         .map(|(aux, split)| (aux.unwrap_or_default(), split))
         .filter(|(aux, _)| {
-            coprime(&r.sk_chall_ideal.norm, &ideal_commit.norm)
-                && coprime(&aux.norm, &r.sk_chall_ideal.norm)
-                && coprime(&aux.norm, &self.secret_ideal.norm)
+            response_norms_coprime(
+                &r.sk_chall_ideal.norm,
+                &ideal_commit.norm,
+                &aux.norm,
+                &self.secret_ideal.norm,
+            )
         })
         .and_then(|(aux, aux_split)| {
             let skchall_aux = aux.intersect_o0(&r.sk_chall_ideal, Some(&aux_split));
@@ -278,5 +294,24 @@ impl<P: SignParams> SecretKey<P> {
             hint_aux,
             hint_chall,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::response_norms_coprime;
+    use crate::gf::P324;
+    use crate::mp::Ibz;
+
+    fn n(x: i64) -> Ibz<P324> {
+        Ibz::from_i64(x, 8)
+    }
+
+    #[test]
+    fn response_norms_need_every_pair_coprime() {
+        assert!(response_norms_coprime(&n(5), &n(9), &n(7), &n(11)));
+        assert!(!response_norms_coprime(&n(5), &n(15), &n(7), &n(11)));
+        assert!(!response_norms_coprime(&n(5), &n(9), &n(35), &n(11)));
+        assert!(!response_norms_coprime(&n(5), &n(9), &n(77), &n(11)));
     }
 }

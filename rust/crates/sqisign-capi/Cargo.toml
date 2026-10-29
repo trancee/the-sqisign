@@ -10,6 +10,10 @@ publish = false
 
 [lib]
 crate-type = ["staticlib", "rlib"]
+# No unit tests in src: a second instrumented copy of the #[no_mangle]
+# entry points makes llvm-cov report them uncovered on x86_64 Linux.
+test = false
+doctest = false
 
 [dependencies]
 sqisign = { path = "../sqisign" }

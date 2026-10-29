@@ -26,8 +26,11 @@ an expert review has accepted the Rust code, it must not replace the reviewed C 
    are computed by `const fn`s from the prime shape `(N, C, T)` and unit-tested against the vendor
    `src/gf/sat64/<set>/include/fp_generic_params.h`. The few curve constants verification needs (`BASIS_E0_PX`,
    `BASIS_E0_QX`, `p_cofactor_for_2f`) are source literals copied from the vendor `src/precomp/ref/<set>` SAT64
-   tables and pinned by a differential test against the C globals. The large signing tables (quaternion orders,
-   endomorphism and torsion data) are converted by a generator with a `--check` mode, never edited by hand (E6).
+   tables and pinned by a differential test against the C globals. The signing data are pinned the same way: the
+   endomorphism action of `E0` (`endomorphism_action.c`) and the secret and commitment degrees
+   (`torsion_constants.c`) are source literals copied from the SAT64 branch, and the quaternion constants
+   (`QUATALG_PINFTY`, `MAXORD_O0`, `QUAT_prime_cofactor`) are computed from the parameters; no generator produces
+   them, so a change of the vendor data fails those tests instead of being regenerated.
 3. The port reproduces the C code as the Kotlin project builds it, `CMAKE_BUILD_TYPE=Release`, which defines `NDEBUG`:
    checks that exist only in `assert` or `#ifndef NDEBUG` blocks are not ported, and functions whose only failure
    path is such a check (for example `ec_curve_to_basis_2f_from_hint`) are infallible in Rust. Results C returns
@@ -83,8 +86,10 @@ an expert review has accepted the Rust code, it must not replace the reviewed C 
      1,000 threshold-sized samples because later outer iterations finish the reduction either way; a constructed
      input compared after a single outer iteration now kills it.
 
-   Coverage (T3) is gated at 100% lines, functions and regions with `cargo llvm-cov` on the pinned stable toolchain.
-   Rust branch coverage needs a nightly compiler; regions count both arms of every condition and stand in for it.
+   Coverage (T3) is gated at 100% lines, functions, regions and branches with `cargo llvm-cov --branch` on the pinned
+   nightly of the Miri job (Rust branch coverage is unstable); `rust/scripts/branch_coverage.py` checks the branches,
+   for which `cargo llvm-cov` has no threshold. It counts a branch outcome as covered when any instantiation of a
+   generic function takes it; the `llvm-cov` summary scores each generic function by its best single instantiation.
 5. The Kotlin project selects the backend at build time with the Gradle property `sqisign.backend` (`c` default,
    `rust` opt-in), passed to `kotlin/native/CMakeLists.txt` as `SQISIGN_KMP_BACKEND`. The Rust backend
    (`kotlin/native/rust.cmake`) builds the `sqisign-capi` crate as a static library for the CMake target's Rust triple
@@ -169,14 +174,17 @@ an expert review has accepted the Rust code, it must not replace the reviewed C 
     build, which Rust follows, continues with the truncated quotient. Where that quotient is zero (seen for ideal norms
     far below `p`), C divides by zero; Rust panics. `quat_ideal_shortest_equivalent` is ported without its unused `gen`
     output (its only caller passes `NULL`), and checks that cannot fail are dropped: the `assert`-only
-    `quat_alg_make_primitive` in `quat_ideal_create_O0_odd`, and zero-generator checks on elements whose sampled
-    coordinates are at least 1.
+    `quat_alg_make_primitive` in `quat_ideal_create_O0_odd`, zero-generator checks on elements whose sampled
+    coordinates are at least 1, the `tmp mod 4 < 2` test of `quat_random_ideal_O0_given_prime_norm` (`tmp = 1 mod 4`,
+    since `x` is even and `p = 3 mod 4`), and the odd `v[3]` test of `quat_ideal_create_O0_pow_two`, which the equal
+    parities of `v[2]` and `v[3]` imply.
 13. The norm equation (`qlapoty.c`) draws only from the default stream, as C does through `ibz_rand_interval` and
     `ibz_probab_prime`. It keeps two C behaviours the comments do not describe: the `initialize_bounds` power loop
     squares, so it computes `(2 ± i)^(2^(f-1))`, and `quat_qlapoty_loop_one` with a short interval fixes the Gaussian
     factor and retries forever if that factor is rejected (as C does; the tests avoid moduli divisible by 5). Where C
     returns 0 (`quat_qlapoty_initialize_bounds`, `quat_qlapoty_loop_two`, `quat_qlapoty_normeq`, `quat_qlapoty`), Rust
-    returns `None`. The port found a fault in the earlier Rust `ibz_cornacchia_prime`: it always swapped the reduced
+    returns `None`. `quat_qlapoty_loop_two` tests `z = 1 mod 4` before its primality test, which C also asserts: the
+    lattice solution makes `k` odd and `s`, `t` of opposite parity. Rust drops the test. The port found a fault in the earlier Rust `ibz_cornacchia_prime`: it always swapped the reduced
     pair, but C swaps only when `x > y`, and a `qlapoty` input at the 664-bit prime reaches the unswapped case; it is
     now a regression input of the Cornacchia tests.
 
@@ -239,7 +247,7 @@ an expert review has accepted the Rust code, it must not replace the reviewed C 
   signing-path sizes, which is evidence, not proof.
 - With the barriers (item 16) the port takes 0.61–0.95× the time of the C `ref` build and 1.05–1.27× that of the
   shipped C `arm64` build in the JMH benchmarks, 1.10–1.22× that of C `arm64` on an Android device, 1.00–1.39×
-  on a Cortex-A710 core and 0.98–1.34× (median 1.11×, with the Fp2 squaring below) across 25 phones
+  on a Cortex-A710 core and 0.98–1.34× (median 1.11×, with the Fp2 squaring below) across 25 of 27 phones (two that throttle excluded)
   ([`rust/README.md`](../../../rust/README.md#performance)), after the carry-chain field kernels, the interleaved
   Montgomery multiplication, the opaque-zero add/subtract masks, the unreduced Fp2 sums, the faster primality test,
   turning off the machine scheduler and avoiding full-capacity integer copies (before them: 1.41–1.71× and

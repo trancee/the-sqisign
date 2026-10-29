@@ -115,6 +115,8 @@ mod tests {
         fn fits<P: SqisignParams>() -> bool {
             P::CHALLENGE_BITS + super::EC_EXTRA_TORSION <= P::T as usize
         }
-        assert!(fits::<P324>() && fits::<P500>() && fits::<P664>());
+        assert!(fits::<P324>());
+        assert!(fits::<P500>());
+        assert!(fits::<P664>());
     }
 }

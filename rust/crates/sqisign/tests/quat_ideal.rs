@@ -67,6 +67,13 @@ macro_rules! quat_ideal_suite {
             }
 
             #[test]
+            fn ideal_degrees_match_reference() {
+                use sqisign::sign::SignParams;
+                same(&<P as SignParams>::SEC_DEGREE, &C::sec_degree());
+                same(&<P as SignParams>::COM_DEGREE, &C::com_degree());
+            }
+
+            #[test]
             fn ideal_products_match_reference() {
                 let mut rng = Rng::new(1);
                 for (k, bits) in norm_bits().into_iter().enumerate() {

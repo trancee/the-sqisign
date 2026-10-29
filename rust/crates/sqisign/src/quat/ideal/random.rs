@@ -18,7 +18,9 @@ impl<P: QuatParams> Ideal<P> {
             let tmp = (x * x).modulo(&n4);
             let tmp = (-(p + tmp)).modulo(&n4);
             let rp = tmp.modulo(norm);
-            if rp.legendre(norm) == 1 && (tmp.get() & 3) < 2 {
+            // C also tests `tmp mod 4 < 2`; `x` is even and `p = 3 mod 4`, so
+            // `tmp = 1 mod 4`.
+            if rp.legendre(norm) == 1 {
                 break (x, tmp, rp);
             }
         };

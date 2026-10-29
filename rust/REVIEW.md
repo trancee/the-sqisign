@@ -38,8 +38,9 @@ is shared with the reviewed C backend.
 | `crates/sqisign-capi/src/lib.rs` | 226 | `sqisign_kmp_*` C ABI, panic boundary, buffer clearing (the only `unsafe` shipped) |
 
 The production crates have no third-party dependencies (`sqisign` none, `sqisign-capi` only `sqisign`). The toolchain
-is pinned in [`rust-toolchain.toml`](rust-toolchain.toml). Large precomputed tables are generated from the vendor
-`src/precomp` data, with a `--check` mode (ADR 0004 item 2).
+is pinned in [`rust-toolchain.toml`](rust-toolchain.toml). Precomputed constants and tables are source literals copied
+from the vendor `src/precomp` data or computed from the parameters; no generator produces them, and a differential
+test compares each with its C global (ADR 0004 item 2).
 
 ## Suggested order
 
@@ -55,8 +56,8 @@ is pinned in [`rust-toolchain.toml`](rust-toolchain.toml). Large precomputed tab
 | 1 | Byte-exact key pairs and signatures for all 300 NIST KAT entries, seeded with the NIST CTR-DRBG (optimised builds, as in CI job `Test`; the unoptimised coverage build checks the first 100, 20 and 10) | `crates/sqisign/tests/sign.rs`, `../KAT/` |
 | 1 | Differential tests of every ported module against the vendor C `ref` build, on boundary and seeded random inputs, for all three parameter sets | `crates/sqisign/tests/*.rs`, `crates/sqisign-reference` |
 | 1 | Targeted mutation checks of every module's decision points; survivors recorded with reasons | ADR 0004 item 4 |
-| 1, 2 | 100 % line, function and region coverage of `crates/sqisign` | CI job `Format, lint, coverage` |
-| 2 | Every single-bit flip of KAT signatures, wrong keys and curves, truncated and malformed inputs | `crates/sqisign/tests/verify_reject.rs`, `crates/sqisign-capi/tests/capi.rs` |
+| 1, 2 | 100 % line, function, region and branch coverage of `crates/sqisign` and `crates/sqisign-capi` | CI job `Format, lint, coverage` |
+| 2 | Every single-bit flip of a KAT signature per parameter set (optimised builds; the unoptimised coverage build flips one bit per byte), wrong keys and curves, truncated and malformed inputs | `crates/sqisign/tests/verify_reject.rs`, `crates/sqisign-capi/tests/capi.rs` |
 | 2 | `#![forbid(unsafe_code)]` | `crates/sqisign/src/lib.rs` |
 | 2 | The C ABI's `unsafe` code interpreted by Miri on a pinned nightly: size queries, invalid sets, length-checked reads in verification, a failing `randombytes` (seed dropped on the error path) and clearing; run locally, also a full KAT verification through raw pointers and a panic unwinding through the seed's drop to an error (see Gaps) | `crates/sqisign-capi/tests/miri.rs`, CI job `Miri (C ABI)` |
 | 1, 2 | The Kotlin test suites pass on the Rust backend: JVM on Linux, macOS and Windows, macOS, iOS Simulator, Android emulator and an `arm64-v8a` phone | `.github/workflows/kotlin.yml` job `rust-backend`, [`README.md`](README.md#status) |
@@ -189,7 +190,7 @@ From `kotlin/`, `./gradlew jvmTest -Psqisign.backend=rust` runs the Kotlin suite
 - **Panics on undefined C behaviour.** Where C divides by zero or overflows a buffer under `NDEBUG`, Rust panics; the
   C ABI reports an error. Such cases were seen only far from signing-path sizes (ADR 0004, Risks).
 - **Performance.** The port takes 1.05–1.27× the time of the shipped C `arm64` build in the JMH benchmarks (Apple M1),
-  1.10–1.22× on the Nothing Phone (1) and 0.98–1.34× (median 1.11×) across 25 phones
+  1.10–1.22× on the Nothing Phone (1) and 0.98–1.34× (median 1.11×) across 25 of 27 phones (two that throttle excluded)
   ([`README.md`](README.md#performance)). ADR 0004 records the remaining gap as structural: the C build uses
   hand-written assembly, which the crate's `forbid(unsafe_code)` rules out. The 10 % budget (P4) therefore blocks a
   default switch independently of this review; the Rust backend stays opt-in.
