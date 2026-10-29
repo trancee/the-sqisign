@@ -56,16 +56,24 @@ macro_rules! reject_suite {
                 s.to_bytes()
             }
 
-            /// Every signature bit flip is rejected by both, except the top
-            /// two bits (`2^(f-1)`, `2^(f-2)`) of a matrix entry: SQIsign is
-            /// not strongly unforgeable (upstream #18), and both accept some
-            /// of those. Optimised builds flip every bit; unoptimised ones (the
-            /// coverage job), where verification is slow, bit `i % 8` of byte `i`.
+            /// Bit `bit` of signature byte `i` is one of the top two bits
+            /// (`2^(f-1)`, `2^(f-2)`) of a matrix entry: SQIsign is not
+            /// strongly unforgeable (upstream #9, #18), and both accept some
+            /// flips of those.
+            fn malleable(i: usize, bit: usize) -> bool {
+                let resp = <P as SqisignParams>::RESPONSE_BYTES;
+                let start = SIG - 4 * resp - <P as SqisignParams>::CHALLENGE_BYTES - 2;
+                let pos = i.wrapping_sub(start) % resp * 8 + bit;
+                (start..start + 4 * resp).contains(&i) && pos + 2 >= F
+            }
+
+            /// Every signature bit flip is rejected by both, except
+            /// `malleable` bits. Optimised builds flip every bit; unoptimised
+            /// ones (the coverage job), where verification is slow, bit
+            /// `i % 8` of byte `i`.
             #[test]
             fn bit_flips_are_rejected() {
                 let (sig, msg, pk) = entry();
-                let resp = <P as SqisignParams>::RESPONSE_BYTES;
-                let start = SIG - 4 * resp - <P as SqisignParams>::CHALLENGE_BYTES - 2;
                 for i in 0..SIG {
                     let bits = if cfg!(debug_assertions) {
                         i % 8..i % 8 + 1
@@ -76,11 +84,9 @@ macro_rules! reject_suite {
                         let mut s = sig.clone();
                         s[i] ^= 1 << bit;
                         let what = format!("sig byte {i} bit {bit}");
-                        let pos = i.wrapping_sub(start) % resp * 8 + bit;
-                        let malleable = (start..start + 4 * resp).contains(&i) && pos + 2 >= F;
                         let r = verify::verify::<P>(&s, &msg, &pk);
                         check(&s, &msg, &pk, r, &what);
-                        assert!(!r || malleable, "{what}");
+                        assert!(!r || malleable(i, bit), "{what}");
                     }
                 }
                 for i in 0..msg.len().min(16) {
@@ -131,6 +137,33 @@ macro_rules! reject_suite {
                     let mut s = sig.to_vec();
                     s[i] ^= 1;
                     assert!(!verify::verify::<P>(&s, msg, &k.pk), "aux byte {i}");
+                }
+            }
+
+            /// Random runs of 1 to 8 bytes overwritten in KAT signatures
+            /// (upstream #15): no panic, Rust agrees with C, and a signature is
+            /// accepted only if every changed bit is `malleable`. Runs starting
+            /// in `E_aux` are Rust only, as in `failed_gluing_is_rejected`.
+            #[test]
+            fn random_mutations_are_rejected() {
+                let kats = kat::load($kat);
+                let mut rng = super::support::Rng::new(15);
+                let n = if cfg!(debug_assertions) { 24 } else { 300 };
+                for t in 0..n {
+                    let k = &kats[t % kats.len()];
+                    let (sig, msg) = k.sm.split_at(SIG);
+                    let at = rng.next_u64() as usize % SIG;
+                    let end = (at + 1 + rng.next_u64() as usize % 8).min(SIG);
+                    let mut s = sig.to_vec();
+                    s[at..end].copy_from_slice(&rng.bytes(end - at));
+                    let what = format!("mutation {t}: bytes {at}..{end}");
+                    let r = verify::verify::<P>(&s, msg, &k.pk);
+                    if at >= BYTES {
+                        check(&s, msg, &k.pk, r, &what);
+                    }
+                    let benign = (at..end)
+                        .all(|i| (0..8).all(|b| (s[i] ^ sig[i]) >> b & 1 == 0 || malleable(i, b)));
+                    assert!(!r || benign, "{what}");
                 }
             }
 
