@@ -68,6 +68,40 @@ task. They check cancellation before starting but cannot interrupt the native ca
 is signing. `SqiSignKit` re-exports `SqiSign`, so the Kotlin-generated API (`SqiSign.shared`, `KotlinByteArray`)
 remains available.
 
+## Install
+
+Releases are [GitHub Releases](https://github.com/trancee/the-sqisign/releases)
+([ADR 0005](docs/adr/0005-github-release-distribution.md)); nothing is on Maven Central. Each carries, for the C
+backend (`sqisign`) and the opt-in Rust backend (`sqisign-rust`), a zipped Maven repository and a zipped
+`SqiSign.xcframework` with its SwiftPM checksum.
+
+Unzip `sqisign-<version>-maven.zip` (into `sqisign-repo/` here) and declare it as a repository:
+
+```kotlin
+// settings.gradle.kts
+dependencyResolutionManagement {
+    repositories {
+        maven { url = uri("sqisign-repo") }
+        mavenCentral()
+    }
+}
+
+// build.gradle.kts, in a Kotlin Multiplatform commonMain or a JVM/Android project
+dependencies {
+    implementation("io.github.trancee:sqisign:0.1.0") // or io.github.trancee:sqisign-rust:0.1.0
+}
+```
+
+Gradle picks the JVM, Android or Apple artifact from the module metadata. In Swift, point a binary target at the
+XCFramework zip:
+
+```swift
+.binaryTarget(
+    name: "SqiSign",
+    url: "https://github.com/trancee/the-sqisign/releases/download/v0.1.0/sqisign-0.1.0.xcframework.zip",
+    checksum: "<contents of sqisign-0.1.0.xcframework.zip.checksum>")
+```
+
 ## Build
 
 Requirements: JDK 21 and the Android SDK with NDK `sqisign.ndkVersion` and CMake `sqisign.cmakeVersion` (see
@@ -98,7 +132,8 @@ npx skills update                        # update installed skills to their late
 ### Rust backend (opt-in, unreviewed)
 
 `-Psqisign.backend=rust` builds every native library from the Rust port in `../rust` instead of the vendor C code
-([ADR 0004](docs/adr/0004-rust-port-opt-in-backend.md)); `c` is the default and the only release backend. The Kotlin
+([ADR 0004](docs/adr/0004-rust-port-opt-in-backend.md)); `c` is the default. Releases ship both, the Rust build under
+separate coordinates (`sqisign-rust`, [Install](#install)). The Kotlin
 API, the JNI and cinterop glue and the tests are the same. It needs rustup and, for cross builds, the Rust targets
 listed in [`../rust/README.md`](../rust/README.md#use-it-from-the-kotlin-project).
 
