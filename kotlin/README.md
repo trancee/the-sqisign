@@ -17,7 +17,7 @@ All three parameter sets (`P324_3`, `P500_27`, `P664_17`; NIST levels 1, 3 and 5
 |---|---|---|---|
 | Linux, macOS, Windows (JVM 21) | `jvm` | Linux `x86_64`, `aarch64`; macOS `x86_64`, `aarch64`; Windows `x86_64` | CI, every platform |
 | Android 7.0+ (API 24) | `android` | `arm64-v8a`, `x86_64` | CI: `x86_64` emulator, plus the `arm64-v8a` libraries through its ARM translation; locally: Nothing Phone (1) (`arm64-v8a`, Android 15) and an `arm64-v8a` emulator |
-| iOS 14+ devices | `iosArm64` | `arm64` | locally: Swift tests on an iPhone 15 (iOS 17.6.1) |
+| iOS 14+ devices | `iosArm64` | `arm64` | locally: Swift tests on an iPhone 15 (iOS 17.6.1), iPhone X (iOS 16.7.16) and iPhone SE (2016, iOS 15.8.8) |
 | iOS Simulator (Apple Silicon) | `iosSimulatorArm64` | `arm64` | CI: Kotlin and Swift tests |
 | macOS 11+ (Apple Silicon) | `macosArm64` | `arm64` | CI: Kotlin and Swift tests |
 
@@ -211,6 +211,8 @@ xcodebuild test -project SqiSignDeviceHost.xcodeproj -scheme SqiSignDeviceTests 
 ```
 
 On first launch, trust the developer certificate on the iPhone (Settings → General → VPN & Device Management). The
+iOS 15 and 16 phones above ran with Xcode 16.4; when Xcode reports such a phone as not connected although it is
+paired, `xcrun xcdevice list --timeout=15` waits long enough to find it. The
 `SqiSignDeviceBenchmarks` scheme runs the device benchmarks; see [`benchmarks/README.md`](benchmarks/README.md).
 
 ## Limitations

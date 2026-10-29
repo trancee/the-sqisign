@@ -177,6 +177,11 @@ Without the two phones marked "throttles", whose C verification times drift by u
 median 1.12× to 1.10× and from at most 1.34× to 1.24×; verification, which does not, stayed at median 1.09×. The ten
 fastest phones show the widest gap (0.97–1.24×, median 1.14×), the others 0.95–1.23× (median 1.07×).
 
+On iOS, the Swift device benchmarks (`SqiSignDeviceBenchmarks`, median of 20, both XCFrameworks built at `40c2279`,
+2026-10-29) give Rust / C of 1.05–1.16× on an iPhone SE (2016, A9, iOS 15.8.8) and 0.92–1.21× on an iPhone X (A11,
+iOS 16.7.16). Verification, which is deterministic, is 1.06–1.09× and 1.10–1.16×; key generation and signing vary
+more between runs.
+
 Without Gradle, `cargo run --release -p sqisign --example timing -- p324 all 20` times key generation, signing and
 verification with fixed seeds (median and minimum; parameter sets `p324`, `p500`, `p664`).
 
