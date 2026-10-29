@@ -264,8 +264,12 @@ an expert review has accepted the Rust code, it must not replace the reviewed C 
   Squaring in GF(p²) without reducing the operands was neutral there (1–4 % faster on the M1) and is kept. A
   reciprocal-based 2-by-1 division was neutral on both machines. A C-style fused `Fp2` multiplication was 3–10 %
   slower on the M1. Other `Fp` subtraction formulations compiled to more instructions per limb on AArch64.
-  Closing the gap would need inline assembly, which the crate forbids (no `unsafe`). P4 stays at 10 % and Rust
-  stays opt-in; relaxing P4 needs a new decision.
+  A `simpleperf` profile of p324 on the X1 (2026-10-29, 1.22× the C samples) puts the largest difference in `Fp`
+  addition and subtraction (about 12 % of the C time; the multiplications themselves take fewer samples than C),
+  with the rest spread over integer division, `hd`/`ec` glue and copies. Sharing one opaque zero across each
+  `Fp2` addition, subtraction and multiplication cut `Fp` subtraction from 46 to 41 instructions but was neutral
+  (0.99–1.00×). Closing the gap would need inline assembly, which the crate forbids (no `unsafe`). P4 stays at
+  10 % and Rust stays opt-in; relaxing P4 needs a new decision.
 - Two backends double the platform test matrix while both exist.
 
 ## Migration
