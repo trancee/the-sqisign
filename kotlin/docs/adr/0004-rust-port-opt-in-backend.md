@@ -269,8 +269,10 @@ an expert review has accepted the Rust code, it must not replace the reviewed C 
   addition and subtraction (about 12 % of the C time; the multiplications themselves take fewer samples than C),
   with the rest spread over integer division, `hd`/`ec` glue and copies. Sharing one opaque zero across each
   `Fp2` addition, subtraction and multiplication cut `Fp` subtraction from 46 to 41 instructions but was neutral
-  (0.99–1.00×). Closing the gap would need inline assembly, which the crate forbids (no `unsafe`). P4 stays at
-  10 % and Rust stays opt-in; relaxing P4 needs a new decision.
+  (0.99–1.00×). Reducing the primality tests' one-word remainders (`mod_u64`, all moduli below 2^32) by half
+  words, so each step is a 64-bit hardware division instead of a 128-bit library call, was neutral on the M1 and
+  the X1 (key generation within ±2 %). Closing the gap would need inline assembly, which the crate forbids (no
+  `unsafe`). P4 stays at 10 % and Rust stays opt-in; relaxing P4 needs a new decision.
 - Two backends double the platform test matrix while both exist.
 
 ## Migration
