@@ -15,6 +15,20 @@ fn top(x: &Words, m: usize) -> u128 {
     (u128::from(x[m - 1]) << 64) | lo
 }
 
+/// `(x / y, x % y)` for `y > 0`. Euclid's quotients are mostly small, so up to
+/// 32 subtractions replace the slow 128-bit division (C `mp_lehmer_inner`).
+fn div_small(x: u128, y: u128) -> (u128, u128) {
+    let mut r = x;
+    for q in 0..32 {
+        if r < y {
+            return (q, r);
+        }
+        r -= y;
+    }
+    let q = r / y;
+    (32 + q, r - q * y)
+}
+
 /// The matrix `[[a, b], [c, d]]` of the Euclid steps that the double-digit
 /// prefixes `x >= y > 0` determine (C `mp_lehmer_inner`), or `None` if there
 /// are none.
@@ -25,7 +39,7 @@ fn lehmer(mut x: u128, mut y: u128) -> Option<[i64; 4]> {
     // Every quotient is at least 1 and `|d|` grows, so a step is only
     // accepted with a non-zero remainder and `y` stays positive.
     loop {
-        let q = x / y;
+        let (q, r) = div_small(x, y);
         // Redundant with the bound on `nd`, but keeps `w * c` in range.
         if q >> 64 != 0 {
             break;
@@ -36,7 +50,6 @@ fn lehmer(mut x: u128, mut y: u128) -> Option<[i64; 4]> {
         if nd.abs() > BOUND {
             break;
         }
-        let r = x % y;
         if r < nd.unsigned_abs() || y - r < (nd - d).unsigned_abs() {
             break;
         }
@@ -47,13 +60,17 @@ fn lehmer(mut x: u128, mut y: u128) -> Option<[i64; 4]> {
     stepped.then(|| [a, b, c, d].map(|t| t as i64))
 }
 
-/// `a * u + b * v` for a non-negative result (C `mp_lehmer_combine`).
-fn combine(a: i64, u: &Words, b: i64, v: &Words) -> Words {
+/// `a * u + b * v` for a non-negative result (C `mp_lehmer_combine`), given
+/// `n >= len(u), len(v)`.
+///
+/// With `|a|, |b| <= 2^62` the result is below `2^(64 n + 63)`, so the sums
+/// modulo `2^(64 (n + 1))` give it exactly and the words above stay zero.
+fn combine(a: i64, u: &Words, b: i64, v: &Words, n: usize) -> Words {
     let mut r: Words = [0; W];
     for (k, x) in [(a, u), (b, v)] {
         let m = u128::from(k.unsigned_abs());
         let (mut carry, mut c) = (0u128, false);
-        for i in 0..W {
+        for i in 0..(n + 1).min(W) {
             let t = u128::from(x[i]) * m + carry;
             carry = t >> 64;
             (r[i], c) = if k < 0 {
@@ -92,8 +109,11 @@ impl<P: MpParams> Ibz<P> {
         } else {
             (y, x, cb, ca)
         };
+        // `u` only decreases, so its words from the previous length on stay zero.
+        let mut m = W;
         loop {
-            let (m, n) = (len(&u), len(&v));
+            let n;
+            (m, n) = (len(&u[..m]), len(&v[..m]));
             if v[n - 1] == 0 {
                 return (u, cu);
             }
@@ -103,7 +123,7 @@ impl<P: MpParams> Ibz<P> {
                 lehmer(top(&u, m), top(&v, m))
             };
             if let Some([a, b, c, d]) = step {
-                (u, v) = (combine(a, &u, b, &v), combine(c, &u, d, &v));
+                (u, v) = (combine(a, &u, b, &v, m), combine(c, &u, d, &v, m));
                 let [a, b, c, d] = [a, b, c, d].map(Self::word);
                 for k in 0..K {
                     (cu[k], cv[k]) = (a * cu[k] + b * cv[k], c * cu[k] + d * cv[k]);
@@ -164,6 +184,19 @@ mod tests {
     fn lehmer_needs_a_small_quotient() {
         assert_eq!(lehmer(1 << 100, 1), None);
         assert_eq!(lehmer(3 << 64, 1 << 64), None);
+    }
+
+    #[test]
+    fn div_small_matches_division_on_both_sides_of_the_subtraction_limit() {
+        for (x, y) in [
+            (5u128, 7u128),
+            (7, 7),
+            (31 * 9 + 8, 9),
+            (32 * 9, 9),
+            (u128::MAX, 3),
+        ] {
+            assert_eq!(div_small(x, y), (x / y, x % y), "{x} / {y}");
+        }
     }
 
     #[test]
