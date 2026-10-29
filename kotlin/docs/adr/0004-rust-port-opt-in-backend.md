@@ -51,7 +51,9 @@ an expert review has accepted the Rust code, it must not replace the reviewed C 
    - the 300 NIST KAT entries in `KAT/`: verification of every signature, and byte-exact key generation and signing
      with the NIST AES-256 CTR-DRBG in test-only code (the production API takes no seed, as in ADR 0002); signing
      checks all 300 entries in optimised builds and the first 100, 20 and 10 in the unoptimised coverage build;
-   - malformed, truncated and boundary inputs for every decoder, and every single-bit flip of a KAT signature (T10);
+   - malformed, truncated and boundary inputs for every decoder, every single-bit flip of a KAT signature, and seeded
+     runs of 1 to 8 random bytes overwritten in KAT signatures (300 per parameter set, 24 unoptimised; upstream
+     SQISign/the-sqisign#15), all compared with C (T10);
    - a targeted mutation check of the decision points of every ported module. Survivors are either killed by a new
      test or recorded with the reason they are not: equivalent mutants (for example a different split of the doubling
      work in `hd` chain set-up, comparing challenge words that are always zero in verification, or the `mp`
