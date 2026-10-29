@@ -194,6 +194,18 @@ python3 scripts/ct_branches.py
 
 The signing tests are slow in debug builds; `--release` runs the suite in minutes.
 
+`fuzz/` holds two [cargo-fuzz](https://github.com/rust-fuzz/cargo-fuzz) targets on the pinned nightly: `open`
+verifies mutated KAT signed messages and checks that keys and signatures re-encode to themselves; `sign` generates a
+key and a signature from arbitrary seeds and messages and checks that the signature verifies. The first byte of an
+input selects the parameter set. CI runs each for five minutes; findings land in `fuzz/artifacts/`.
+
+```sh
+cd rust/fuzz
+python3 seed.py                     # corpus/open from the KATs
+cargo +nightly-2026-10-23 fuzz run -s none open -- -max_total_time=300
+cargo +nightly-2026-10-23 fuzz run -s none sign -- -max_total_time=300
+```
+
 The `sqisign-reference` crate compiles the vendor C code from `../src` with the `ref` build type, so the tests compare
 the port with the C implementation in the same checkout.
 

@@ -17,6 +17,8 @@ Notation R/X/D/O as defined there.
   - `crates/sqisign-reference`: test-only (`publish = false`) bindings to the vendor C `ref` build, compiled from
     `../src` by `build.rs` with the `cc` crate; symbols `sqisign_<level>_ref_<name>`.
   - `crates/sqisign/tests`: differential tests per module and parameter set; `tests/support`: deterministic RNG.
+  - `fuzz`: cargo-fuzz targets (`open`, `sign`), its own workspace on the pinned nightly; `seed.py` seeds the corpus
+    from the KATs.
 - Vendor sources (`../src`, `../include`, `../KAT`) are read-only inputs (root SCOPE).
 
 ## STEPS (port a module)
@@ -43,6 +45,7 @@ Run from `rust/`.
 | Coverage | `scripts/coverage.sh` (cleans stale instrumented builds, gates lines, functions, regions and branches at 100 % on the pinned nightly, which needs `--component llvm-tools-preview`; about an hour locally) | Rust |
 | Constant-time branches | `python3 scripts/ct_branches.py` (and `--target` `aarch64-linux-android`, `x86_64-unknown-linux-gnu`, `armv7-linux-androideabi`, `i686-linux-android`); new constant-time code => add to its `GATED` | Rust |
 | Miri | `MIRIFLAGS=-Zmiri-disable-isolation cargo +nightly-2026-10-23 miri test -p sqisign-capi --test miri`; C ABI changes => extend `tests/miri.rs`, protocol-length tests `cfg_attr(miri, ignore)` | Rust |
+| Fuzz | in `fuzz/`: `cargo +nightly-2026-10-23 fmt --check`, `clippy --locked --bins -- -D warnings`, `python3 seed.py`, `fuzz run -s none <open\|sign> -- -max_total_time=300` (`cargo install cargo-fuzz`); new decoder or API => extend a target | Fuzz |
 | Secret scan | `gitleaks git --redact --exit-code 1 ..` | Secret scan |
 
 Coverage scope: `crates/sqisign` and `crates/sqisign-capi`; `sqisign-reference` is test infrastructure. Branch coverage

@@ -13,3 +13,7 @@ latex/
 # Rust workspace build output
 rust/target/
 rust/coverage.json
+rust/fuzz/target/
+rust/fuzz/corpus/
+rust/fuzz/artifacts/
+rust/fuzz/coverage/

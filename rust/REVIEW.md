@@ -58,6 +58,7 @@ test compares each with its C global (ADR 0004 item 2).
 | 1 | Targeted mutation checks of every module's decision points; survivors recorded with reasons | ADR 0004 item 4 |
 | 1, 2 | 100 % line, function, region and branch coverage of `crates/sqisign` and `crates/sqisign-capi` | CI job `Format, lint, coverage` |
 | 2 | Every single-bit flip of a KAT signature per parameter set (optimised builds; the unoptimised coverage build flips one bit per byte), seeded random byte-run overwrites, wrong keys and curves, truncated and malformed inputs | `crates/sqisign/tests/verify_reject.rs`, `crates/sqisign-capi/tests/capi.rs` |
+| 2 | libFuzzer runs of verification on mutated KAT signed messages (no panic, keys and signatures re-encode to themselves) and of signing with arbitrary seeds and messages (every signature verifies), five minutes per target in CI | `fuzz/fuzz_targets/`, CI job `Fuzz` |
 | 2 | `#![forbid(unsafe_code)]` | `crates/sqisign/src/lib.rs` |
 | 2 | The C ABI's `unsafe` code interpreted by Miri on a pinned nightly: size queries, invalid sets, length-checked reads in verification, a failing `randombytes` (seed dropped on the error path) and clearing; run locally, also a full KAT verification through raw pointers and a panic unwinding through the seed's drop to an error (see Gaps) | `crates/sqisign-capi/tests/miri.rs`, CI job `Miri (C ABI)` |
 | 1, 2 | The Kotlin test suites pass on the Rust backend: JVM on Linux, macOS and Windows, macOS, iOS Simulator, Android emulator and an `arm64-v8a` phone | `.github/workflows/kotlin.yml` job `rust-backend`, [`README.md`](README.md#status) |
@@ -74,6 +75,7 @@ cargo clippy --all-targets -- -D warnings
 scripts/coverage.sh                 # 100% coverage gate, as in CI
 cargo run --release -p sqisign --example timing -- p324 all 20
 MIRIFLAGS=-Zmiri-disable-isolation cargo +nightly-2026-10-23 miri test -p sqisign-capi --test miri  # --include-ignored: 1-1.5 h per ignored test
+(cd fuzz && python3 seed.py && cargo +nightly-2026-10-23 fuzz run -s none open)  # and `sign`; needs cargo-fuzz
 python3 scripts/ct_branches.py      # add --target aarch64-linux-android, x86_64-unknown-linux-gnu, armv7-linux-androideabi, i686-linux-android
 CARGO_PROFILE_RELEASE_LTO=fat CARGO_PROFILE_RELEASE_CODEGEN_UNITS=1 \
   cargo run --release -p sqisign --example dudect -- 100000

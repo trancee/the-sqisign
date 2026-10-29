@@ -1,0 +1,36 @@
+[package]
+name = "sqisign-fuzz"
+version = "0.0.0"
+description = "cargo-fuzz targets for the sqisign crate"
+edition = "2021"
+license = "Apache-2.0"
+publish = false
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "0.4"
+sqisign = { path = "../crates/sqisign" }
+
+# Its own workspace: libFuzzer needs a nightly toolchain and sanitizer flags
+# that the port's workspace does not use.
+[workspace]
+members = ["."]
+
+[lints.clippy]
+all = { level = "deny", priority = -1 }
+
+[[bin]]
+name = "open"
+path = "fuzz_targets/open.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "sign"
+path = "fuzz_targets/sign.rs"
+test = false
+doc = false
+bench = false
