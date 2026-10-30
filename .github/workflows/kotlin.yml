@@ -122,11 +122,20 @@ jobs:
         run: swift test --skip SqiSignKitBenchmarks
       - name: Swift tests (iOS Simulator)
         if: matrix.platform == 'macos-aarch64'
-        working-directory: kotlin/swift
+        # In the DeviceHost app: SwiftPM test bundles on iOS have no app and so no keychain access.
+        working-directory: kotlin/swift/DeviceHost
+        env:
+          XCODEGEN_VERSION: 2.46.0
+          XCODEGEN_SHA256: 4d9e34b62172d645eed6457cac13fc222569974098ef4ee9c3368bedf0196806
         run: |
+          curl -sSLo "$RUNNER_TEMP/xcodegen.zip" \
+            "https://github.com/yonaskolb/XcodeGen/releases/download/$XCODEGEN_VERSION/xcodegen.zip"
+          echo "$XCODEGEN_SHA256  $RUNNER_TEMP/xcodegen.zip" | shasum -a 256 -c -
+          unzip -q "$RUNNER_TEMP/xcodegen.zip" -d "$RUNNER_TEMP"
+          "$RUNNER_TEMP/xcodegen/bin/xcodegen" generate --quiet
           udid=$(xcrun simctl list devices available -j | python3 -c 'import json,sys; print(next(d["udid"] for r, ds in json.load(sys.stdin)["devices"].items() if "iOS" in r for d in ds if d["name"].startswith("iPhone")))')
-          xcodebuild test -scheme SqiSignKit -destination "id=$udid" -derivedDataPath ../build/swift-dd \
-            -skip-testing:SqiSignKitBenchmarks
+          xcodebuild test -project SqiSignDeviceHost.xcodeproj -scheme SqiSignDeviceTests -destination "id=$udid" \
+            -derivedDataPath ../../build/swift-host-dd
 
   # Builds the JNI library on each JVM platform and runs the common tests against it.
   jvm-native:
@@ -351,11 +360,20 @@ jobs:
         working-directory: kotlin/swift
         run: swift test --filter SqiSignKitBenchmarks
       - name: Swift tests (iOS Simulator)
-        working-directory: kotlin/swift
+        # In the DeviceHost app: SwiftPM test bundles on iOS have no app and so no keychain access.
+        working-directory: kotlin/swift/DeviceHost
+        env:
+          XCODEGEN_VERSION: 2.46.0
+          XCODEGEN_SHA256: 4d9e34b62172d645eed6457cac13fc222569974098ef4ee9c3368bedf0196806
         run: |
+          curl -sSLo "$RUNNER_TEMP/xcodegen.zip" \
+            "https://github.com/yonaskolb/XcodeGen/releases/download/$XCODEGEN_VERSION/xcodegen.zip"
+          echo "$XCODEGEN_SHA256  $RUNNER_TEMP/xcodegen.zip" | shasum -a 256 -c -
+          unzip -q "$RUNNER_TEMP/xcodegen.zip" -d "$RUNNER_TEMP"
+          "$RUNNER_TEMP/xcodegen/bin/xcodegen" generate --quiet
           udid=$(xcrun simctl list devices available -j | python3 -c 'import json,sys; print(next(d["udid"] for r, ds in json.load(sys.stdin)["devices"].items() if "iOS" in r for d in ds if d["name"].startswith("iPhone")))')
-          xcodebuild test -scheme SqiSignKit -destination "id=$udid" -derivedDataPath ../build/swift-dd \
-            -skip-testing:SqiSignKitBenchmarks
+          xcodebuild test -project SqiSignDeviceHost.xcodeproj -scheme SqiSignDeviceTests -destination "id=$udid" \
+            -derivedDataPath ../../build/swift-host-dd
       - uses: actions/upload-artifact@v7
         with:
           name: SqiSign.xcframework

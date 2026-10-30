@@ -42,18 +42,48 @@ public extension SqiSignKeyPair {
 // MARK: - Signing
 
 public extension SqiSignSecretKey {
+    /// Creates a secret key from its encoding in caller-owned memory, which must be `parameterSet.secretKeyBytes` long.
+    ///
+    /// The key copies `bytes`; the caller can wipe its own buffer afterwards.
+    convenience init<Bytes: ContiguousBytes>(parameterSet: ParameterSet, bytes: Bytes) throws {
+        let encoded = bytes.withUnsafeBytes { KotlinByteArray(copying: $0) }
+        defer { encoded.wipe() }
+        try self.init(parameterSet: parameterSet, encoded: encoded)
+    }
+
     /// Creates a secret key from its encoding, which must be `parameterSet.secretKeyBytes` long.
     ///
     /// The key copies `rawRepresentation`. Swift cannot reliably wipe the caller's `Data`.
+    @available(*, deprecated, message: "Swift cannot wipe Data; use init(parameterSet:bytes:) with a buffer you wipe")
     convenience init(parameterSet: ParameterSet, rawRepresentation: Data) throws {
         let bytes = try rawRepresentation.kotlinBytes()
         defer { bytes.wipe() }
         try self.init(parameterSet: parameterSet, encoded: bytes)
     }
 
+    /// Calls `body` with the encoded key in a buffer that is wiped and freed when `body` returns.
+    ///
+    /// The buffer is valid only inside `body`; copying the bytes out makes copies this method cannot wipe.
+    /// - Throws: `SqiSignKitError.secretKeyClosed` if the key has been closed, or what `body` throws.
+    func withRawRepresentation<Result>(_ body: (UnsafeRawBufferPointer) throws -> Result) throws -> Result {
+        guard !isClosed else { throw SqiSignKitError.secretKeyClosed }
+        let encoded = self.encoded
+        defer { encoded.wipe() }
+        let buffer = SecretBuffer(count: Int(encoded.size))
+        defer {
+            buffer.wipe()
+            buffer.deallocate()
+        }
+        for index in 0..<buffer.bytes.count {
+            buffer.bytes[index] = UInt8(bitPattern: encoded.get(index: Int32(index)))
+        }
+        return try body(UnsafeRawBufferPointer(buffer.bytes))
+    }
+
     /// A copy of the encoded key. The returned `Data` cannot be reliably wiped.
     ///
     /// - Throws: `SqiSignKitError.secretKeyClosed` if the key has been closed.
+    @available(*, deprecated, message: "Swift cannot wipe Data; use withRawRepresentation(_:)")
     var rawRepresentation: Data {
         get throws {
             guard !isClosed else { throw SqiSignKitError.secretKeyClosed }
@@ -117,10 +147,33 @@ private extension Data {
 }
 
 private extension KotlinByteArray {
+    convenience init(copying bytes: UnsafeRawBufferPointer) {
+        self.init(size: Int32(bytes.count))
+        for (index, byte) in bytes.enumerated() { set(index: Int32(index), value: Int8(bitPattern: byte)) }
+    }
+
     var data: Data { Data_appleKt.__nsDataBytes(self) }
 
     func wipe() {
         for index in 0..<size { set(index: index, value: 0) }
+    }
+}
+
+/// Memory for secret bytes outside the Swift and Kotlin heaps, wiped with `memset_s`, which the compiler cannot drop.
+struct SecretBuffer {
+    let bytes: UnsafeMutableRawBufferPointer
+
+    init(count: Int) {
+        bytes = .allocate(byteCount: count, alignment: 1)
+    }
+
+    func wipe() {
+        guard let base = bytes.baseAddress else { return }
+        _ = memset_s(base, bytes.count, 0, bytes.count)
+    }
+
+    func deallocate() {
+        bytes.deallocate()
     }
 }
 

@@ -54,7 +54,7 @@ external prerequisite, X stub it.
 | JVM tests + coverage | `./gradlew jvmTest koverVerify` (100 % line+branch, commonMain+jvmMain) | JVM native (5 hosts) |
 | C glue coverage | `scripts/native-coverage.sh` (Clang; all functions, >= 98 % lines of `native/src`) | Apple |
 | Apple tests | `./gradlew macosArm64Test iosSimulatorArm64Test compileKotlinIosArm64` | Apple |
-| XCFramework + Swift | `./gradlew assembleSqiSignReleaseXCFramework`, then `swift test --skip SqiSignKitBenchmarks` in `swift/` | Apple |
+| XCFramework + Swift | `./gradlew assembleSqiSignReleaseXCFramework`, then `swift test --skip SqiSignKitBenchmarks` in `swift/`; iOS: `xcodegen generate` + `xcodebuild test -scheme SqiSignDeviceTests` in `swift/DeviceHost` (Simulator; SwiftPM on iOS skips Keychain) | Apple |
 | Android | `./gradlew bundleAndroidMainAar connectedAndroidDeviceTest` (device/emulator; includes seeded KATs); other ABI: `scripts/android-device-test-abi.sh <abi>` | Android (x86_64 emulator + arm64 translated) |
 | iPhone (manual, T9) | `xcodegen generate` + `xcodebuild test` in `swift/DeviceHost` ([README](README.md#tests)) | none |
 | All-platform jar | `./gradlew jvmTest jvmJar -Psqisign.jvmNativeLibs=<dir> -Psqisign.katTests=false` | JVM jar |
