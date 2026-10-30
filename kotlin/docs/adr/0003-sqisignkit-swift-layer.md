@@ -52,8 +52,8 @@ The Kotlin API has no `suspend` functions, flows or sealed classes, which are wh
   the documentation says so.
 - The `async` functions occupy a thread of Swift's cooperative pool for the whole native call. That is acceptable for
   CPU-bound work, but many concurrent signatures can starve other tasks.
-- The binary target points at the local build output. Distributing `SqiSignKit` needs a released XCFramework URL
-  and checksum.
+- The binary target points at the local build output. Release tags carry a separate root `Package.swift` on the
+  released XCFramework ([ADR 0005](0005-github-release-distribution.md)).
 
 ## Migration
 

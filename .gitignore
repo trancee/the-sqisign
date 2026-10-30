@@ -10,6 +10,9 @@ latex/
 
 *.DS_Store
 
+# SwiftPM manifest of a release tag (kotlin/swift/release-manifest.sh); main keeps none
+/Package.swift
+
 # Rust workspace build output
 rust/target/
 rust/coverage.json

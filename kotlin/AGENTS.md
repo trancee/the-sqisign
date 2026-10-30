@@ -63,7 +63,7 @@ external prerequisite, X stub it.
 | Benchmark budget | [`benchmarks/README.md`](benchmarks/README.md) | manual, reference host |
 | Device benchmarks (informational) | `:benchmark-android:connectedReleaseAndroidTest`; scheme `SqiSignDeviceBenchmarks` ([benchmarks](benchmarks/README.md#device-benchmarks)) | dry run / macOS smoke |
 | Secret scan | `gitleaks git --redact --exit-code 1 ..` | Secret scan |
-| Release assets (ADR 0005) | `./gradlew publishAllPublicationsToReleaseRepository assembleSqiSignReleaseXCFramework [-Psqisign.backend=rust]` -> `build/release-repo`; tag `vX.Y.Z` = `version` | Release (tag or manual dry run) |
+| Release assets (ADR 0005) | `./gradlew publishAllPublicationsToReleaseRepository assembleSqiSignReleaseXCFramework [-Psqisign.backend=rust]` -> `build/release-repo`; `swift/release-manifest.sh` -> tag's root `Package.swift`; release = manual run on `main` with `release`, new tag `v<version>` | Release (PR/manual dry run builds `SqiSignKit` from the manifest) |
 
 `./gradlew check` aggregates spotless, detekt, ABI, Kover and host tests. Local hooks != CI proof (E7); CI workflow:
 [`../.github/workflows/kotlin.yml`](../.github/workflows/kotlin.yml).
