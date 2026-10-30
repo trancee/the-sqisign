@@ -8,7 +8,7 @@ R full [`CONSTITUTION.md`](CONSTITUTION.md) before mutation; summary != source. 
   [`rust/AGENTS.md`](rust/AGENTS.md)), `.github/workflows/kotlin.yml`, `.github/workflows/release.yml`,
   `.github/workflows/rust.yml`,
   `.github/workflows/secret-scan.yml`, `.gitleaksignore`, `AGENTS.md`, `CONSTITUTION.md`, `.gitignore`,
-  `skills-lock.json`.
+  `skills-lock.json`, root `Package.swift` (generated on release tags only).
 - Vendor => upstream [SQIsign](https://github.com/SQISign/the-sqisign) C implementation and its tooling: every other path
   (`src/`, `include/`, `test/`, `apps/`, `KAT/`, `scripts/`, `integration/`, `.cmake/`, `CMakeLists.txt`, other
   `.github/` files, upstream `*.md`). X edit except upstream sync or change required by owned code (e.g. CI runner

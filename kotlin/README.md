@@ -92,14 +92,23 @@ dependencies {
 }
 ```
 
-Gradle picks the JVM, Android or Apple artifact from the module metadata. In Swift, point a binary target at the
-XCFramework zip:
+Gradle picks the JVM, Android or Apple artifact from the module metadata.
+
+In Swift, add the repository as a package and depend on the `SqiSignKit` product. Release tags from `v0.1.1` carry a
+`Package.swift` on that release's C XCFramework:
+
+```swift
+.package(url: "https://github.com/trancee/the-sqisign", from: "0.1.1")
+```
+
+For `v0.1.0`, or the Rust backend (`sqisign-rust-<version>.xcframework.zip`), point a binary target at the XCFramework
+zip, with the checksum from the matching `.checksum` asset:
 
 ```swift
 .binaryTarget(
     name: "SqiSign",
     url: "https://github.com/trancee/the-sqisign/releases/download/v0.1.0/sqisign-0.1.0.xcframework.zip",
-    checksum: "<contents of sqisign-0.1.0.xcframework.zip.checksum>")
+    checksum: "81d8548fc291880715c7708ba852fa9b950e23b643e4941b4255b90ae0c9b01b")
 ```
 
 ## Build
@@ -264,6 +273,6 @@ paired, `xcrun xcdevice list --timeout=15` waits long enough to find it. The
   emulator.
 - The Apple static library is embedded in the klib, so consumers cannot swap or deduplicate it.
 - Without `SqiSignKit`, Swift sees `KotlinByteArray` rather than `Data`, and Kotlin default arguments are not
-  exported. `SqiSignKit`'s binary target points at the local build output; distributing it needs a released
-  XCFramework URL and checksum.
+  exported. `swift/Package.swift` builds `SqiSignKit` on the local build output; release tags carry a root
+  `Package.swift` on the released C XCFramework.
 - `Data` copies of secret keys (`rawRepresentation`) cannot be reliably wiped.
