@@ -1,7 +1,7 @@
 # ADR 0003: SqiSignKit Swift layer over the XCFramework
 
 - Status: accepted
-- Version: 1.0
+- Version: 1.1
 - Date: 2026-10-21
 - Constitution: C2 (platform adapters), C4 (error model), E1 (dependencies), O3 (decision record)
 
@@ -35,8 +35,25 @@ The Kotlin API has no `suspend` functions, flows or sealed classes, which are wh
    `SqiSignKitError.secretKeyClosed`. It checks `isClosed` first, because Kotlin's `encoded` getter cannot be
    annotated with `@Throws`, and an exception thrown from it would terminate the process.
 5. The package targets `swift-tools-version` 5.9 and builds `SqiSignKit` with complete strict concurrency checking.
+6. Secret key bytes reach Swift only in memory the library or the caller can wipe (version 1.1):
+   - `withRawRepresentation(_:)` lends the encoded key in a buffer outside the Swift and Kotlin heaps, wiped with
+     `memset_s` and freed when the closure returns;
+   - `init(parameterSet:bytes:)` takes any `ContiguousBytes`, so the caller keeps and wipes its own buffer;
+   - `SqiSignKeychain` stores keys as generic-password items, by default in the data protection keychain with
+     `kSecAttrAccessibleWhenUnlockedThisDeviceOnly`. It hands the key to the Security framework without a `Data`
+     copy (`CFDataCreateWithBytesNoCopy` over the lent buffer) and never replaces an existing item;
+   - the `Data`-based secret key `rawRepresentation` and `init(parameterSet:rawRepresentation:)` are deprecated, not
+     removed (Q7).
 
 ## Alternatives
+
+- Wiping `Data` in place (`withUnsafeMutableBytes`): rejected. `Data` is copy-on-write and may have been copied or
+  bridged to `NSData` before the wipe, so it would promise a wipe it cannot guarantee.
+- Wrapping the stored key with a Secure Enclave P-256 key (`SecKeyCreateEncryptedData`): not chosen. The system already
+  encrypts Keychain items at rest with device-bound keys, the key must still be decrypted into process memory to sign,
+  and the Secure Enclave is missing on the Simulator and CI runners, so the path could not be tested there.
+- A Keychain API in Kotlin (`appleMain`): rejected. Swift callers expect `CFString` accessibility classes and `OSStatus`
+  errors, and the Kotlin `ByteArray` copy would add one more unwipeable heap copy.
 
 - SKIE: rejected for now. It would add a compiler plugin whose releases follow Kotlin versions (0.10.15 lists Kotlin
   2.4.20; this project uses 2.4.21). Its main features (suspend, Flow, sealed classes) do not apply to this API, and
@@ -52,6 +69,9 @@ The Kotlin API has no `suspend` functions, flows or sealed classes, which are wh
   the documentation says so.
 - The `async` functions occupy a thread of Swift's cooperative pool for the whole native call. That is acceptable for
   CPU-bound work, but many concurrent signatures can starve other tasks.
+- Keys are in plain process memory while signing, and the Kotlin key object holds them on the Kotlin heap until
+  `close()`. The Security framework makes its own copies when storing, and loading returns an immutable `CFData` that
+  stays in memory until it is freed. The Keychain protects keys at rest, not in a compromised process.
 - The binary target points at the local build output. Release tags carry a separate root `Package.swift` on the
   released XCFramework ([ADR 0005](0005-github-release-distribution.md)).
 

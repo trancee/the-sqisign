@@ -59,7 +59,7 @@ import SqiSignKit
 
 let keyPair = try await SqiSignKeyPair.generate(.level1)
 let signature = try await keyPair.secretKey.signature(for: message)   // Data
-let valid = keyPair.publicKey.isValidSignature(signature, for: message)
+let valid = try await keyPair.publicKey.isValidSignature(signature, for: message)
 let publicKey = try SqiSignPublicKey(parameterSet: .level1, rawRepresentation: keyPair.publicKey.rawRepresentation)
 ```
 
@@ -67,6 +67,48 @@ Each operation also has a synchronous variant, which blocks the calling thread. 
 task. They check cancellation before starting but cannot interrupt the native call. Don't close a secret key while it
 is signing. `SqiSignKit` re-exports `SqiSign`, so the Kotlin-generated API (`SqiSign.shared`, `KotlinByteArray`)
 remains available.
+
+#### Store a secret key in the Keychain
+
+`SqiSignKeychain` keeps secret keys as generic-password Keychain items, so the key bytes never pass through a Swift
+`Data` that your code holds. Choose a service name for your app; each key is one account of that service:
+
+```swift
+let keychain = SqiSignKeychain(service: "com.example.app.sqisign")
+
+try keychain.store(keyPair.secretKey, account: "device-key")
+keyPair.secretKey.close()
+
+if let secretKey = try keychain.secretKey(.level1, account: "device-key") {
+    defer { secretKey.close() }
+    let signature = try await secretKey.signature(for: message)
+}
+
+try keychain.delete(account: "device-key")
+```
+
+- Items are readable only while the device is unlocked and are not migrated to other devices
+  (`kSecAttrAccessibleWhenUnlockedThisDeviceOnly`). Pass `accessibility:` for another class, for example
+  `kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly` for background signing.
+- `store` never replaces an item: a second `store` for the same account throws an `NSError` with code
+  `errSecDuplicateItem`. Call `delete(account:)` first to rotate a key.
+- `secretKey(_:account:)` returns `nil` if there is no item, and throws if the item is not a key of that parameter
+  set. Remember the parameter set alongside the account name.
+- On macOS, the data protection keychain needs the app's keychain entitlement. Without it, `store` and `delete` throw
+  `errSecMissingEntitlement` (-34018), and `secretKey(_:account:)` returns `nil` as if no key were stored. Unsigned
+  tools and `swift test` pass `useDataProtectionKeychain: false` to use the login keychain.
+
+To move the key bytes somewhere else, read them inside `withRawRepresentation`, which wipes its buffer when the closure
+returns, and import them with `init(parameterSet:bytes:)` from a buffer you wipe yourself:
+
+```swift
+var bytes = try secretKey.withRawRepresentation { [UInt8]($0) }
+defer { bytes.withUnsafeMutableBytes { _ = memset_s($0.baseAddress, $0.count, 0, $0.count) } }
+let restored = try SqiSignSecretKey(parameterSet: .level1, bytes: bytes)
+```
+
+The `Data`-based `SqiSignSecretKey.rawRepresentation` and `init(parameterSet:rawRepresentation:)` are deprecated,
+because Swift cannot wipe a `Data`.
 
 ## Install
 
@@ -229,7 +271,7 @@ None of them ends up in the published jar, AAR, klibs or XCFramework.
 `-Psqisign.katTests=false` skips them, for example when testing prebuilt libraries on a host without a C toolchain.
 
 CI runs these on the five JVM platforms, an `x86_64` Android emulator, macOS and the iOS Simulator, plus the Swift
-tests on macOS and the iOS Simulator. GitHub-hosted runners cannot run an accelerated `arm64-v8a` emulator, so the
+tests on macOS and, in the `swift/DeviceHost` app, on the iOS Simulator. GitHub-hosted runners cannot run an accelerated `arm64-v8a` emulator, so the
 Android job also installs the device-test APK with its `arm64-v8a` libraries (`scripts/android-device-test-abi.sh
 arm64-v8a`) and runs them through the `x86_64` image's ARM translation. That checks the optimized `arm64` build for
 correctness, not speed. The emulator job runs once per backend, `c` and `rust`.
@@ -240,12 +282,14 @@ To run the Swift tests locally (after `assembleSqiSignReleaseXCFramework`):
 cd swift
 swift test --skip SqiSignKitBenchmarks                              # macOS
 xcodebuild test -scheme SqiSignKit -destination "platform=iOS Simulator,name=iPhone 17" \
-  -skip-testing:SqiSignKitBenchmarks
+  -skip-testing:SqiSignKitBenchmarks                               # iOS Simulator, Keychain tests skipped
 ```
 
-SwiftPM cannot run package tests on a physical iPhone, so `swift/DeviceHost` generates a small host app with
-[XcodeGen](https://github.com/yonaskolb/XcodeGen) that runs the same tests. Connect the iPhone (unlocked, Developer Mode
-on), find its id with `xcrun xctrace list devices`, and sign with your team (Xcode → Settings → Accounts):
+SwiftPM test bundles on iOS run without an app, so they have no keychain access and cannot run on a physical iPhone.
+`swift/DeviceHost` generates a small host app with [XcodeGen](https://github.com/yonaskolb/XcodeGen) that runs the same
+tests, the Keychain tests included. On the Simulator, `-destination "platform=iOS Simulator,name=iPhone 17"` needs no
+signing. For an iPhone, connect it (unlocked, Developer Mode on), find its id with `xcrun xctrace list devices`, and
+sign with your team (Xcode → Settings → Accounts):
 
 ```sh
 cd swift/DeviceHost
@@ -275,4 +319,6 @@ paired, `xcrun xcdevice list --timeout=15` waits long enough to find it. The
 - Without `SqiSignKit`, Swift sees `KotlinByteArray` rather than `Data`, and Kotlin default arguments are not
   exported. `swift/Package.swift` builds `SqiSignKit` on the local build output; release tags carry a root
   `Package.swift` on the released C XCFramework.
-- `Data` copies of secret keys (`rawRepresentation`) cannot be reliably wiped.
+- Secret keys are in process memory while signing: the Secure Enclave cannot run SQIsign. The deprecated `Data`
+  accessors and the `CFData` that the Keychain returns on loading cannot be wiped
+  ([ADR 0003](docs/adr/0003-sqisignkit-swift-layer.md)).
