@@ -20,7 +20,7 @@ plugins {
 }
 
 group = "io.github.trancee"
-version = "0.1.0"
+version = "0.1.1"
 
 /** Configures, builds, and installs the SQIsign C core (`native/CMakeLists.txt`) for one target. */
 @CacheableTask
