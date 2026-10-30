@@ -88,7 +88,7 @@ dependencyResolutionManagement {
 
 // build.gradle.kts, in a Kotlin Multiplatform commonMain or a JVM/Android project
 dependencies {
-    implementation("io.github.trancee:sqisign:0.1.0") // or io.github.trancee:sqisign-rust:0.1.0
+    implementation("io.github.trancee:sqisign:0.1.1") // or io.github.trancee:sqisign-rust:0.1.1
 }
 ```
 
