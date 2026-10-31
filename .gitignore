@@ -17,6 +17,7 @@ latex/
 rust/target/
 rust/coverage.json
 rust/fuzz/target/
-rust/fuzz/corpus/
+# The minimised corpora are committed; seed.py regenerates the KAT seeds.
+rust/fuzz/corpus/*/kat-*
 rust/fuzz/artifacts/
 rust/fuzz/coverage/
