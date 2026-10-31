@@ -2,10 +2,11 @@ name: Release
 
 # Builds the release assets for both backends (ADR 0005). A manual run on main with `release` set tags vVERSION on a
 # commit adding the SwiftPM Package.swift and creates a draft GitHub Release; any other manual run, or a pull request
-# that changes this workflow or the manifest generator, builds the same assets as workflow artifacts only.
+# that changes this workflow, the manifest generator or its version check, builds the same assets as workflow artifacts
+# only.
 on:
   pull_request:
-    paths: [".github/workflows/release.yml", "kotlin/swift/release-manifest.sh"]
+    paths: [".github/workflows/release.yml", "kotlin/swift/release-manifest.sh", "kotlin/swift/check-min-versions.sh"]
   workflow_dispatch:
     inputs:
       release:
@@ -191,6 +192,7 @@ jobs:
           ZIP: kotlin/build/dist/sqisign-${{ steps.version.outputs.version }}.xcframework.zip
         run: |
           kotlin/swift/release-manifest.sh "$ZIP" > Package.swift
+          kotlin/swift/check-min-versions.sh kotlin/build/XCFrameworks/release/SqiSign.xcframework Package.swift
           swift build --target SqiSignKit
           rm Package.swift
       - uses: actions/upload-artifact@v7
