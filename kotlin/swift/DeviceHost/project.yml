@@ -2,12 +2,13 @@
 # app host. Generate with `xcodegen generate` from this directory; the generated project is not committed.
 name: SqiSignDeviceHost
 options:
-  bundleIdPrefix: org.sqisign
   deploymentTarget:
     iOS: "15.0"
 settings:
   base:
     CODE_SIGN_STYLE: Automatic
+    # App IDs are unique across teams; another team overrides it, e.g. `xcodebuild ... BUNDLE_ID_PREFIX=com.example`.
+    BUNDLE_ID_PREFIX: org.sqisign
 targets:
   SqiSignTestHost:
     type: application
@@ -17,6 +18,9 @@ targets:
       path: build/HostInfo.plist
       properties:
         UILaunchScreen: {}
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: $(BUNDLE_ID_PREFIX).SqiSignTestHost
   SqiSignKit:
     type: library.static
     platform: iOS
@@ -40,6 +44,7 @@ targets:
     settings:
       base:
         GENERATE_INFOPLIST_FILE: YES
+        PRODUCT_BUNDLE_IDENTIFIER: $(BUNDLE_ID_PREFIX).SqiSignDeviceTests
   SqiSignDeviceBenchmarks:
     type: bundle.unit-test
     platform: iOS
@@ -52,6 +57,7 @@ targets:
     settings:
       base:
         GENERATE_INFOPLIST_FILE: YES
+        PRODUCT_BUNDLE_IDENTIFIER: $(BUNDLE_ID_PREFIX).SqiSignDeviceBenchmarks
 schemes:
   SqiSignDeviceTests:
     build:
