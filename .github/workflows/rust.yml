@@ -21,6 +21,9 @@ on:
       # Documentation does not affect the build.
       - "!rust/**/*.md"
   workflow_dispatch:
+  # Nightly: the fuzz job replays the committed sign corpus, too slow for every change.
+  schedule:
+    - cron: "30 2 * * *"
 
 permissions:
   contents: read
@@ -40,6 +43,7 @@ env:
 jobs:
   # Differential tests against the vendor C reference on each 64-bit host.
   test:
+    if: github.event_name != 'schedule'
     name: Test (${{ matrix.platform }})
     strategy:
       fail-fast: false
@@ -63,6 +67,7 @@ jobs:
   # Format, lint and the 100 % coverage gate (lines, functions, regions, branches; ADR 0004). Branch coverage needs
   # nightly, so coverage runs on the pinned nightly of the Miri job.
   quality:
+    if: github.event_name != 'schedule'
     name: Format, lint, coverage
     runs-on: ubuntu-24.04
     env:
@@ -85,6 +90,7 @@ jobs:
 
   # No conditional branch in constant-time code of the shipped build (ADR 0004 item 16).
   ct-branches:
+    if: github.event_name != 'schedule'
     name: Constant-time branches (${{ matrix.platform }})
     strategy:
       fail-fast: false
@@ -119,6 +125,7 @@ jobs:
   # Undefined behaviour in the C ABI, the only `unsafe` shipped, interpreted by Miri on a pinned nightly. The tests
   # that run the protocol take an hour or more each interpreted and are ignored under Miri (`tests/miri.rs`).
   miri:
+    if: github.event_name != 'schedule'
     name: Miri (C ABI)
     runs-on: ubuntu-24.04
     env:
@@ -135,7 +142,10 @@ jobs:
         run: cargo "+$MIRI_TOOLCHAIN" miri test --locked -p sqisign-capi --test miri
 
   # Short libFuzzer runs of `fuzz/` (upstream #15): verification of mutated KAT inputs and signing with random seeds.
-  # Safe Rust, so no sanitizer; panics and assertion failures are the findings.
+  # Safe Rust, so no sanitizer; panics and assertion failures are the findings. libFuzzer first replays the whole corpus
+  # (committed, minimised inputs plus the KAT seeds), even past -max_total_time, so the corpus is also a regression
+  # test. Replaying corpus/sign signs about 1,200 times, so only the nightly run does; other runs start sign from the
+  # KAT seeds.
   fuzz:
     name: Fuzz
     runs-on: ubuntu-24.04
@@ -161,8 +171,15 @@ jobs:
         run: python3 seed.py
       - name: Fuzz open
         run: cargo "+$FUZZ_TOOLCHAIN" fuzz run -s none --target "$FUZZ_TARGET" open -- -max_total_time=300
-      - name: Fuzz sign
-        run: cargo "+$FUZZ_TOOLCHAIN" fuzz run -s none --target "$FUZZ_TARGET" sign -- -max_total_time=300
+      - name: Fuzz sign from the KAT seeds
+        if: github.event_name != 'schedule'
+        run: |
+          mkdir "$RUNNER_TEMP/sign"
+          cp corpus/sign/kat-* "$RUNNER_TEMP/sign/"
+          cargo "+$FUZZ_TOOLCHAIN" fuzz run -s none --target "$FUZZ_TARGET" sign "$RUNNER_TEMP/sign" -- -max_total_time=300
+      - name: Fuzz sign from the corpus
+        if: github.event_name == 'schedule'
+        run: cargo "+$FUZZ_TOOLCHAIN" fuzz run -s none --target "$FUZZ_TARGET" sign -- -max_total_time=7200
       - name: Upload findings
         if: failure()
         uses: actions/upload-artifact@v5

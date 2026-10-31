@@ -202,14 +202,23 @@ The signing tests are slow in debug builds; `--release` runs the suite in minute
 `fuzz/` holds two [cargo-fuzz](https://github.com/rust-fuzz/cargo-fuzz) targets on the pinned nightly: `open`
 verifies mutated KAT signed messages and checks that keys and signatures re-encode to themselves; `sign` generates a
 key and a signature from arbitrary seeds and messages and checks that the signature verifies. The first byte of an
-input selects the parameter set. CI runs each for five minutes; findings land in `fuzz/artifacts/`.
+input selects the parameter set. Findings land in `fuzz/artifacts/`.
+
+`fuzz/corpus/` holds minimised corpora from a four-hour run, which `seed.py` tops up with KAT seeds. libFuzzer replays
+the whole corpus before it mutates, so the corpus doubles as a regression test that reaches rejection paths the KAT
+inputs do not. Replaying `corpus/open` takes seconds; `corpus/sign` signs about 1,200 times, which takes most of an
+hour. CI therefore fuzzes `open` from its corpus and `sign` from the KAT seeds for five minutes each on every change,
+and replays and fuzzes `corpus/sign` nightly.
 
 ```sh
 cd rust/fuzz
-python3 seed.py                     # corpus/open from the KATs
+python3 seed.py                     # adds the KAT seeds (kat-*, not committed)
 cargo +nightly-2026-10-23 fuzz run -s none open -- -max_total_time=300
-cargo +nightly-2026-10-23 fuzz run -s none sign -- -max_total_time=300
+cargo +nightly-2026-10-23 fuzz run -s none sign -- -max_total_time=300    # replays corpus/sign first
 ```
+
+Fuzzing adds new inputs to the corpus. To keep them, minimise before committing:
+`cargo +nightly-2026-10-23 fuzz cmin -s none <open|sign>`.
 
 The `sqisign-reference` crate compiles the vendor C code from `../src` with the `ref` build type, so the tests compare
 the port with the C implementation in the same checkout.
