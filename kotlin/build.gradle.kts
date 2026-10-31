@@ -265,13 +265,14 @@ val buildAndroidNative = registerAndroidNative("", emptyList())
 val buildAndroidNativeKat = registerAndroidNative("Kat", listOf("-DSQISIGN_KMP_KAT=ON"))
 
 // Apple: one merged static archive per Kotlin/Native target, embedded into the cinterop klib. The cinterop tasks
-// take the archives as inputs, so switching `sqisign.backend` re-embeds them.
+// take the archives as inputs, so switching `sqisign.backend` re-embeds them. The deployment targets match Kotlin/Native's
+// minimums (konan.properties `minVersion`) and the SwiftPM `platforms`; `swift/check-min-versions.sh` checks them.
 val appleSlices = mapOf(
     "iosArm64" to
-        listOf("-DCMAKE_SYSTEM_NAME=iOS", "-DCMAKE_OSX_SYSROOT=iphoneos", "-DCMAKE_OSX_DEPLOYMENT_TARGET=14.0"),
+        listOf("-DCMAKE_SYSTEM_NAME=iOS", "-DCMAKE_OSX_SYSROOT=iphoneos", "-DCMAKE_OSX_DEPLOYMENT_TARGET=15.0"),
     "iosSimulatorArm64" to
-        listOf("-DCMAKE_SYSTEM_NAME=iOS", "-DCMAKE_OSX_SYSROOT=iphonesimulator", "-DCMAKE_OSX_DEPLOYMENT_TARGET=14.0"),
-    "macosArm64" to listOf("-DCMAKE_OSX_SYSROOT=macosx", "-DCMAKE_OSX_DEPLOYMENT_TARGET=11.0"),
+        listOf("-DCMAKE_SYSTEM_NAME=iOS", "-DCMAKE_OSX_SYSROOT=iphonesimulator", "-DCMAKE_OSX_DEPLOYMENT_TARGET=15.0"),
+    "macosArm64" to listOf("-DCMAKE_OSX_SYSROOT=macosx", "-DCMAKE_OSX_DEPLOYMENT_TARGET=12.0"),
 )
 val appleCMakeTaskNames = appleSlices.mapValues { (target, _) ->
     "buildNative${target.replaceFirstChar(Char::uppercase)}"

@@ -4,7 +4,7 @@ name: SqiSignDeviceHost
 options:
   bundleIdPrefix: org.sqisign
   deploymentTarget:
-    iOS: "14.0"
+    iOS: "15.0"
 settings:
   base:
     CODE_SIGN_STYLE: Automatic

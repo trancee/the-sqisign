@@ -116,6 +116,10 @@ jobs:
           (yes || true) | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --install "ndk;$ndk" "cmake;$cmake" > /dev/null
       - name: Test
         run: ./gradlew ${{ matrix.tasks }} -Psqisign.backend=rust "-Psqisign.hostCMakeArgs=${{ matrix.cmake-args }}"
+      - name: Minimum OS versions
+        if: matrix.platform == 'macos-aarch64'
+        working-directory: kotlin/swift
+        run: ./check-min-versions.sh ../build/XCFrameworks/release/SqiSign.xcframework Package.swift
       - name: Swift tests (macOS)
         if: matrix.platform == 'macos-aarch64'
         working-directory: kotlin/swift
@@ -352,6 +356,11 @@ jobs:
         run: ./gradlew spotlessCheck detekt checkKotlinAbi dokkaGenerate
       - name: Kotlin/Native tests and XCFramework
         run: ./gradlew macosArm64Test iosSimulatorArm64Test compileKotlinIosArm64 assembleSqiSignReleaseXCFramework
+      - name: Minimum OS versions
+        working-directory: kotlin/swift
+        run: |
+          ./release-manifest.sh release.xcframework.zip > "$RUNNER_TEMP/Package.swift"
+          ./check-min-versions.sh ../build/XCFrameworks/release/SqiSign.xcframework Package.swift "$RUNNER_TEMP/Package.swift"
       - name: Swift tests (macOS)
         working-directory: kotlin/swift
         run: swift test --skip SqiSignKitBenchmarks
