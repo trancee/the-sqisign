@@ -16,8 +16,8 @@ All three parameter sets (`P324_3`, `P500_27`, `P664_17`; NIST levels 1, 3 and 5
 | Platform | Kotlin target | Architectures | Tested |
 |---|---|---|---|
 | Linux, macOS, Windows (JVM 21) | `jvm` | Linux `x86_64`, `aarch64`; macOS `x86_64`, `aarch64`; Windows `x86_64` | CI, every platform |
-| Android 7.0+ (API 24) | `android` | `arm64-v8a`, `x86_64` | CI: `x86_64` emulator, plus the `arm64-v8a` libraries through its ARM translation; locally: Nothing Phone (1) (`arm64-v8a`, Android 15) and an `arm64-v8a` emulator |
-| iOS 15+ devices | `iosArm64` | `arm64` | locally: Swift tests on an iPhone 12 mini (iOS 27.0.1), iPhone SE (2020, iOS 18.7.8), iPhone 15 (iOS 17.6.1), iPhone X (iOS 16.7.16) and iPhone SE (2016, iOS 15.8.8) |
+| Android 7.0+ (API 24) | `android` | `arm64-v8a`, `x86_64` | CI: `x86_64` emulator, plus the `arm64-v8a` libraries through its ARM translation; locally: device tests on 27 `arm64-v8a` phones (Android 8.0 to 17), with both the C and the Rust backend, and an `arm64-v8a` emulator |
+| iOS 15+ devices | `iosArm64` | `arm64` | locally: Swift tests, with both backends, on an iPhone 12 mini (iOS 27.0.1), iPhone SE (2020, iOS 18.7.8), iPhone 15 (iOS 17.6.1), iPhone X (iOS 16.7.16) and iPhone SE (2016, iOS 15.8.8) |
 | iOS Simulator (Apple Silicon) | `iosSimulatorArm64` | `arm64` | CI: Kotlin and Swift tests |
 | macOS 12+ (Apple Silicon) | `macosArm64` | `arm64` | CI: Kotlin and Swift tests |
 
