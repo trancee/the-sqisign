@@ -130,7 +130,7 @@ dependencyResolutionManagement {
 
 // build.gradle.kts, in a Kotlin Multiplatform commonMain or a JVM/Android project
 dependencies {
-    implementation("io.github.trancee:sqisign:0.1.1") // or io.github.trancee:sqisign-rust:0.1.1
+    implementation("io.github.trancee:sqisign:0.2.0") // or io.github.trancee:sqisign-rust:0.2.0
 }
 ```
 
@@ -140,7 +140,7 @@ In Swift, add the repository as a package and depend on the `SqiSignKit` product
 `Package.swift` on that release's C XCFramework:
 
 ```swift
-.package(url: "https://github.com/trancee/the-sqisign", from: "0.1.1")
+.package(url: "https://github.com/trancee/the-sqisign", from: "0.2.0")
 ```
 
 For `v0.1.0`, or the Rust backend (`sqisign-rust-<version>.xcframework.zip`), point a binary target at the XCFramework
